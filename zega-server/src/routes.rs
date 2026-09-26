@@ -26,6 +26,7 @@ pub fn app(state: AppState) -> Router {
             delete(handlers::delete_relationship),
         )
         .route("/graph/relationships", post(handlers::connect))
+        .route("/schema/diff", post(handlers::schema_diff))
         // Raw source text needs room for JSON escaping. Per-source limits are
         // still enforced by the engine before parsing and insertion.
         .layer(DefaultBodyLimit::max(16_000_000))

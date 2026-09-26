@@ -250,6 +250,35 @@ fn explorer_embeds_assets_and_shares_the_persistent_database() {
 }
 
 #[test]
+fn schema_diff_reports_changes_against_a_data_directory() {
+    let directory = tempfile::tempdir().unwrap();
+    let dir = directory.path();
+    {
+        let server = Running::start("start", dir, &[]);
+        server.zql("mutation { Player(name: \"A\" && salary: 1) { name } }");
+        server.zql("mutation { Player(name: \"B\" && salary: 2) { name } }");
+    }
+    std::fs::write(dir.join("old.zql"), SCHEMA).unwrap();
+    std::fs::write(
+        dir.join("new.zql"),
+        "type Player { name: String salary: Int email: String }",
+    )
+    .unwrap();
+    let output = succeeds(
+        &["schema-diff", "old.zql", "new.zql", "--data", "db"],
+        dir,
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["ok"], false);
+    let changes = report["changes"].as_array().unwrap();
+    let added = changes.iter().find(|c| c["kind"] == "field_added").unwrap();
+    assert_eq!(added["type"], "Player");
+    assert_eq!(added["field"], "email");
+    assert_eq!(added["severity"], "blocks");
+    assert_eq!(added["affected"], 2);
+}
+
+#[test]
 fn help_version_and_defaults_are_available_without_starting_a_server() {
     let version = Command::new(BIN).arg("--version").output().unwrap();
     assert!(version.status.success());

@@ -25,7 +25,7 @@ use crate::value::Value;
 use crate::journal::{atomically, Journal};
 use serde_json::{json, Value as Json};
 
-use crate::{Zega, ZegaError};
+use crate::{SchemaDiffReport, Zega, ZegaError};
 
 /// Which ZQL grammar entry point [`check_zql`] should parse `source` as.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,6 +60,24 @@ impl Zega {
     /// Parse and check the schema, including the explicit display contract.
     pub fn schema(&self, source: &str) -> Result<Schema, ZegaError> {
         crate::lang::parse_schema(source).map_err(|error| explain(error, "schema", source))
+    }
+
+    /// Dry-run a schema change against the graph this database already stores.
+    /// An empty or whitespace-only `old` text is treated as an empty schema,
+    /// which is useful for a first push. Parse failures are returned as the
+    /// same rendered diagnostic style as [`Self::schema`].
+    pub fn schema_diff(&self, old: &str, new: &str) -> Result<SchemaDiffReport, ZegaError> {
+        let old_schema = if old.trim().is_empty() {
+            Schema {
+                types: Vec::new(),
+                display: Default::default(),
+            }
+        } else {
+            crate::lang::parse_schema(old).map_err(|error| explain(error, "schema", old))?
+        };
+        let new_schema = crate::lang::parse_schema(new).map_err(|error| explain(error, "schema", new))?;
+        let graph = self.lock_graph()?;
+        Ok(crate::schema_diff::diff_schemas(&old_schema, &new_schema, &graph))
     }
 
     /// Execute ZQL. Native loads resolve relative paths against the process cwd.
