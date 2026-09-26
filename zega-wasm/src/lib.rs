@@ -81,6 +81,12 @@ impl ZegaWasm {
         serde_json::to_string(&schema).map_err(to_js_error)
     }
 
+    /// Dry-run a schema change against the wasm instance's own graph.
+    pub fn schema_diff(&self, old: String, new: String) -> Result<String, JsValue> {
+        let report = self.inner.schema_diff(&old, &new).map_err(to_js_error)?;
+        serde_json::to_string(&report).map_err(to_js_error)
+    }
+
     /// PCA and full-vector explanations, attached to a query result by the host.
     pub fn vector_view(&self, schema: String, result: String, kind: String, selected: Option<u32>, k: usize, threshold: f64) -> Result<String, JsValue> {
         let result = serde_json::from_str(&result).map_err(to_js_error)?;

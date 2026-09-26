@@ -80,6 +80,34 @@ pub struct ZqlRequest {
     sources: Option<HashMap<String, String>>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SchemaDiffRequest {
+    #[serde(default)]
+    old: String,
+    #[serde(default)]
+    new: String,
+}
+
+pub async fn schema_diff(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    request: Result<Json<SchemaDiffRequest>, JsonRejection>,
+) -> Response {
+    if !authorized(&headers, &state) {
+        return error(StatusCode::UNAUTHORIZED, "unauthorized");
+    }
+    let Json(request) = match request {
+        Ok(request) => request,
+        Err(rejection) => return error(StatusCode::BAD_REQUEST, rejection.body_text()),
+    };
+    execute(state, move |db| {
+        let report = db.schema_diff(&request.old, &request.new)?;
+        serde_json::to_value(report).map_err(|error| ZegaError::Execution(error.to_string()))
+    })
+    .await
+}
+
 pub async fn zql(
     State(state): State<AppState>,
     headers: HeaderMap,

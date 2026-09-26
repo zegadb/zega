@@ -38,6 +38,8 @@ pub use crate::validation::{Diagnostic, Pane, Report, Severity};
 
 pub use v2::{check_zql, parse_import, zql_load_locations, ZqlEntryPoint};
 pub use lang::{Direction as SchemaDirection, DisplayConfig, DisplayView, GlobeCamera, GlobeCenter, NodeDisplay, NodeShape, EdgeField, Field, LoadFormat, Schema, Span, TypeDef, ViewKind};
+pub mod schema_diff;
+pub use schema_diff::{diff_schemas, ChangeKind, SchemaChange, SchemaDiffReport, Severity as SchemaSeverity};
 
 #[derive(Error, Debug)]
 pub enum ZegaError {

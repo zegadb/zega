@@ -98,6 +98,15 @@ enum Command {
         #[arg(long)]
         replace: bool,
     },
+    /// Dry-run a schema change against the data in a local directory.
+    SchemaDiff {
+        /// The previous schema text file.
+        old: PathBuf,
+        /// The proposed schema text file.
+        new: PathBuf,
+        #[arg(long, default_value = "./zega-data")]
+        data: PathBuf,
+    },
     /// Serve the embedded explorer against a local database. Prints a URL; opens nothing.
     Explorer {
         #[arg(long, default_value_t = 9343)]
@@ -137,7 +146,49 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             report("export", export(&file, &data, schema, &meta))
         }
         Command::Import { file, data, replace } => report("import", import(&file, &data, replace)),
+        Command::SchemaDiff { old, new, data } => schema_diff(&old, &new, &data),
         command => serve_command(Cli { command }),
+    }
+}
+
+fn schema_diff(old: &Path, new: &Path, data: &Path) -> ! {
+    let (_lock, db) = match open_data(data) {
+        Ok(pair) => pair,
+        Err(error) => {
+            eprintln!("zega schema-diff: {error}");
+            std::process::exit(1);
+        }
+    };
+    let old_src = match std::fs::read_to_string(old) {
+        Ok(src) => src,
+        Err(error) => {
+            eprintln!("zega schema-diff: {error}");
+            std::process::exit(1);
+        }
+    };
+    let new_src = match std::fs::read_to_string(new) {
+        Ok(src) => src,
+        Err(error) => {
+            eprintln!("zega schema-diff: {error}");
+            std::process::exit(1);
+        }
+    };
+    let report = match db.schema_diff(&old_src, &new_src) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("zega schema-diff: {error}");
+            std::process::exit(1);
+        }
+    };
+    match serde_json::to_string(&report) {
+        Ok(json) => {
+            println!("{json}");
+            std::process::exit(0);
+        }
+        Err(error) => {
+            eprintln!("zega schema-diff: {error}");
+            std::process::exit(1);
+        }
     }
 }
 
@@ -280,8 +331,11 @@ fn serve_command(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 
 async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let (data, host, port, token_file, allow_private, explorer, time_limit, max_import, snapshot_every_mb) = match cli.command {
-        Command::Fmt { .. } | Command::Export { .. } | Command::Import { .. } => {
-            unreachable!("fmt, export and import run without a server runtime")
+        Command::Fmt { .. }
+        | Command::Export { .. }
+        | Command::Import { .. }
+        | Command::SchemaDiff { .. } => {
+            unreachable!("fmt, export, import and schema-diff run without a server runtime")
         }
         Command::Start {
             data,

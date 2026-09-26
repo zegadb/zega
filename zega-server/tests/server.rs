@@ -190,6 +190,7 @@ async fn every_database_route_requires_the_bearer() {
         (reqwest::Method::DELETE, "/graph/nodes/1"),
         (reqwest::Method::DELETE, "/graph/relationships/1"),
         (reqwest::Method::POST, "/graph/relationships"),
+        (reqwest::Method::POST, "/schema/diff"),
     ] {
         for token in [None, Some("wrong")] {
             let request = client.request(method.clone(), format!("{}{path}", server.base_url));
@@ -215,6 +216,71 @@ async fn every_database_route_requires_the_bearer() {
         .await
         .unwrap();
     assert_eq!(body, json!({"ok":true}));
+}
+
+#[tokio::test]
+async fn schema_diff_reports_changes_against_the_server_graph() {
+    let server = start_server().await;
+    let client = Client::new();
+    let old_schema = "type Team { name: String }";
+    let new_schema = "type Team { name: String founded: Int }";
+    for name in ["A", "B"] {
+        let body: Value = client
+            .post(format!("{}/zql", server.base_url))
+            .bearer_auth(TOKEN)
+            .json(&json!({"schema": old_schema, "query": format!("mutation {{ Team(name: \"{name}\") {{ name }} }}")}))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(body["ok"], true, "{body}");
+    }
+    let diff: Value = client
+        .post(format!("{}/schema/diff", server.base_url))
+        .bearer_auth(TOKEN)
+        .json(&json!({"old": old_schema, "new": new_schema}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(diff["ok"], true, "{diff}");
+    let changes = diff["result"]["changes"].as_array().unwrap();
+    let added = changes.iter().find(|c| c["kind"] == "field_added").unwrap();
+    assert_eq!(added["type"], "Team");
+    assert_eq!(added["field"], "founded");
+    assert_eq!(added["severity"], "blocks");
+    assert_eq!(added["affected"], 2);
+    assert_eq!(diff["result"]["ok"], false);
+}
+
+#[tokio::test]
+async fn schema_diff_rejects_unparseable_schemas_and_malformed_json() {
+    let server = start_server().await;
+    let client = Client::new();
+    let bad_new = client
+        .post(format!("{}/schema/diff", server.base_url))
+        .bearer_auth(TOKEN)
+        .json(&json!({"old": "type T { name: String }", "new": "type T { name: }"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_new.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(bad_new.json::<Value>().await.unwrap()["ok"], false);
+
+    let bad_body = client
+        .post(format!("{}/schema/diff", server.base_url))
+        .bearer_auth(TOKEN)
+        .header("content-type", "application/json")
+        .body("{")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_body.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(bad_body.json::<Value>().await.unwrap()["ok"], false);
 }
 
 #[tokio::test]
