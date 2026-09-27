@@ -79,6 +79,10 @@ export class ZegaWasm {
      */
     schema(source: string): string;
     /**
+     * Dry-run a schema change against the wasm instance's own graph.
+     */
+    schema_diff(old: string, _new: string): string;
+    /**
      * PCA and full-vector explanations, attached to a query result by the host.
      */
     vector_view(schema: string, result: string, kind: string, selected: number | null | undefined, k: number, threshold: number): string;
@@ -120,6 +124,7 @@ export interface InitOutput {
     readonly zegawasm_run: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly zegawasm_run_with_sources: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
     readonly zegawasm_schema: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly zegawasm_schema_diff: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly zegawasm_vector_view: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
