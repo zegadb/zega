@@ -245,6 +245,7 @@ fn fragment_layout(ts: &[Token<'_>], types: bool, expand_attributes: bool) -> Do
         {
             return false;
         }
+        if types && next == "<" && matches!(prev, "->" | "<-") { return true; }
         if types && (matches!(prev, "<") || matches!(next, "<" | ">")) {
             return false;
         }

@@ -397,3 +397,23 @@ fn aps24_refused_write_preserves_history() {
         serde_json::json!([{"points":10}])
     );
 }
+
+#[test]
+fn aps24_phase2_refused_interval_and_lifetime_writes() {
+    let store = Store::open();
+    let schema = "type P { name: String born: Date peers -> <P[]> appears at born }";
+    store.zega.run_lang(schema, r#"mutation at 2024-01-01 { P(name: "A" && born: "1900-01-01") { peers -> P(name: "B" && born: "1920-01-01") { name } } }"#).unwrap();
+    let before = store.zega.lock_graph().unwrap().history.get().unwrap().clone();
+    for query in [
+        r#"mutation at 2024-02-01 { P(name = "A") { peers -> unlink P(name = "B") { name } } }"#,
+        r#"mutation { P(name = "A") set born: "1800-01-01" { name } }"#,
+        r#"mutation { delete P(name = "A") { @detach } }"#,
+    ] {
+        store.refused(|db| db.run_lang(schema, query));
+        assert_eq!(*store.zega.lock_graph().unwrap().history.get().unwrap(), before);
+    }
+    store.refused(|db| db.run_lang(schema, r#"mutation at 2024-02-01 { P(name: "C" && born: "1940-01-01") { peers -> P(name: "D" && born: "1960-01-01") { name } } }"#));
+    assert_eq!(*store.zega.lock_graph().unwrap().history.get().unwrap(), before);
+    let db = store.reopened();
+    assert_eq!(db.run_lang(schema, r#"{ P(name = "A") { peers -> P { name } } } as of 2024-03-01"#).unwrap(), serde_json::json!({"peers":[{"name":"B"}]}));
+}

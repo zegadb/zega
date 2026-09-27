@@ -1,4 +1,4 @@
-# Typed history (APS 24, phase 1)
+# Typed history (APS 24, phases 1 and 2)
 
 Declare `points: <Int>` to retain valid-time changes. Untyped fields retain only
 their current values. `<Int[]>` is a time-varying list; `<Int>[]` declares
@@ -63,9 +63,11 @@ timestamp the last write replaces the earlier value. Backfills are inserted
 in time order; the inline value remains the latest valid-time entry.
 
 An `as of` read returns the latest value at or before the requested instant,
-or null before its first entry. Untyped fields and relationships retain their
-present values. Phase 2 relationship history and node lifetimes are rejected
-with `not yet: APS 24 phase 2`.
+or null before its first entry. Untyped fields retain their present values.
+Time-typed relationships use half-open validity intervals `[from, to)`; an
+ended relationship is absent at `to`. Nodes are visible from `appears at`
+and invisible at `ends at`. Untyped relationships retain their present
+membership, but a temporal traversal still filters their endpoints by lifetime.
 
 Series are inclusive samples at the `from` instant, then every day (24 hours),
 week (7 days), or first day of the next calendar month, through `to`. Each
@@ -75,8 +77,10 @@ does not sum or average changes within a bucket.
 `@firstTime` and `@lastTime` return the first and last recorded change boundary
 at which the test is true, or null if it is never true. `ever` and `always`
 inspect these recorded states; an empty history satisfies neither. Tests
-reuse ordinary Boolean conditions and `has`/`in` chains. Phase 1 chains use
-live relationships and historical field values. Scalar ordered comparisons
+reuse ordinary Boolean conditions and `has`/`in` chains, with historical
+relationships, values and lifetimes evaluated at the same instant. Temporal
+tests also accept nested `has`, as in the APS 24 film/genre example. Ordinary
+filters keep their existing flat-chain grammar. Scalar ordered comparisons
 can skip history scans using min/max summaries.
 
 The live node layout remains unchanged. Histories are a sparse side table;
@@ -92,8 +96,127 @@ zigzag-delta integers, XOR floats, dictionary strings, null, booleans, or
 length-prefixed bincode complex values. Field names and string values share
 the dictionary. Summaries are rebuilt when decoding.
 
-Open details beyond phase 1: timezone offsets, subsecond precision, relative
+Open details beyond phase 2: timezone offsets, subsecond precision, relative
 dates, indexed-item assignment syntax, additional series units and
-aggregations, future scheduling, windowed predicates, retention, and phase 2
-relationship/lifetime semantics. `@lastTime` reports a recorded boundary,
-not an inferred end of a continuously true interval.
+aggregations, future scheduling, and retention. `@lastTime` reports a recorded
+boundary, not an inferred end of a continuously true interval.
+
+## Rosters and lifetimes
+
+Wrap the relationship target in `<…>` to keep membership history. Inverse
+fields can name the same stored kind. Lifetime declarations reference `Date`
+fields; an absent optional bound is unbounded. Each declared lifetime bound
+adds one stored date per node, without changing the live node record.
+
+```zql
+schema {
+  type Team {
+    name: String
+    players -> <Person[]>
+  }
+
+  type Person {
+    name: String
+    born: Date
+    died?: Date
+    team: players <- <Team[]>
+    children -> Person[]
+    appears at born
+    ends at died
+  }
+}
+```
+
+```zql
+mutation at 2023-10-10 {
+  Team(name: "Oilers") {
+    players -> Person(name: "Pat" && born: "1990-01-01") { name }
+  }
+}
+```
+
+```zql
+mutation at 2024-02-01 {
+  Team(name = "Oilers") {
+    players -> unlink Person(name = "Pat") { name }
+  }
+}
+```
+
+`unlink` finds existing nodes, removes their live relationship, and retains
+its interval only when its kind is time-typed. The existing `link` form adds
+it again as a new interval. Plain writes use now; `mutation at` supplies valid
+time. An end before its relationship's start fails atomically. Removing a
+node explicitly purges its history and incident relationship histories;
+use `ends at` to retain a node that ceased to exist at a date.
+
+```zql
+{
+  Team(name = "Oilers") {
+    players -> Person { name }
+  }
+} as of 2024-01-15
+```
+
+```zql
+{
+  Team(name = "Oilers") {
+    players -> Person during 2023-10-10 to 2024-04-18 { name }
+  }
+}
+```
+
+`during` returns each matching node once if the complete test holds at any
+instant in the inclusive window. Its projected row comes from the first
+matching state. All hops and tests use the same instant, so relationships
+that existed at disjoint times cannot form a fictitious path.
+
+```zql
+{
+  Team(name = "Oilers") {
+    players -> Person changes from 2024-01-01 to 2024-03-08 { name }
+  }
+}
+```
+
+`changes` compares the two endpoint states and returns `{joined, left,
+changed}`. Joined/left arrays contain projected rows. A changed row has
+`{id, from, to}` with the two projections. Identity determines membership;
+an end and re-add between the endpoints cancels out if membership and
+selected values are unchanged. This is a state difference, not an event log.
+Both window forms also work after the outer query block to compare values.
+
+```zql
+{
+  Person limit 100 { name @firstTime(has team(name = "Oilers")) }
+}
+```
+
+```zql
+{
+  Person(always has team(name = "Oilers") during 2023-11-01 to 2024-01-01) limit 100 {
+    name
+  }
+}
+```
+
+A bare year in a time comparison means January 1 of that year. The APS
+example `during 2023-24` parses, but execution asks for explicit dates:
+APS 24 does not define league season boundaries. Write `during 2023-10-10
+to 2024-04-18` for the NHL example instead of guessing a calendar interval.
+
+Adding relationship history typing or a lifetime declaration is safe in
+schema diff. Removing history typing from a relationship with retained
+intervals is blocking, including when every relationship has ended.
+
+HIST payload version 2 embeds the unchanged version-1 field columns, then
+relationship columns (delta IDs, a kind dictionary, delta endpoint IDs,
+delta-of-delta start dates, optional end offsets, and edge properties) and
+lifetime columns (delta node IDs and delta-of-delta dates). Field-only files
+still use version 1. Old files and phase-1 files load without migration, and
+all history stays lazy until a time read or temporal write needs it.
+
+Reads without time use the original live adjacency and never open history.
+Temporal relationship reads consult the side store; window and relationship
+tests evaluate relevant change boundaries. No copies of the whole graph are
+stored. Retention and segmented on-disk history remain phase 3.

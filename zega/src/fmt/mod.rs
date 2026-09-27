@@ -244,6 +244,8 @@ impl<'a> Printer<'a> {
             span: _,
             fields,
             timeline_field: _,
+            appears: _,
+            ends: _,
         } = ty;
         let mut p = self.parser();
         p.expect_word("type")?;
@@ -252,7 +254,15 @@ impl<'a> Printer<'a> {
         let header = self.until(p.i, false);
         let mut items = Vec::new();
         for field in fields {
+            while matches!(self.peek(), "appears" | "ends") {
+                let mut p = self.parser(); p.ident()?; p.expect_word("at")?; p.ident()?;
+                items.push(Node::leaf(self.until(p.i, true)));
+            }
             items.push(self.field(field)?);
+        }
+        while matches!(self.peek(), "appears" | "ends") {
+            let mut p = self.parser(); p.ident()?; p.expect_word("at")?; p.ident()?;
+            items.push(Node::leaf(self.until(p.i, true)));
         }
         Ok(self.block(header, items, Block::Fields))
     }
@@ -280,6 +290,7 @@ impl<'a> Printer<'a> {
                 targets: _,
                 target_spans: _,
                 many: _,
+                temporal: _,
                 props: _,
                 props_span: _,
             } => {
@@ -412,7 +423,7 @@ impl<'a> Printer<'a> {
             for (
                 IndexSpec {
                     kind,
-                    type_name: _,
+            type_name: _,
                     field: _,
                 },
                 _,
@@ -485,6 +496,7 @@ impl<'a> Printer<'a> {
         if let Some(time) = time {
             let mut p = self.parser();
             match time {
+                TimeClause::Window(_) => { p.time_window()?; }
                 TimeClause::AsOf(_) => {
                     p.expect_word("as")?;
                     p.expect_word("of")?;
@@ -635,6 +647,7 @@ impl<'a> Printer<'a> {
     }
     fn selection(&mut self, selection: &Selection, columns: bool) -> Result<Node> {
         let Selection {
+            window: _,
             type_name: _,
             type_span: _,
             also: _,
@@ -696,6 +709,7 @@ impl<'a> Printer<'a> {
                 range: _,
                 path,
                 link: _,
+                unlink: _,
                 direction,
                 target,
             } => {
@@ -725,7 +739,7 @@ impl<'a> Printer<'a> {
                     .end;
                 let mut p = self.parser();
                 p.i = arrow;
-                p.eat_word("link");
+                if !p.eat_word("link") { p.eat_word("unlink"); }
                 let header = self.until(p.i, false);
                 let target = self.selection(target, columns)?;
                 Ok(Node {
@@ -783,7 +797,7 @@ fn condition_forms(expr: &BoolExpr) {
             }
         }
         BoolExpr::Test(pred) => match pred {
-            Pred::Ever(_, test, _) | Pred::Time(_, test, _, _, _) => condition_forms(test),
+            Pred::Ever(_, test, _, _) | Pred::Time(_, test, _, _, _) => condition_forms(test),
             Pred::Similarity(similarity, cmp, _) => {
                 similarity_form(similarity);
                 cmp_text(*cmp);

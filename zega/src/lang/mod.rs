@@ -216,6 +216,8 @@ pub struct TypeDef {
     pub span: Span,
     pub fields: Vec<Field>,
     pub timeline_field: Option<String>,
+    pub appears: Option<String>,
+    pub ends: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -239,6 +241,7 @@ pub enum Field {
         targets: Vec<String>,
         target_spans: Vec<Span>,
         many: bool,
+        temporal: bool,
         /// Fields of the relationship record, such as `years: Int`.
         props: Vec<EdgeField>,
         /// Set when this side wrote the `{ ... }` block.
@@ -268,7 +271,11 @@ pub enum Direction {
 pub enum TimeClause {
     AsOf(i64),
     Series { from: i64, to: i64, unit: String },
+    Window(TimeWindow),
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TimeWindow { pub from: i64, pub to: i64, pub changes: bool, pub season: bool }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Query {
@@ -283,6 +290,7 @@ pub struct Query {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Selection {
+    pub window: Option<TimeWindow>,
     pub type_name: String,
     pub type_span: Span,
     /// Extra types when the query wrote `(Book | Movie)`.
@@ -409,6 +417,7 @@ pub enum Item {
         /// `*path`: one route to the target instead of every node in reach.
         path: Option<PathSpec>,
         link: bool,
+        unlink: bool,
         direction: Direction,
         target: Box<Selection>,
     },
@@ -500,7 +509,7 @@ pub enum TimeCompare {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Pred {
-    Ever(bool, Box<BoolExpr>, Span),
+    Ever(bool, Box<BoolExpr>, Option<TimeWindow>, Span),
     Time(bool, Box<BoolExpr>, TimeCompare, i64, Span),
     Similarity(Similarity, Cmp, f64),
     Distance(Distance, Cmp, f64),
@@ -616,7 +625,7 @@ impl Pred {
 
     pub fn span(&self) -> Span {
         match self {
-            Pred::Ever(_, _, span) | Pred::Time(_, _, _, _, span) => *span,
+            Pred::Ever(_, _, _, span) | Pred::Time(_, _, _, _, span) => *span,
             Pred::Similarity(sim, ..) => sim.span,
             Pred::Distance(distance, ..) => distance.span,
             Pred::Box(_, _, span) => *span,
@@ -723,7 +732,17 @@ fn parse_schema_at(source: &str) -> Result<(Schema, usize)> {
         let (name, span) = p.ident()?;
         p.expect("{")?;
         let mut fields = Vec::new();
+        let (mut appears, mut ends) = (None, None);
         while !p.eat("}") {
+            if p.starts_word("appears") || p.starts_word("ends") {
+                let start = p.eat_word("appears");
+                if !start { p.expect_word("ends")?; }
+                p.expect_word("at")?;
+                let (field, _) = p.ident()?;
+                let slot = if start { &mut appears } else { &mut ends };
+                if slot.replace(field).is_some() { return Err(p.err("duplicate lifetime bound")); }
+                continue;
+            }
             fields.push(p.parse_field()?);
             p.skip();
         }
@@ -733,7 +752,12 @@ fn parse_schema_at(source: &str) -> Result<(Schema, usize)> {
                 .with_help("a schema names each type once"));
         }
         let timeline_field = timeline_field(&fields).map(str::to_owned);
-        types.push(TypeDef { name, span, fields, timeline_field });
+        for field in appears.iter().chain(ends.iter()) {
+            if !fields.iter().any(|f| matches!(f, Field::Prop { name, ty, .. } if name == field && ty == "Date")) {
+                return Err(p.err(format!("lifetime field {field} must be Date")));
+            }
+        }
+        types.push(TypeDef { name, span, fields, timeline_field, appears, ends });
     }
     if types.is_empty() {
         return Err(p
@@ -1076,6 +1100,14 @@ pub(crate) fn unsupported_comment(source: &str) -> Option<&'static str> {
 /// worker-thread stack in a debug build.
 pub const MAX_NESTING: usize = 128;
 
+struct ParsedArrow {
+    direction: Direction,
+    targets: Vec<String>,
+    target_spans: Vec<Span>,
+    many: bool,
+    temporal: bool,
+}
+
 struct Parser<'a> {
     src: &'a str,
     i: usize,
@@ -1086,6 +1118,7 @@ struct Parser<'a> {
     /// Inside a hop's `(…)`, which tests that node's own fields: a walk
     /// there would nest, and ZQL walks never nest.
     hop_test: bool,
+    temporal_test: bool,
     /// The last `(byte, line, column)` that [`Self::loc`] resolved. Spans are
     /// asked for mostly in source order, so resuming from here keeps a long
     /// query linear instead of rescanning from byte 0 for every span.
@@ -1100,6 +1133,7 @@ impl<'a> Parser<'a> {
             columns: false,
             depth: 0,
             hop_test: false,
+            temporal_test: false,
             last_loc: std::cell::Cell::new((0, 1, 1)),
         }
     }
@@ -1112,6 +1146,7 @@ impl<'a> Parser<'a> {
             columns: self.columns,
             depth: self.depth,
             hop_test: self.hop_test,
+            temporal_test: self.temporal_test,
             last_loc: self.last_loc.clone(),
         }
     }
@@ -1190,6 +1225,10 @@ impl<'a> Parser<'a> {
                 return Err(self.err_at(span, "series starts after it ends"));
             }
             query.time = Some(TimeClause::Series { from, to, unit });
+        }
+        if !mutation && (self.starts_word("during") || self.starts_word("changes")) {
+            if query.time.is_some() { return Err(self.err("a query has one time suffix")); }
+            query.time = Some(TimeClause::Window(self.time_window()?));
         }
         self.take_pipeline(&mut query)?;
         Ok(Statement::Run(query))
@@ -1666,7 +1705,7 @@ impl<'a> Parser<'a> {
         match name.as_str() {
             "firstTime" | "lastTime" => {
                 self.expect("(")?;
-                let test = self.nested(self.i, Self::parse_or)?;
+                let test = self.temporal_condition(Self::parse_or)?;
                 self.expect(")")?;
                 Ok(Item::Time(alias, name == "lastTime", Box::new(test), span))
             }
@@ -1741,16 +1780,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_field(&mut self) -> Result<Field> {
-        if self.starts_word("appears") || self.starts_word("ends") {
-            return Err(self.err("not yet: APS 24 phase 2 (node lifetimes)"));
-        }
         let (name, name_span) = self.ident()?;
         let optional = self.eat("?");
         if self.eat(":") {
             self.skip();
             if self.looks_like_rel_name() {
                 let (rel, _) = self.ident()?;
-                let (direction, targets, target_spans, many) = self.parse_arrow()?;
+                let arrow = self.parse_arrow()?;
                 if optional {
                     return Err(self
                         .err_at(
@@ -1759,7 +1795,7 @@ impl<'a> Parser<'a> {
                         )
                         .with_help("drop the `?`; a relationship is one record or a list"));
                 }
-                return self.finish_edge(name, rel, direction, targets, target_spans, many);
+                return self.finish_edge(name, rel, arrow);
             }
             let temporal = self.eat("<");
             let (mut ty, ty_span) = self.ident()?;
@@ -1817,19 +1853,17 @@ impl<'a> Parser<'a> {
                 .err_at(name_span, format!("{name}? needs a type"))
                 .with_help(format!("write `{name}?: String`")));
         }
-        let (direction, targets, target_spans, many) = self.parse_arrow()?;
-        self.finish_edge(name.clone(), name, direction, targets, target_spans, many)
+        let arrow = self.parse_arrow()?;
+        self.finish_edge(name.clone(), name, arrow)
     }
 
     fn finish_edge(
         &mut self,
         field: String,
         rel: String,
-        direction: Direction,
-        targets: Vec<String>,
-        target_spans: Vec<Span>,
-        many: bool,
+        arrow: ParsedArrow,
     ) -> Result<Field> {
+        let ParsedArrow { direction, targets, target_spans, many, temporal } = arrow;
         let (props, props_span) = self.parse_edge_props()?;
         Ok(Field::Edge {
             field,
@@ -1838,6 +1872,7 @@ impl<'a> Parser<'a> {
             targets,
             target_spans,
             many,
+            temporal,
             props,
             props_span,
         })
@@ -1930,7 +1965,7 @@ impl<'a> Parser<'a> {
         rest.starts_with("->") || rest.starts_with("<-")
     }
 
-    fn parse_arrow(&mut self) -> Result<(Direction, Vec<String>, Vec<Span>, bool)> {
+    fn parse_arrow(&mut self) -> Result<ParsedArrow> {
         let direction = if self.eat("->") {
             Direction::Out
         } else if self.eat("<-") {
@@ -1940,14 +1975,13 @@ impl<'a> Parser<'a> {
                 .err("expected -> or <-")
                 .with_help("a relationship names its direction, `->` or `<-`"));
         };
+        let temporal = self.eat("<");
         let (targets, spans, many) = self.parse_type_ref()?;
-        Ok((direction, targets, spans, many))
+        if temporal { self.expect(">")?; }
+        Ok(ParsedArrow { direction, targets, target_spans: spans, many, temporal })
     }
 
     fn parse_type_ref(&mut self) -> Result<(Vec<String>, Vec<Span>, bool)> {
-        if self.eat("<") {
-            return Err(self.err("not yet: APS 24 phase 2 (time-typed relationships)"));
-        }
         self.skip();
         if self.eat("(") {
             let mut targets = Vec::new();
@@ -2063,7 +2097,9 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        let window = if self.starts_word("during") || self.starts_word("changes") { Some(self.time_window()?) } else { None };
         Ok(Selection {
+            window,
             type_name,
             type_span,
             also,
@@ -2131,7 +2167,8 @@ impl<'a> Parser<'a> {
                     self.expect("<-")?;
                     Direction::In
                 };
-                let link = self.eat_word("link");
+                let unlink = self.eat_word("unlink");
+                let link = unlink || self.eat_word("link");
                 self.skip();
                 let start = self.i;
                 let target = self.nested(start, Self::parse_selection)?;
@@ -2141,6 +2178,7 @@ impl<'a> Parser<'a> {
                     range,
                     path,
                     link,
+                    unlink,
                     direction,
                     target: Box::new(target),
                 })
@@ -2412,10 +2450,12 @@ impl<'a> Parser<'a> {
             if !always {
                 self.expect_word("ever")?;
             }
-            let test = self.nested(start, Self::parse_atom)?;
+            let test = self.temporal_condition(Self::parse_atom)?;
+            let window = if self.starts_word("during") { Some(self.time_window()?) } else { None };
             return Ok(Pred::Ever(
                 always,
                 Box::new(test),
+                window,
                 self.span_bytes(start, self.i),
             ));
         }
@@ -2429,7 +2469,7 @@ impl<'a> Parser<'a> {
             }
             let last = function == "lastTime";
             self.expect("(")?;
-            let test = self.nested(self.i, Self::parse_or)?;
+            let test = self.temporal_condition(Self::parse_or)?;
             self.expect(")")?;
             let cmp = if self.eat("!=") {
                 TimeCompare::NotEqual
@@ -2498,7 +2538,7 @@ impl<'a> Parser<'a> {
     fn chain(&mut self, word: ChainWord) -> Result<Chain> {
         self.skip();
         let start = self.i;
-        if self.hop_test {
+        if self.hop_test && !self.temporal_test {
             return Err(self
                 .err("a test in (…) checks this node's own fields")
                 .with_help("walks never nest: keep walking after the parentheses with `in`, e.g. `has team(name = \"A\") in league`"));
@@ -3097,6 +3137,36 @@ impl<'a> Parser<'a> {
         Ok(Similarity { field, query, span })
     }
 
+    fn temporal_condition(&mut self, parse: impl FnOnce(&mut Self) -> Result<BoolExpr>) -> Result<BoolExpr> {
+        let previous = self.temporal_test;
+        self.temporal_test = true;
+        let result = self.nested(self.i, parse);
+        self.temporal_test = previous;
+        result
+    }
+    fn time_window(&mut self) -> Result<TimeWindow> {
+        let changes = self.eat_word("changes");
+        if changes { self.expect_word("from")?; } else { self.expect_word("during")?; }
+        self.skip();
+        let rest = &self.src[self.i..];
+        // Accept the exact APS 24 season syntax; league season bounds are unspecified.
+        if !changes && rest.len() >= 7 && rest.as_bytes()[..4].iter().all(u8::is_ascii_digit)
+            && rest.as_bytes()[4] == b'-' && rest.as_bytes()[5..7].iter().all(u8::is_ascii_digit)
+            && rest.as_bytes().get(7).is_none_or(|b| !b.is_ascii_digit() && *b != b'-') {
+            let first: i64 = rest[..4].parse().expect("digits");
+            let last = (first / 100) * 100 + rest[5..7].parse::<i64>().expect("digits");
+            if last < first { return Err(self.err("window starts after it ends")); }
+            self.i += 7;
+            let from = crate::history::date(&format!("{first:04}-01-01")).map_err(|e| self.err(e))?;
+            let to = crate::history::date(&format!("{:04}-01-01", last + 1)).map_err(|e| self.err(e))? - 1;
+            return Ok(TimeWindow { from, to, changes, season: true });
+        }
+        let from = self.time_date()?;
+        self.expect_word("to")?;
+        let to = self.time_date()?;
+        if from > to { return Err(self.err("window starts after it ends")); }
+        Ok(TimeWindow { from, to, changes, season: false })
+    }
     fn time_date(&mut self) -> Result<i64> {
         self.skip();
         let start = self.i;
@@ -3107,7 +3177,10 @@ impl<'a> Parser<'a> {
         {
             self.i += 1;
         }
-        crate::history::date(&self.src[start..self.i])
+        let text = &self.src[start..self.i];
+        let expanded;
+        let text = if text.len() == 4 { expanded = format!("{text}-01-01"); &expanded } else { text };
+        crate::history::date(text)
             .map_err(|message| self.err_at(self.span_bytes(start, self.i), message))
     }
 
@@ -3354,6 +3427,7 @@ fn bind_selection(
                 range,
                 path,
                 link,
+                unlink,
                 direction,
                 target,
             } => {
@@ -3366,6 +3440,7 @@ fn bind_selection(
                     range: *range,
                     path: path.clone(),
                     link: *link,
+                    unlink: *unlink,
                     direction: *direction,
                     target: Box::new(target),
                 });
@@ -3379,6 +3454,7 @@ fn bind_selection(
         }
     }
     Ok(Some(Selection {
+        window: sel.window,
         type_name: sel.type_name.clone(),
         type_span: sel.type_span,
         also: sel.also.clone(),
@@ -3943,6 +4019,7 @@ impl Check<'_> {
     }
 
     fn visit(&mut self, sel: &Selection, _root: bool, arrived: Option<(&str, &str)>, linked: bool) {
+        if self.mutation && sel.window.is_some() { self.push(sel.type_span, "time windows belong in queries", None); }
         let known = self.schema.types.iter().any(|ty| ty.name == sel.type_name);
         if !known {
             self.push(
@@ -4050,6 +4127,7 @@ impl Check<'_> {
                     direction,
                     target,
                     link,
+                    unlink,
                 } => {
                     if let Some(path) = path {
                         self.path(sel, field, *span, *direction, path, target);
@@ -4062,7 +4140,8 @@ impl Check<'_> {
                         );
                     }
                     self.walk(sel, field, *span, *direction, target);
-                    if self.mutation {
+                    if *unlink && !self.mutation { self.push(*span, "unlink belongs in a mutation", None); }
+                    if self.mutation && !unlink {
                         self.require_edge_fields(sel, field, *span, target);
                     }
                     self.visit(target, false, Some((sel.type_name.as_str(), field)), *link);
@@ -4109,7 +4188,7 @@ impl Check<'_> {
     /// One test; `earlier` are the terms before it in its `&&` group, which
     /// a chain's `same` may name.
     fn test(&mut self, sel: &Selection, types: &[String], pred: &Pred, earlier: &[BoolExpr], group: Group) {
-        if let Pred::Ever(_, test, _) | Pred::Time(_, test, ..) = pred {
+        if let Pred::Ever(_, test, _, _) | Pred::Time(_, test, ..) = pred {
             self.expr(sel, types, test, Group::Alone);
             return;
         }
@@ -4308,6 +4387,7 @@ impl Check<'_> {
             return;
         };
         let reached = Selection {
+            window: None,
             type_name: first.clone(),
             type_span: span,
             also: rest.to_vec(),

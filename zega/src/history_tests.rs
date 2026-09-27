@@ -110,11 +110,7 @@ fn aps24_schema_and_formatter() {
         "type T { born: Date appears at born }",
         "type T { died: Date ends at died }",
     ] {
-        assert!(db
-            .schema(schema)
-            .unwrap_err()
-            .to_string()
-            .contains("not yet: APS 24 phase 2"));
+        db.schema(schema).unwrap();
     }
     assert!(
         db.schema_diff("type Team { name: String points: Int }", SCHEMA)

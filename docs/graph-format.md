@@ -78,7 +78,7 @@ section = tag:4 bytes  length:u64  payload:length bytes  crc:u32
 | 3 | `SCHM` | schema | yes |
 | 4 | `NODE` | nodes | yes |
 | 5 | `RELS` | relationships | yes |
-| 6 | `HIST` | typed field history (optional; APS 24) | yes |
+| 6 | `HIST` | typed field/relationship history and lifetimes (optional; APS 24) | yes |
 | 7 | `DONE` | done | no |
 
 - The magic's first byte is outside ASCII and it ends in a newline, so a file

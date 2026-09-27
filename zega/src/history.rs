@@ -1,6 +1,6 @@
 //! APS 24: sparse valid-time histories, separate from the live node records.
 use crate::{
-    graph::{NodeId, NodeRef, NodeView},
+    graph::{NodeId, NodeRef, NodeView, RelId, Relationship},
     Value,
 };
 use std::collections::BTreeMap;
@@ -9,7 +9,47 @@ use std::sync::{
     OnceLock,
 };
 
-pub(crate) type Histories = BTreeMap<(NodeId, String), History>;
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Histories {
+    fields: BTreeMap<(NodeId, String), History>,
+    pub relationships: BTreeMap<RelId, RelHistory>,
+    pub appears: BTreeMap<NodeId, i64>,
+    pub ends: BTreeMap<NodeId, i64>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct RelHistory {
+    pub rel: Relationship,
+    pub from: i64,
+    pub to: Option<i64>,
+}
+impl RelHistory {
+    pub fn contains(&self, at: i64) -> bool {
+        self.from <= at && self.to.is_none_or(|to| at < to)
+    }
+}
+impl std::ops::Deref for Histories {
+    type Target = BTreeMap<(NodeId, String), History>;
+    fn deref(&self) -> &Self::Target {
+        &self.fields
+    }
+}
+impl std::ops::DerefMut for Histories {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.fields
+    }
+}
+impl Histories {
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
+            && self.relationships.is_empty()
+            && self.appears.is_empty()
+            && self.ends.is_empty()
+    }
+    pub fn visible(&self, id: NodeId, at: i64) -> bool {
+        self.appears.get(&id).is_none_or(|from| *from <= at)
+            && self.ends.get(&id).is_none_or(|to| at < *to)
+    }
+}
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct History {
     pub changes: Vec<(i64, Value)>,
@@ -92,7 +132,7 @@ impl Store {
                 self.encoded
                     .as_deref()
                     .map(decode)
-                    .unwrap_or_else(|| Ok(BTreeMap::new()))
+                    .unwrap_or_else(|| Ok(Histories::default()))
             })
             .as_ref()
             .map_err(Clone::clone)
@@ -315,7 +355,7 @@ impl<'a> Input<'a> {
     }
 }
 /// Columns per history: node delta, field dictionary id, time deltas, values.
-fn encode(h: &Histories) -> Result<Vec<u8>, String> {
+fn encode_fields(h: &BTreeMap<(NodeId, String), History>) -> Result<Vec<u8>, String> {
     let mut out = vec![1];
     let mut dict = BTreeMap::<String, u64>::new();
     for ((_, f), history) in h {
@@ -377,7 +417,7 @@ fn encode(h: &Histories) -> Result<Vec<u8>, String> {
     }
     Ok(out)
 }
-fn decode(bytes: &[u8]) -> Result<Histories, String> {
+fn decode_fields(bytes: &[u8]) -> Result<BTreeMap<(NodeId, String), History>, String> {
     let mut input = Input(bytes);
     if input.take(1)? != [1] {
         return Err("unsupported HIST version".into());
@@ -455,4 +495,195 @@ fn decode(bytes: &[u8]) -> Result<Histories, String> {
         return Err("trailing HIST bytes".into());
     }
     Ok(out)
+}
+
+// Version 2 embeds the unchanged phase-1 columns, then relationship and lifetime
+// columns. Version 1 remains a first-class input and is emitted for field-only data.
+fn encode(h: &Histories) -> Result<Vec<u8>, String> {
+    let fields = encode_fields(&h.fields)?;
+    if h.relationships.is_empty() && h.appears.is_empty() && h.ends.is_empty() {
+        return Ok(fields);
+    }
+    let mut out = vec![2];
+    blob(&mut out, &fields);
+    let rels: Vec<_> = h.relationships.values().collect();
+    put(&mut out, rels.len() as u64);
+    let mut kinds = BTreeMap::<&str, u64>::new();
+    for h in &rels {
+        kinds.entry(&h.rel.kind).or_default();
+    }
+    put(&mut out, kinds.len() as u64);
+    for (i, (kind, index)) in kinds.iter_mut().enumerate() {
+        *index = i as u64;
+        blob(&mut out, kind.as_bytes());
+    }
+    let mut id = 0;
+    for h in &rels {
+        put(&mut out, h.rel.id - id);
+        id = h.rel.id;
+    }
+    for h in &rels {
+        put(&mut out, kinds[h.rel.kind.as_str()]);
+    }
+    for endpoint in [false, true] {
+        let mut previous = 0i64;
+        for h in &rels {
+            let value = if endpoint { h.rel.to } else { h.rel.from } as i64;
+            put(&mut out, zig(value.wrapping_sub(previous)));
+            previous = value;
+        }
+    }
+    let (mut at, mut delta) = (0i64, 0i64);
+    for h in &rels {
+        let next = h.from.wrapping_sub(at);
+        put(&mut out, zig(next.wrapping_sub(delta)));
+        at = h.from;
+        delta = next;
+    }
+    for h in &rels {
+        out.push(u8::from(h.to.is_some()));
+        if let Some(to) = h.to {
+            put(&mut out, zig(to.wrapping_sub(h.from)));
+        }
+    }
+    for h in &rels {
+        if h.rel.props.is_empty() {
+            blob(&mut out, &[]);
+        } else {
+            blob(
+                &mut out,
+                &bincode::serialize(&h.rel.props.iter().collect::<BTreeMap<_, _>>())
+                    .map_err(|e| e.to_string())?,
+            );
+        }
+    }
+    for dates in [&h.appears, &h.ends] {
+        put(&mut out, dates.len() as u64);
+        let mut id = 0;
+        for node in dates.keys() {
+            put(&mut out, node - id);
+            id = *node;
+        }
+        let (mut at, mut delta) = (0i64, 0i64);
+        for date in dates.values() {
+            let next = date.wrapping_sub(at);
+            put(&mut out, zig(next.wrapping_sub(delta)));
+            at = *date;
+            delta = next;
+        }
+    }
+    Ok(out)
+}
+fn decode(bytes: &[u8]) -> Result<Histories, String> {
+    if bytes.first() == Some(&1) {
+        return Ok(Histories {
+            fields: decode_fields(bytes)?,
+            ..Default::default()
+        });
+    }
+    let mut input = Input(bytes);
+    if input.take(1)? != [2] {
+        return Err("unsupported HIST version".into());
+    }
+    let mut h = Histories {
+        fields: decode_fields(input.blob()?)?,
+        ..Default::default()
+    };
+    let n = input.len()?;
+    let count = input.len()?;
+    let mut kinds = Vec::new();
+    for _ in 0..count {
+        kinds.push(
+            std::str::from_utf8(input.blob()?)
+                .map_err(|e| e.to_string())?
+                .to_owned(),
+        );
+    }
+    let mut ids = Vec::new();
+    let mut id = 0u64;
+    for i in 0..n {
+        let delta = input.var()?;
+        if i > 0 && delta == 0 {
+            return Err("duplicate HIST relationship".into());
+        }
+        id = id.checked_add(delta).ok_or("HIST relationship overflow")?;
+        ids.push(id);
+    }
+    let mut rels = Vec::new();
+    for id in ids {
+        let kind = kinds
+            .get(input.var()? as usize)
+            .ok_or("HIST kind index")?
+            .clone();
+        rels.push(RelHistory {
+            rel: Relationship {
+                id,
+                kind,
+                from: 0,
+                to: 0,
+                props: Default::default(),
+            },
+            from: 0,
+            to: None,
+        });
+    }
+    for endpoint in [false, true] {
+        let mut previous = 0i64;
+        for h in &mut rels {
+            previous = previous.wrapping_add(unzig(input.var()?));
+            if endpoint {
+                h.rel.to = previous as u64;
+            } else {
+                h.rel.from = previous as u64;
+            }
+        }
+    }
+    let (mut at, mut delta) = (0i64, 0i64);
+    for h in &mut rels {
+        delta = delta.wrapping_add(unzig(input.var()?));
+        at = at.wrapping_add(delta);
+        h.from = at;
+    }
+    for h in &mut rels {
+        match input.take(1)?[0] {
+            0 => {}
+            1 => {
+                h.to = Some(h.from.wrapping_add(unzig(input.var()?)));
+                if h.to < Some(h.from) {
+                    return Err("reversed HIST interval".into());
+                }
+            }
+            _ => return Err("invalid HIST interval tag".into()),
+        }
+    }
+    for mut rel in rels {
+        let props = input.blob()?;
+        if !props.is_empty() {
+            rel.rel.props = crate::wal::decode_exact(props).map_err(|e| e.to_string())?;
+        }
+        h.relationships.insert(rel.rel.id, rel);
+    }
+    for dates in [&mut h.appears, &mut h.ends] {
+        let n = input.len()?;
+        let mut ids = Vec::new();
+        let mut id = 0u64;
+        for i in 0..n {
+            let delta = input.var()?;
+            if i > 0 && delta == 0 {
+                return Err("duplicate HIST lifetime".into());
+            }
+            id = id.checked_add(delta).ok_or("HIST lifetime overflow")?;
+            ids.push(id);
+        }
+        let (mut at, mut delta) = (0i64, 0i64);
+        for id in ids {
+            delta = delta.wrapping_add(unzig(input.var()?));
+            at = at.wrapping_add(delta);
+            dates.insert(id, at);
+        }
+    }
+    if !input.0.is_empty() {
+        return Err("trailing HIST bytes".into());
+    }
+    Ok(h)
 }

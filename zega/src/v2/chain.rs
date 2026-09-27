@@ -31,7 +31,8 @@ pub(super) fn step_edges(graph: &Graph, schema: &Schema, id: NodeId, field: &str
     let Some((kind, direction, targets)) = edge_of(schema, node, field) else {
         return Ok(Vec::new());
     };
-    let next = neighbors(graph, id, kind, direction);
+    let next = if work.at.is_none() { neighbors(graph, id, kind, direction) }
+        else { time::neighbors_at(graph, schema, id, kind, direction, work.at)? };
     work.charge(next.len())?;
     Ok(next.into_iter().filter(|(to, _)| node_has_any_label(graph, *to, targets)).collect())
 }
@@ -60,7 +61,8 @@ fn step_back(graph: &Graph, schema: &Schema, id: NodeId, field: &str, work: &mut
             Direction::Out => Direction::In,
             Direction::In => Direction::Out,
         };
-        let from = neighbors(graph, id, kind, reverse);
+        let from = if work.at.is_none() { neighbors(graph, id, kind, reverse) }
+            else { time::neighbors_at(graph, schema, id, kind, reverse, work.at)? };
         work.charge(from.len())?;
         for (before, _) in from {
             let declared = graph.get_node(before).is_some_and(|node| {

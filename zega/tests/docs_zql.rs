@@ -23,6 +23,7 @@ const RUNNABLE: &[&str] = &[
     "query.md",
     "conditions.md",
     "relationships.md",
+    "time.md",
     "unique.md",
     "errors.md",
 ];
