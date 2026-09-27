@@ -53,12 +53,8 @@
     "Will of the Woods",
     "Young John Mudd"
   ],
-  "House Allyrion": [
-    "Ryon Allyrion"
-  ],
-  "House Ambrose": [
-    "Arthur Ambrose"
-  ],
+  "House Allyrion": ["Ryon Allyrion"],
+  "House Ambrose": ["Arthur Ambrose"],
   "House Arryn": [
     "Jon Arryn",
     "Lysa Arryn",
@@ -68,13 +64,8 @@
     "Ronnel Arryn",
     "Harrold Hardyng"
   ],
-  "House Ashford": [
-    "Androw Ashford",
-    "Robert Ashford"
-  ],
-  "House Banefort": [
-    "Quenten Banefort"
-  ],
+  "House Ashford": ["Androw Ashford", "Robert Ashford"],
+  "House Banefort": ["Quenten Banefort"],
   "House Baratheon": [
     "Robert Baratheon",
     "Stannis Baratheon",
@@ -88,68 +79,22 @@
     "Orys Baratheon",
     "Borros Baratheon"
   ],
-  "House Beesbury": [
-    "Ben Beesbury"
-  ],
-  "House Blacktyde": [
-    "Baelor Blacktyde"
-  ],
-  "House Blackwood": [
-    "Tytos Blackwood",
-    "Brynden Rivers",
-    "Lucas Blackwood"
-  ],
-  "House Bolton": [
-    "Roose Bolton",
-    "Ramsay Bolton",
-    "Walton",
-    "Domeric Bolton"
-  ],
-  "House Botley": [
-    "Sawane Botley"
-  ],
-  "House Bracken": [
-    "Jonos Bracken",
-    "Barbara Bracken"
-  ],
-  "House Brax": [
-    "Tytos Brax",
-    "Flement Brax",
-    "Robin Brax"
-  ],
-  "House Brune": [
-    "Lothor Brune"
-  ],
-  "House Bulwer": [
-    "Alysanne Bulwer"
-  ],
-  "House Cassel": [
-    "Rodrik Cassel",
-    "Jory Cassel",
-    "Beth Cassel"
-  ],
-  "House Caswell": [
-    "Lorent Caswell"
-  ],
-  "House Celtigar": [
-    "Ardrian Celtigar"
-  ],
-  "House Cerwyn": [
-    "Cley Cerwyn",
-    "Jonelle Cerwyn",
-    "Medger Cerwyn"
-  ],
-  "House Clegane": [
-    "Sandor Clegane",
-    "Gregor Clegane"
-  ],
-  "House Connington": [
-    "Jon Connington",
-    "Ronnet Connington"
-  ],
-  "House Corbray": [
-    "Lyn Corbray"
-  ],
+  "House Beesbury": ["Ben Beesbury"],
+  "House Blacktyde": ["Baelor Blacktyde"],
+  "House Blackwood": ["Tytos Blackwood", "Brynden Rivers", "Lucas Blackwood"],
+  "House Bolton": ["Roose Bolton", "Ramsay Bolton", "Walton", "Domeric Bolton"],
+  "House Botley": ["Sawane Botley"],
+  "House Bracken": ["Jonos Bracken", "Barbara Bracken"],
+  "House Brax": ["Tytos Brax", "Flement Brax", "Robin Brax"],
+  "House Brune": ["Lothor Brune"],
+  "House Bulwer": ["Alysanne Bulwer"],
+  "House Cassel": ["Rodrik Cassel", "Jory Cassel", "Beth Cassel"],
+  "House Caswell": ["Lorent Caswell"],
+  "House Celtigar": ["Ardrian Celtigar"],
+  "House Cerwyn": ["Cley Cerwyn", "Jonelle Cerwyn", "Medger Cerwyn"],
+  "House Clegane": ["Sandor Clegane", "Gregor Clegane"],
+  "House Connington": ["Jon Connington", "Ronnet Connington"],
+  "House Corbray": ["Lyn Corbray"],
   "House Crakehall": [
     "Leo Lefford",
     "Burton Crakehall",
@@ -158,16 +103,9 @@
     "Sumner Crakehall",
     "Tybolt Crakehall"
   ],
-  "House Crane": [
-    "Parmen Crane"
-  ],
-  "House Cuy": [
-    "Emmon Cuy"
-  ],
-  "House Darry": [
-    "Lyman Darry",
-    "Raymun Darry"
-  ],
+  "House Crane": ["Parmen Crane"],
+  "House Cuy": ["Emmon Cuy"],
+  "House Darry": ["Lyman Darry", "Raymun Darry"],
   "House Dayne": [
     "Arthur Dayne",
     "Ashara Dayne",
@@ -175,16 +113,9 @@
     "Gerold Dayne",
     "Allyria Dayne"
   ],
-  "House Dustin": [
-    "Barbrey Dustin",
-    "Willam Dustin"
-  ],
-  "House Farman": [
-    "Jeyne Farman"
-  ],
-  "House Farwynd": [
-    "Torgon Farwynd"
-  ],
+  "House Dustin": ["Barbrey Dustin", "Willam Dustin"],
+  "House Farman": ["Jeyne Farman"],
+  "House Farwynd": ["Torgon Farwynd"],
   "House Florent": [
     "Alester Florent",
     "Selyse Florent",
@@ -193,17 +124,9 @@
     "Rylene Florent"
   ],
   "House Footly": [],
-  "House Fossoway of Cider Hall": [
-    "Tanton Fossoway",
-    "Jon Fossoway"
-  ],
-  "House Fossoway of New Barrel": [
-    "Raymun Fossoway",
-    "Leonette Fossoway"
-  ],
-  "House Fowler": [
-    "Franklyn Fowler"
-  ],
+  "House Fossoway of Cider Hall": ["Tanton Fossoway", "Jon Fossoway"],
+  "House Fossoway of New Barrel": ["Raymun Fossoway", "Leonette Fossoway"],
+  "House Fowler": ["Franklyn Fowler"],
   "House Frey": [
     "Walder Frey",
     "Black Walder Frey",
@@ -220,14 +143,8 @@
     "Raymund Frey",
     "Olyvar Frey"
   ],
-  "House Glover": [
-    "Robett Glover",
-    "Galbart Glover",
-    "Sybelle Glover"
-  ],
-  "House Goodbrother": [
-    "Gorold Goodbrother"
-  ],
+  "House Glover": ["Robett Glover", "Galbart Glover", "Sybelle Glover"],
+  "House Goodbrother": ["Gorold Goodbrother"],
   "House Greyjoy": [
     "Balon Greyjoy",
     "Euron Greyjoy",
@@ -247,18 +164,14 @@
     "Gorold Goodbrother",
     "Baelor Blacktyde"
   ],
-  "House Grimm": [
-    "Guthor Grimm"
-  ],
+  "House Grimm": ["Guthor Grimm"],
   "House Harlaw": [
     "Rodrik Harlaw",
     "Boremund Harlaw",
     "Harras Harlaw",
     "Sigfryd Harlaw"
   ],
-  "House Hewett": [
-    "Humfrey Hewett"
-  ],
+  "House Hewett": ["Humfrey Hewett"],
   "House Hightower": [
     "Leyton Hightower",
     "Malora Hightower",
@@ -272,12 +185,8 @@
     "Daryn Hornwood",
     "Larence Snow"
   ],
-  "House Hotah": [
-    "Areo Hotah"
-  ],
-  "House Hunter": [
-    "Eon Hunter"
-  ],
+  "House Hotah": ["Areo Hotah"],
+  "House Hunter": ["Eon Hunter"],
   "House Karstark": [
     "Rickard Karstark",
     "Harrion Karstark",
@@ -311,34 +220,13 @@
     "Lann the Clever",
     "Janei Lannister"
   ],
-  "House Lefford": [
-    "Leo Lefford",
-    "Alysanne Lefford"
-  ],
-  "House Locke": [
-    "Donnel Locke"
-  ],
-  "House Lorch": [
-    "Amory Lorch"
-  ],
-  "House Mallister": [
-    "Jason Mallister",
-    "Patrek Mallister",
-    "Denys Mallister"
-  ],
-  "House Manderly": [
-    "Wyman Manderly",
-    "Wylis Manderly",
-    "Wendel Manderly"
-  ],
-  "House Manwoody": [
-    "Myles Manwoody",
-    "Dagos Manwoody"
-  ],
-  "House Marbrand": [
-    "Addam Marbrand",
-    "Damon Marbrand"
-  ],
+  "House Lefford": ["Leo Lefford", "Alysanne Lefford"],
+  "House Locke": ["Donnel Locke"],
+  "House Lorch": ["Amory Lorch"],
+  "House Mallister": ["Jason Mallister", "Patrek Mallister", "Denys Mallister"],
+  "House Manderly": ["Wyman Manderly", "Wylis Manderly", "Wendel Manderly"],
+  "House Manwoody": ["Myles Manwoody", "Dagos Manwoody"],
+  "House Marbrand": ["Addam Marbrand", "Damon Marbrand"],
   "House Martell": [
     "Doran Martell",
     "Oberyn Martell",
@@ -355,10 +243,7 @@
     "Daemon Sand",
     "Sylva Santagar"
   ],
-  "House Merryweather": [
-    "Orton Merryweather",
-    "Taena Merryweather"
-  ],
+  "House Merryweather": ["Orton Merryweather", "Taena Merryweather"],
   "House Mormont": [
     "Jeor Mormont",
     "Maege Mormont",
@@ -367,92 +252,32 @@
     "Dacey Mormont"
   ],
   "House Mullendore": [],
-  "House Nymeros": [
-    "Nymeria"
-  ],
-  "House Oakheart": [
-    "Arys Oakheart",
-    "Arwyn Oakheart"
-  ],
-  "House Osgrey": [
-    "Eustace Osgrey",
-    "Addam Osgrey"
-  ],
-  "House Payne": [
-    "Podrick Payne",
-    "Ilyn Payne"
-  ],
-  "House Peake": [
-    "Titus Peake",
-    "Laswell Peake",
-    "Pykewood Peake"
-  ],
-  "House Penrose": [
-    "Elwood Meadows",
-    "Cortnay Penrose"
-  ],
-  "House Piper": [
-    "Clement Piper",
-    "Marq Piper"
-  ],
-  "House Plumm": [
-    "Ossifer Plumm",
-    "Philip Plumm",
-    "Maynard Plumm"
-  ],
-  "House Poole": [
-    "Vayon Poole"
-  ],
-  "House Prester": [
-    "Garrison Prester",
-    "Forley Prester"
-  ],
-  "House Redfort": [
-    "Jasper Redfort"
-  ],
+  "House Nymeros": ["Nymeria"],
+  "House Oakheart": ["Arys Oakheart", "Arwyn Oakheart"],
+  "House Osgrey": ["Eustace Osgrey", "Addam Osgrey"],
+  "House Payne": ["Podrick Payne", "Ilyn Payne"],
+  "House Peake": ["Titus Peake", "Laswell Peake", "Pykewood Peake"],
+  "House Penrose": ["Elwood Meadows", "Cortnay Penrose"],
+  "House Piper": ["Clement Piper", "Marq Piper"],
+  "House Plumm": ["Ossifer Plumm", "Philip Plumm", "Maynard Plumm"],
+  "House Poole": ["Vayon Poole"],
+  "House Prester": ["Garrison Prester", "Forley Prester"],
+  "House Redfort": ["Jasper Redfort"],
   "House Redwyne": [
     "Paxter Redwyne",
     "Horas Redwyne",
     "Hobber Redwyne",
     "Desmera Redwyne"
   ],
-  "House Reed": [
-    "Howland Reed",
-    "Jojen Reed",
-    "Meera Reed"
-  ],
-  "House Reyne": [
-    "Roger Reyne",
-    "Reynard Reyne",
-    "Ellyn Reyne"
-  ],
-  "House Rosby": [
-    "Gyles Rosby"
-  ],
-  "House Rowan": [
-    "Mathis Rowan",
-    "Rhonda Rowan"
-  ],
-  "House Royce": [
-    "Yohn Royce",
-    "Andar Royce",
-    "Waymar Royce",
-    "Robar Royce"
-  ],
-  "House Ryswell": [
-    "Rodrik Ryswell",
-    "Barbrey Dustin",
-    "Barbrey Ryswell"
-  ],
-  "House Selmy": [
-    "Barristan Selmy"
-  ],
-  "House Serry": [
-    "Talbert Serry"
-  ],
-  "House Spicer": [
-    "Rolph Spicer"
-  ],
+  "House Reed": ["Howland Reed", "Jojen Reed", "Meera Reed"],
+  "House Reyne": ["Roger Reyne", "Reynard Reyne", "Ellyn Reyne"],
+  "House Rosby": ["Gyles Rosby"],
+  "House Rowan": ["Mathis Rowan", "Rhonda Rowan"],
+  "House Royce": ["Yohn Royce", "Andar Royce", "Waymar Royce", "Robar Royce"],
+  "House Ryswell": ["Rodrik Ryswell", "Barbrey Dustin", "Barbrey Ryswell"],
+  "House Selmy": ["Barristan Selmy"],
+  "House Serry": ["Talbert Serry"],
+  "House Spicer": ["Rolph Spicer"],
   "House Stark": [
     "Eddard Stark",
     "Catelyn Stark",
@@ -478,16 +303,9 @@
     "Lollys Stokeworth",
     "Tanda Stokeworth"
   ],
-  "House Stone": [
-    "Mya Stone"
-  ],
-  "House Swann": [
-    "Balon Swann"
-  ],
-  "House Swyft": [
-    "Harys Swyft",
-    "Dorna Swyft"
-  ],
+  "House Stone": ["Mya Stone"],
+  "House Swann": ["Balon Swann"],
+  "House Swyft": ["Harys Swyft", "Dorna Swyft"],
   "House Tallhart": [
     "Helman Tallhart",
     "Leobald Tallhart",
@@ -534,10 +352,7 @@
     "Talla Tarly",
     "Melessa Tarly"
   ],
-  "House Tarth": [
-    "Brienne of Tarth",
-    "Selwyn Tarth"
-  ],
+  "House Tarth": ["Brienne of Tarth", "Selwyn Tarth"],
   "House Tully": [
     "Hoster Tully",
     "Catelyn Stark",
@@ -568,29 +383,13 @@
     "Jon Umber (Greatjon)",
     "Jon Umber (Smalljon)"
   ],
-  "House Vance of Wayfarer's Rest": [
-    "Karyl Vance"
-  ],
-  "House Varner": [
-    "Steffon Varner"
-  ],
-  "House Velaryon": [
-    "Monford Velaryon",
-    "Monterys Velaryon"
-  ],
-  "House Vikary": [
-    "Lymond Vikary"
-  ],
-  "House Vyrwel": [
-    "Igon Vyrwel"
-  ],
-  "House Waynwood": [
-    "Anya Waynwood",
-    "Wallace Waynwood"
-  ],
-  "House Webber": [
-    "Rohanne Webber"
-  ],
+  "House Vance of Wayfarer's Rest": ["Karyl Vance"],
+  "House Varner": ["Steffon Varner"],
+  "House Velaryon": ["Monford Velaryon", "Monterys Velaryon"],
+  "House Vikary": ["Lymond Vikary"],
+  "House Vyrwel": ["Igon Vyrwel"],
+  "House Waynwood": ["Anya Waynwood", "Wallace Waynwood"],
+  "House Webber": ["Rohanne Webber"],
   "House Westerling": [
     "Jeyne Westerling",
     "Sybell Spicer",
@@ -599,23 +398,11 @@
     "Rollam Westerling",
     "Eleyna Westerling"
   ],
-  "House Whent": [
-    "Shella Whent"
-  ],
-  "House Willum": [
-    "Josua Willum",
-    "Elyas Willum"
-  ],
-  "House Yarwyck": [
-    "Othell Yarwyck"
-  ],
-  "House Yronwood": [
-    "Anders Yronwood",
-    "Cletus Yronwood"
-  ],
-  "Iron Bank": [
-    "Tycho Nestoris"
-  ],
+  "House Whent": ["Shella Whent"],
+  "House Willum": ["Josua Willum", "Elyas Willum"],
+  "House Yarwyck": ["Othell Yarwyck"],
+  "House Yronwood": ["Anders Yronwood", "Cletus Yronwood"],
+  "Iron Bank": ["Tycho Nestoris"],
   "King's Landing": [
     "Bronn",
     "Podrick Payne",
@@ -688,14 +475,8 @@
     "Sigorn",
     "Meribald"
   ],
-  "Misc - essos": [
-    "Shiera Seastar",
-    "Marwyn",
-    "The Waif"
-  ],
-  "Misc - the-reach": [
-    "Franklyn Flowers"
-  ],
+  "Misc - essos": ["Shiera Seastar", "Marwyn", "The Waif"],
+  "Misc - the-reach": ["Franklyn Flowers"],
   "Misc - the-westerlands": [],
   "Night's Watch": [
     "Jeor Mormont",
@@ -710,10 +491,7 @@
     "Satin",
     "Dirk"
   ],
-  "Qarth": [
-    "Pyat Pree",
-    "Quaithe"
-  ],
+  "Qarth": ["Pyat Pree", "Quaithe"],
   "Slaver's Bay": [
     "Reznak mo Reznak",
     "Grazdan mo Eraz",
@@ -743,19 +521,9 @@
     "Khal Motho",
     "Khal Moro"
   ],
-  "The Faith": [
-    "High Sparrow"
-  ],
-  "Vale mountain clans": [
-    "Shagga",
-    "Timett"
-  ],
-  "Volantis": [
-    "Benerro",
-    "Malaquo Maegyr",
-    "Nyessos Vhassar",
-    "Qavo Nogarys"
-  ],
+  "The Faith": ["High Sparrow"],
+  "Vale mountain clans": ["Shagga", "Timett"],
+  "Volantis": ["Benerro", "Malaquo Maegyr", "Nyessos Vhassar", "Qavo Nogarys"],
   "_other": [
     "Petyr Baelish",
     "Varys",
