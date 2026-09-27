@@ -575,8 +575,8 @@ fn encode_sections(
         }
         Ok(())
     })?;
-    if let Some(bytes)=graph.history.bytes().map_err(io::Error::other)? {
-        emit(Section::History,&|sink| Ok(sink.put(&bytes)?))?;
+    if let Some(bytes) = graph.history.bytes().map_err(io::Error::other)? {
+        emit(Section::History, &|sink| Ok(sink.put(&bytes)?))?;
     }
     Ok((node_count, rel_count))
 }
@@ -711,18 +711,19 @@ struct In<R: Read> {
 }
 
 impl<R: Read> In<R> {
-    fn peek_tag(&mut self) -> Result<[u8;4],Error> {
-        let mut tag=[0;4];
+    fn peek_tag(&mut self) -> Result<[u8; 4], Error> {
+        let mut tag = [0; 4];
         let mut got = 0;
         while got < tag.len() {
             match self.inner.read(&mut tag[got..]) {
-                Ok(0) => return Err(Error::Truncated { offset: self.offset + got as u64, context: "before HIST or DONE section".into() }),
+                // Let read_section report truncated headers, including legacy DONE.
+                Ok(0) => break,
                 Ok(n) => got += n,
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => {},
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
                 Err(e) => return Err(e.into()),
             }
         }
-        self.pending.extend(tag);
+        self.pending.extend(&tag[..got]);
         Ok(tag)
     }
 
@@ -730,7 +731,11 @@ impl<R: Read> In<R> {
     fn fill(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         let mut got = 0;
         while got < buf.len() {
-            if let Some(byte)=self.pending.pop_front() { buf[got]=byte; got+=1; continue; }
+            if let Some(byte) = self.pending.pop_front() {
+                buf[got] = byte;
+                got += 1;
+                continue;
+            }
             match self.inner.read(&mut buf[got..]) {
                 Ok(0) => break,
                 Ok(n) => got += n,
@@ -1265,13 +1270,17 @@ pub(crate) fn read<R: Read>(input: R) -> Result<(Graph, ImportSummary), Error> {
         read_relationships(s, &mut graph, &mut names, &manifest)
     })?;
     if input.peek_tag()? == *b"HIST" {
-        let bytes=read_section(&mut input, Section::History, |s| {
-            let mut bytes=Vec::new();
-            let mut chunk=[0;8192];
-            while s.remaining>0 { let n=s.remaining.min(chunk.len() as u64) as usize; s.take(&mut chunk[..n])?; bytes.extend_from_slice(&chunk[..n]); }
+        let bytes = read_section(&mut input, Section::History, |s| {
+            let mut bytes = Vec::new();
+            let mut chunk = [0; 8192];
+            while s.remaining > 0 {
+                let n = s.remaining.min(chunk.len() as u64) as usize;
+                s.take(&mut chunk[..n])?;
+                bytes.extend_from_slice(&chunk[..n]);
+            }
             Ok(bytes)
         })?;
-        graph.history=crate::history::Store::lazy(bytes);
+        graph.history = crate::history::Store::lazy(bytes);
     }
     let digest: [u8; 32] = input
         .content

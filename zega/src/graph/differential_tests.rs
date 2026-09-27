@@ -405,14 +405,27 @@ fn aps24_histories_match_reference_model() {
         let field = format!("f{}", rng.below(3));
         let at = rng.below(60) as i64 * 86400;
         let value = value(&mut rng, false);
-        model.entry((id, field.clone())).or_default().insert(at, value.clone());
-        graph.record_history(id, at, &HashMap::from([(field.clone(), value)]), &[field]).unwrap();
+        model
+            .entry((id, field.clone()))
+            .or_default()
+            .insert(at, value.clone());
+        graph
+            .record_history(id, at, &HashMap::from([(field.clone(), value)]), &[field])
+            .unwrap();
         for ((id, field), versions) in &model {
             let node = graph.get_node(*id).unwrap();
             for at in [-1, 0, 13 * 86400, 35 * 86400, 100 * 86400] {
                 let expected = versions.range(..=at).next_back().map(|(_, value)| value);
-                let view = crate::history::AsOf { node, histories: graph.history.get().unwrap(), at };
-                assert_eq!(view.prop(field), expected, "step {step}, node {id}, field {field}, at {at}");
+                let view = crate::history::AsOf {
+                    node,
+                    histories: graph.history.get().unwrap(),
+                    at,
+                };
+                assert_eq!(
+                    view.prop(field),
+                    expected,
+                    "step {step}, node {id}, field {field}, at {at}"
+                );
             }
         }
         if step % 100 == 0 {

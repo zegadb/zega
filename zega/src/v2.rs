@@ -372,9 +372,19 @@ fn run_statement(
 ) -> Result<Json, LangError> {
     match statement {
         Statement::Run(query) => {
-            if query.mutation { journal.configure_time(schema,query.at); }
-            work.at = match query.time { Some(crate::lang::TimeClause::AsOf(at)) => Some(at), _ => None };
-            work.series = match &query.time { Some(crate::lang::TimeClause::Series {from,to,unit}) => Some((*from,*to,unit.clone())), _ => None };
+            if query.mutation {
+                journal.configure_time(schema, query.at);
+            }
+            work.at = match query.time {
+                Some(crate::lang::TimeClause::AsOf(at)) => Some(at),
+                _ => None,
+            };
+            work.series = match &query.time {
+                Some(crate::lang::TimeClause::Series { from, to, unit }) => {
+                    Some((*from, *to, unit.clone()))
+                }
+                _ => None,
+            };
             if !query.mutation && (!query.then.is_empty() || query.skip) {
                 return discovery::pipeline(graph, schema, query, work);
             }
@@ -388,7 +398,7 @@ fn run_statement(
             }
         }
         Statement::Load { template, .. } => {
-            journal.configure_time(schema,None);
+            journal.configure_time(schema, None);
             if let Some(error) = crate::lang::missing_columns(template, rows)
                 .into_iter()
                 .next()
@@ -890,7 +900,9 @@ fn apply_node(
     let mut lists: HashMap<String, Vec<Json>> = HashMap::new();
     for item in &sel.items {
         match item {
-            Item::Series(_,span) | Item::Time(_,_,_,span) => return Err(LangError::at(*span,"time selections belong in queries")),
+            Item::Series(_, span) | Item::Time(_, _, _, span) => {
+                return Err(LangError::at(*span, "time selections belong in queries"))
+            }
             Item::Prop(name, _) => {
                 object.insert(name.clone(), prop_json(&node, name));
             }
@@ -1324,29 +1336,63 @@ fn project(
         if let Some(rel) = arrived { trace.rels.insert(rel); }
     }
     let historical = if let Some(at) = context.work.at {
-        Some(crate::history::AsOf { node, histories: graph.history.get().map_err(LangError::bare)?, at })
-    } else { None };
-    let scalar: &dyn NodeView = historical.as_ref().map_or(&node as &dyn NodeView, |view| view);
+        Some(crate::history::AsOf {
+            node,
+            histories: graph.history.get().map_err(LangError::bare)?,
+            at,
+        })
+    } else {
+        None
+    };
+    let scalar: &dyn NodeView = historical
+        .as_ref()
+        .map_or(&node as &dyn NodeView, |view| view);
     let mut object = serde_json::Map::new();
     for item in &sel.items {
         match item {
             Item::Prop(name, _) => {
                 ensure_prop(schema, sel, name)?;
-                let value=if let Some(at)=context.work.at { prop_json(crate::history::AsOf {node,histories:graph.history.get().map_err(LangError::bare)?,at},name) } else { prop_json(node,name) };
+                let value = if let Some(at) = context.work.at {
+                    prop_json(
+                        crate::history::AsOf {
+                            node,
+                            histories: graph.history.get().map_err(LangError::bare)?,
+                            at,
+                        },
+                        name,
+                    )
+                } else {
+                    prop_json(node, name)
+                };
                 object.insert(name.clone(), value);
             }
-            Item::Series(name,span) => {
-                let (from,to,unit)=context.work.series.clone().ok_or_else(||LangError::at(*span,"<field> needs from <date> to <date> by day|week|month"))?;
-                object.insert(name.clone(),time::series(graph,id,name,from,to,&unit,context.work)?);
+            Item::Series(name, span) => {
+                let (from, to, unit) = context.work.series.clone().ok_or_else(|| {
+                    LangError::at(
+                        *span,
+                        "<field> needs from <date> to <date> by day|week|month",
+                    )
+                })?;
+                object.insert(
+                    name.clone(),
+                    time::series(graph, id, name, from, to, &unit, context.work)?,
+                );
             }
-            Item::Time(alias,last,test,_) => {
-                let at=time::first_last(graph,schema,id,test,*last,context.work)?;
-                object.insert(alias.clone(),at.map_or(Json::Null,|t|json!(crate::history::format_date(t))));
+            Item::Time(alias, last, test, _) => {
+                let at = time::first_last(graph, schema, id, test, *last, context.work)?;
+                object.insert(
+                    alias.clone(),
+                    at.map_or(Json::Null, |t| json!(crate::history::format_date(t))),
+                );
             }
             Item::Id(alias) => { object.insert(alias.clone(), json!(node.id)); }
             Item::Detach(_) => {}
-            Item::Score(alias, _) => { object.insert(alias.clone(), score_json(scalar, sel)); }
-            Item::Similarity(alias, sim) => { object.insert(alias.clone(), similarity_json(scalar, sim)); }
+            Item::Score(alias, _) => {
+                object.insert(alias.clone(), score_json(scalar, sel));
+            }
+            Item::Similarity(alias, sim) => {
+                object.insert(alias.clone(), similarity_json(scalar, sim));
+            }
             Item::Distance(alias, distance) => {
                 object.insert(
                     alias.clone(),
@@ -1940,7 +1986,9 @@ fn index_filter(
     expr: &BoolExpr,
     work: &mut Work,
 ) -> Result<Option<HashSet<NodeId>>, LangError> {
-    if work.at.is_some() { return Ok(None); }
+    if work.at.is_some() {
+        return Ok(None);
+    }
     Ok(match expr {
         BoolExpr::Test(Pred::Box(field, bounds, _)) => {
             Some(graph.spatial_candidates(field, *bounds))
@@ -2060,7 +2108,12 @@ fn candidates(
     // point outside is farther than the kth match, so early stopping is exact.
     // Only when the first key is the nearest distance first: a later key
     // breaks ties among rows that are all inside the circle.
-    if let Some(OrderKey { by: OrderBy::Distance(order), desc: false, .. }) = sel.order.first().filter(|_|work.at.is_none()) {
+    if let Some(OrderKey {
+        by: OrderBy::Distance(order),
+        desc: false,
+        ..
+    }) = sel.order.first().filter(|_| work.at.is_none())
+    {
         if sel.limit == Some(0) {
             return Ok(Vec::new());
         }
@@ -2123,17 +2176,36 @@ fn order_limit<T>(
             for row in ids.iter() {
                 work.step()?;
                 if let Some(node) = graph.get_node(id(row)) {
-                    let view = crate::history::AsOf { node, histories: graph.history.get().map_err(LangError::bare)?, at };
-                    if let Some(score) = node_similarity(view, &near.similarity) { ranked.push((node.id, score)); }
+                    let view = crate::history::AsOf {
+                        node,
+                        histories: graph.history.get().map_err(LangError::bare)?,
+                        at,
+                    };
+                    if let Some(score) = node_similarity(view, &near.similarity) {
+                        ranked.push((node.id, score));
+                    }
                 }
             }
-        } else { for metric in [Metric::Cosine, Metric::Dot, Metric::L2] {
-            let mut q = near.similarity.query.clone(); q.metric = metric;
-            ranked.extend(graph.vector_nearest(&near.similarity.field, &q, near.k, near.exact, |n| allowed.contains(&n)));
+        } else {
+            for metric in [Metric::Cosine, Metric::Dot, Metric::L2] {
+                let mut q = near.similarity.query.clone();
+                q.metric = metric;
+                ranked.extend(graph.vector_nearest(
+                    &near.similarity.field,
+                    &q,
+                    near.k,
+                    near.exact,
+                    |n| allowed.contains(&n),
+                ));
+            }
         }
-        }
-        ranked.sort_by(|a,b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0))); ranked.truncate(near.k);
-        let ranks: HashMap<_,_> = ranked.iter().enumerate().map(|(i,(id,_))| (*id,i)).collect();
+        ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        ranked.truncate(near.k);
+        let ranks: HashMap<_, _> = ranked
+            .iter()
+            .enumerate()
+            .map(|(i, (id, _))| (*id, i))
+            .collect();
         ids.retain(|row| ranks.contains_key(&id(row)));
         ids.sort_by_key(|row| ranks[&id(row)]);
     }
@@ -2148,17 +2220,31 @@ fn order_limit<T>(
             for key in &sel.order {
                 values.push(match &key.by {
                     OrderBy::Distance(distance) => match if work.at.is_some() {
-                        match time::property(graph, id(&row), &distance.field, work.at)? { Some(Value::Point(point)) => Some(point.distance(distance.origin)), _ => None }
-                    } else { node_distance(graph, id(&row), distance) } {
+                        match time::property(graph, id(&row), &distance.field, work.at)? {
+                            Some(Value::Point(point)) => Some(point.distance(distance.origin)),
+                            _ => None,
+                        }
+                    } else {
+                        node_distance(graph, id(&row), distance)
+                    } {
                         Some(d) => SortValue::Float(d),
                         // No location, no distance: such a row is not in a distance order.
                         None => continue 'rows,
                     },
                     OrderBy::Field(field) => {
-                        if let (Some(node),Some(at))=(node,work.at) {
-                            SortValue::of(crate::history::AsOf {node,histories:graph.history.get().map_err(LangError::bare)?,at}.prop(field))
-                        } else { SortValue::of(node.and_then(|n| n.prop(field))) }
-                    },
+                        if let (Some(node), Some(at)) = (node, work.at) {
+                            SortValue::of(
+                                crate::history::AsOf {
+                                    node,
+                                    histories: graph.history.get().map_err(LangError::bare)?,
+                                    at,
+                                }
+                                .prop(field),
+                            )
+                        } else {
+                            SortValue::of(node.and_then(|n| n.prop(field)))
+                        }
+                    }
                 });
             }
             keyed.push((values, row));
@@ -2347,23 +2433,46 @@ fn pred_matches(
         return Ok(false);
     };
     match pred {
-        Pred::Chain(walk) => return chain::holds(graph,schema,id,walk,work),
-        Pred::Ever(always,test,_) => return time::ever_always(graph,schema,id,test,*always,work),
-        Pred::Time(last,test,cmp,at,_) => return Ok(time::first_last(graph,schema,id,test,*last,work)?.is_some_and(|t| match cmp {
-            crate::lang::TimeCompare::Equal => t == *at,
-            crate::lang::TimeCompare::NotEqual => t != *at,
-            crate::lang::TimeCompare::Ordered(cmp) => cmp_json(&json!(t), *cmp, &json!(at)),
-        })),
+        Pred::Chain(walk) => return chain::holds(graph, schema, id, walk, work),
+        Pred::Ever(always, test, _) => {
+            return time::ever_always(graph, schema, id, test, *always, work)
+        }
+        Pred::Time(last, test, cmp, at, _) => {
+            return Ok(
+                time::first_last(graph, schema, id, test, *last, work)?.is_some_and(
+                    |t| match cmp {
+                        crate::lang::TimeCompare::Equal => t == *at,
+                        crate::lang::TimeCompare::NotEqual => t != *at,
+                        crate::lang::TimeCompare::Ordered(cmp) => {
+                            cmp_json(&json!(t), *cmp, &json!(at))
+                        }
+                    },
+                ),
+            )
+        }
         _ => {}
     }
-    if let Some(at)=work.at {
-        Ok(pred_on(crate::history::AsOf {node,histories:graph.history.get().map_err(LangError::bare)?,at},pred))
-    } else { Ok(pred_on(node,pred)) }
+    if let Some(at) = work.at {
+        Ok(pred_on(
+            crate::history::AsOf {
+                node,
+                histories: graph.history.get().map_err(LangError::bare)?,
+                at,
+            },
+            pred,
+        ))
+    } else {
+        Ok(pred_on(node, pred))
+    }
 }
 fn pred_on(node: impl NodeView + Copy, pred: &Pred) -> bool {
     match pred {
-        Pred::Chain(_) | Pred::Ever(..) | Pred::Time(..) => unreachable!("handled before scalar predicates"),
-        Pred::Similarity(sim, op, threshold) => node_similarity(node, sim).is_some_and(|s| cmp_json(&json!(s), *op, &json!(threshold))),
+        Pred::Chain(_) | Pred::Ever(..) | Pred::Time(..) => {
+            unreachable!("handled before scalar predicates")
+        }
+        Pred::Similarity(sim, op, threshold) => {
+            node_similarity(node, sim).is_some_and(|s| cmp_json(&json!(s), *op, &json!(threshold)))
+        }
         Pred::Distance(distance, op, metres) => {
             point_prop(node, &distance.field).is_some_and(|point| {
                 cmp_json(&json!(point.distance(distance.origin)), *op, &json!(metres))
@@ -2480,12 +2589,23 @@ fn score_json(node: impl NodeView, sel: &Selection) -> Json { sel.near.as_ref().
 fn json_to_prop(schema: &Schema, sel: &Selection, field: &str, value: &Json) -> Result<Value, LangError> {
     if !value.is_null() {
         if let Ok(crate::lang::Field::Prop { ty, .. }) = schema.prop(&sel.type_name, field) {
-            let ty=crate::history::plain_type(ty);
+            let ty = crate::history::plain_type(ty);
             if ty.ends_with("[]") {
-                let values=value.as_array().ok_or_else(||LangError::at(sel.type_span,"list field needs an array"))?;
-                return values.iter().map(json_to_value).collect::<Result<Vec<_>,_>>().map(|v|Value::List(v.into()));
+                let values = value
+                    .as_array()
+                    .ok_or_else(|| LangError::at(sel.type_span, "list field needs an array"))?;
+                return values
+                    .iter()
+                    .map(json_to_value)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(|v| Value::List(v.into()));
             }
-            if let Some(spec) = VectorSpec::parse(&ty) { return spec.value(value).map(|v| Value::Vector(Box::new(v))).map_err(|m| LangError::at(sel.type_span,m)); }
+            if let Some(spec) = VectorSpec::parse(&ty) {
+                return spec
+                    .value(value)
+                    .map(|v| Value::Vector(Box::new(v)))
+                    .map_err(|m| LangError::at(sel.type_span, m));
+            }
         }
     }
     json_to_value(value)
@@ -2519,7 +2639,7 @@ fn json_to_value(value: &Json) -> Result<Value, LangError> {
 /// wasm32 (where there is no clock to read) out of it.
 pub(crate) struct Work {
     at: Option<i64>,
-    series: Option<(i64,i64,String)>,
+    series: Option<(i64, i64, String)>,
     left: usize,
     deadline: Option<Deadline>,
     /// For a chain's `within N hops`, the end nodes an index pinned: by
@@ -2544,7 +2664,8 @@ const STEPS_PER_CLOCK_READ: u32 = 256;
 impl Work {
     pub(crate) fn new(relationships: usize, limit: Option<Duration>) -> Self {
         Work {
-            at: None, series: None,
+            at: None,
+            series: None,
             left: relationships,
             deadline: limit.map(|limit| Deadline {
                 at: Instant::now() + limit,

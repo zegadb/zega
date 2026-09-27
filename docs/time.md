@@ -6,15 +6,52 @@ time-varying items. The existing whole-array assignment writes every item;
 there is no indexed-item assignment syntax in this phase.
 
 ```zql
-type Team { name: String points: <Int> }
-mutation at 2024-01-01 { Team(name: "Oilers" && points: 10) { name } }
-mutation at 2024-01-15 { Team(name = "Oilers") set points: 30 { points } }
-mutation at 2024-01-08 { Team(name = "Oilers") set points: 20 { points } }
-{ Team limit 32 { name points } } as of 2024-01-10
-{ Team(name = "Oilers") { <points> } } from 2024-01-01 to 2024-02-01 by week
-{ Team(ever points >= 20 && always points >= 10) limit 32 {
-  name @firstTime(points >= 20) @lastTime(points >= 20)
-} }
+schema {
+  type Team {
+    name: String
+    points:<Int>
+  }
+}
+```
+
+```zql
+mutation at 2024-01-01 {
+  Team(name: "Oilers" && points: 10) { name }
+}
+```
+
+```zql
+mutation at 2024-01-15 {
+  Team(name = "Oilers") set points: 30 { points }
+}
+```
+
+```zql
+mutation at 2024-01-08 {
+  Team(name = "Oilers") set points: 20 { points }
+}
+```
+
+```zql
+{
+  Team limit 32 { name points }
+} as of 2024-01-10
+```
+
+```zql
+{
+  Team(name = "Oilers") { < points > }
+} from 2024-01-01 to 2024-02-01 by week
+```
+
+```zql
+{
+  Team(ever points >= 20 && always points >= 10) limit 32 {
+    name
+    @firstTime(points >= 20)
+    @lastTime(points >= 20)
+  }
+}
 ```
 
 Dates accept `YYYY-MM-DD` and `YYYY-MM-DDTHH:MM`, in UTC. The only additional

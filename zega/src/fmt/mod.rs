@@ -463,7 +463,8 @@ impl<'a> Printer<'a> {
             }
         };
         let Query {
-            at: _, time,
+            at: _,
+            time,
             mutation: _,
             root,
             skip,
@@ -484,10 +485,18 @@ impl<'a> Printer<'a> {
         if let Some(time) = time {
             let mut p = self.parser();
             match time {
-                TimeClause::AsOf(_) => { p.expect_word("as")?; p.expect_word("of")?; p.time_date()?; }
+                TimeClause::AsOf(_) => {
+                    p.expect_word("as")?;
+                    p.expect_word("of")?;
+                    p.time_date()?;
+                }
                 TimeClause::Series { .. } => {
-                    p.expect_word("from")?; p.time_date()?; p.expect_word("to")?;
-                    p.time_date()?; p.expect_word("by")?; p.ident()?;
+                    p.expect_word("from")?;
+                    p.time_date()?;
+                    p.expect_word("to")?;
+                    p.time_date()?;
+                    p.expect_word("by")?;
+                    p.ident()?;
                 }
             }
             let suffix = self.until(p.i, false);
@@ -732,7 +741,9 @@ impl<'a> Printer<'a> {
                 distance_form(distance);
                 Ok(Node::leaf(self.until(end, false)))
             }
-            Item::Series(..) | Item::Time(..) | Item::Score(_, _)
+            Item::Series(..)
+            | Item::Time(..)
+            | Item::Score(_, _)
             | Item::Prop(_, _)
             | Item::Hops(_)
             | Item::Id(_)

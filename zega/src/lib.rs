@@ -601,20 +601,43 @@ impl Drop for Zega {
 #[cfg(not(target_arch = "wasm32"))]
 fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path) -> Result<()> {
     match op {
-        Operation::InsertNodeAt { id, labels, props, at, fields } => {
+        Operation::InsertNodeAt {
+            id,
+            labels,
+            props,
+            at,
+            fields,
+        } => {
             graph.restore_node(*id, labels.clone(), props.clone());
-            graph.record_history(*id,*at,props,fields).map_err(ZegaError::Execution)?;
+            graph
+                .record_history(*id, *at, props, fields)
+                .map_err(ZegaError::Execution)?;
         }
-        Operation::UpdateNodeAt { id, props, at, fields } => {
+        Operation::UpdateNodeAt {
+            id,
+            props,
+            at,
+            fields,
+        } => {
             if graph.get_node(*id).is_some() {
-                graph.record_history(*id,*at,props,fields).map_err(ZegaError::Execution)?;
-                let mut current=props.clone();
+                graph
+                    .record_history(*id, *at, props, fields)
+                    .map_err(ZegaError::Execution)?;
+                let mut current = props.clone();
                 for field in fields {
-                    if let Some(h)=graph.history.get().map_err(ZegaError::Execution)?.get(&(*id,field.clone())) {
-                        current.insert(field.clone(),h.changes.last().expect("nonempty history").1.clone());
+                    if let Some(h) = graph
+                        .history
+                        .get()
+                        .map_err(ZegaError::Execution)?
+                        .get(&(*id, field.clone()))
+                    {
+                        current.insert(
+                            field.clone(),
+                            h.changes.last().expect("nonempty history").1.clone(),
+                        );
                     }
                 }
-                graph.update_node(*id,current);
+                graph.update_node(*id, current);
             }
         }
         Operation::InsertNode { id, labels, props } => {
@@ -624,7 +647,13 @@ fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path)
             graph.update_node(*id, props.clone());
         }
         Operation::DeleteNode { id } => {
-            if graph.history.has_data() { graph.history.get_mut().map_err(ZegaError::Execution)?.retain(|(n,_),_| n!=id); }
+            if graph.history.has_data() {
+                graph
+                    .history
+                    .get_mut()
+                    .map_err(ZegaError::Execution)?
+                    .retain(|(n, _), _| n != id);
+            }
             graph.delete_node(*id);
         }
         Operation::InsertRel {

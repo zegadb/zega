@@ -141,10 +141,22 @@ pub fn diff_schemas(old: &Schema, new: &Schema, graph: &Graph) -> SchemaDiffRepo
 }
 
 fn history_count(graph: &Graph, ty: &str, field: Option<&str>) -> u64 {
-    if !graph.history.has_data() { return 0; }
-    graph.history.get().map(|histories| histories.keys().filter(|(id, name)| {
-        field.is_none_or(|field| field == name) && graph.get_node(*id).is_some_and(|node| node.has_label(ty))
-    }).count() as u64).unwrap_or(u64::MAX)
+    if !graph.history.has_data() {
+        return 0;
+    }
+    graph
+        .history
+        .get()
+        .map(|histories| {
+            histories
+                .keys()
+                .filter(|(id, name)| {
+                    field.is_none_or(|field| field == name)
+                        && graph.get_node(*id).is_some_and(|node| node.has_label(ty))
+                })
+                .count() as u64
+        })
+        .unwrap_or(u64::MAX)
 }
 
 fn diff_type_fields(graph: &Graph, old_ty: &TypeDef, new_ty: &TypeDef, changes: &mut Vec<SchemaChange>) {
@@ -160,7 +172,11 @@ fn diff_type_fields(graph: &Graph, old_ty: &TypeDef, new_ty: &TypeDef, changes: 
                 renamed_field_to = Some(to);
                 let affected = count_nodes_with_prop(graph, &old_ty.name, from);
                 changes.push(SchemaChange {
-                    severity: if history_count(graph, &old_ty.name, Some(from)) > 0 { Severity::Blocks } else { Severity::Warn },
+                    severity: if history_count(graph, &old_ty.name, Some(from)) > 0 {
+                        Severity::Blocks
+                    } else {
+                        Severity::Warn
+                    },
                     kind: ChangeKind::FieldRenamed {
                         type_name: old_ty.name.clone(),
                         from: from.to_string(),
@@ -180,19 +196,57 @@ fn diff_type_fields(graph: &Graph, old_ty: &TypeDef, new_ty: &TypeDef, changes: 
         }
 
         match old_field {
-            Field::Prop { name, ty, optional, .. } => {
-                if let Some(Field::Prop { ty: new_ty_str, optional: new_optional, .. }) = new_fields.get(name.as_str()) {
-                    let old_plain=crate::history::plain_type(ty);
-                    let new_plain=crate::history::plain_type(new_ty_str);
+            Field::Prop {
+                name, ty, optional, ..
+            } => {
+                if let Some(Field::Prop {
+                    ty: new_ty_str,
+                    optional: new_optional,
+                    ..
+                }) = new_fields.get(name.as_str())
+                {
+                    let old_plain = crate::history::plain_type(ty);
+                    let new_plain = crate::history::plain_type(new_ty_str);
                     if crate::history::is_temporal(ty) != crate::history::is_temporal(new_ty_str) {
-                        let affected=if crate::history::is_temporal(ty) {
-                            graph.history.get().map(|h|h.iter().filter(|((id,f),_)| f==name && graph.get_node(*id).is_some_and(|n|n.has_label(&old_ty.name))).count() as u64).unwrap_or(u64::MAX)
-                        } else {0};
+                        let affected = if crate::history::is_temporal(ty) {
+                            graph
+                                .history
+                                .get()
+                                .map(|h| {
+                                    h.iter()
+                                        .filter(|((id, f), _)| {
+                                            f == name
+                                                && graph
+                                                    .get_node(*id)
+                                                    .is_some_and(|n| n.has_label(&old_ty.name))
+                                        })
+                                        .count() as u64
+                                })
+                                .unwrap_or(u64::MAX)
+                        } else {
+                            0
+                        };
                         changes.push(SchemaChange {
-                            severity:if affected>0 {Severity::Blocks}else{Severity::Safe},
-                            kind:ChangeKind::FieldTypeChanged {type_name:old_ty.name.clone(),field:name.clone(),from:ty.clone(),to:new_ty_str.clone()},
+                            severity: if affected > 0 {
+                                Severity::Blocks
+                            } else {
+                                Severity::Safe
+                            },
+                            kind: ChangeKind::FieldTypeChanged {
+                                type_name: old_ty.name.clone(),
+                                field: name.clone(),
+                                from: ty.clone(),
+                                to: new_ty_str.clone(),
+                            },
                             affected,
-                            message:if affected>0 {format!("removing <T> from {}.{} would discard history",old_ty.name,name)}else{format!("changes history typing of {}.{} safely",old_ty.name,name)},
+                            message: if affected > 0 {
+                                format!(
+                                    "removing <T> from {}.{} would discard history",
+                                    old_ty.name, name
+                                )
+                            } else {
+                                format!("changes history typing of {}.{} safely", old_ty.name, name)
+                            },
                         });
                     }
                     let old_base = base_type(&old_plain);

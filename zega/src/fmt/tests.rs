@@ -63,7 +63,10 @@ fn ast(source: &str) -> Result<Parsed> {
                 terms.iter_mut().for_each(expr);
             }
             BoolExpr::Test(p) => match p {
-                Pred::Ever(_, test, s) | Pred::Time(_, test, _, _, s) => { span(s); expr(test); }
+                Pred::Ever(_, test, s) | Pred::Time(_, test, _, _, s) => {
+                    span(s);
+                    expr(test);
+                }
                 Pred::Similarity(sim, _, _) => span(&mut sim.span),
                 Pred::Distance(distance, _, _) => span(&mut distance.span),
                 Pred::Box(_, _, s)
@@ -120,7 +123,10 @@ fn ast(source: &str) -> Result<Parsed> {
         }
         for item in &mut sel.items {
             match item {
-                Item::Time(_, _, test, s) => { span(s); expr(test); }
+                Item::Time(_, _, test, s) => {
+                    span(s);
+                    expr(test);
+                }
                 Item::Series(_, s) => span(s),
                 Item::Score(_, s)
                 | Item::Prop(_, s)

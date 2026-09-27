@@ -265,7 +265,10 @@ pub enum Direction {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum TimeClause { AsOf(i64), Series { from: i64, to: i64, unit: String } }
+pub enum TimeClause {
+    AsOf(i64),
+    Series { from: i64, to: i64, unit: String },
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Query {
@@ -489,7 +492,11 @@ impl DistanceUnit {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum TimeCompare { Ordered(Cmp), Equal, NotEqual }
+pub enum TimeCompare {
+    Ordered(Cmp),
+    Equal,
+    NotEqual,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Pred {
@@ -878,9 +885,19 @@ fn json_matches(ty: &str, value: &Json) -> bool {
     {
         return true;
     }
-    if crate::history::is_temporal(ty) { return json_matches(&crate::history::plain_type(ty), value); }
-    if let Some(inner) = ty.strip_suffix("[]") { return value.as_array().is_some_and(|a| a.iter().all(|v| json_matches(inner,v))); }
-    if ty == "Date" { return value.as_str().is_some_and(|s| crate::history::date(s).is_ok()); }
+    if crate::history::is_temporal(ty) {
+        return json_matches(&crate::history::plain_type(ty), value);
+    }
+    if let Some(inner) = ty.strip_suffix("[]") {
+        return value
+            .as_array()
+            .is_some_and(|a| a.iter().all(|v| json_matches(inner, v)));
+    }
+    if ty == "Date" {
+        return value
+            .as_str()
+            .is_some_and(|s| crate::history::date(s).is_ok());
+    }
     match ty {
         "String" => value.is_string(),
         "String<url>" | "String<iso2>" => value.as_str().is_some_and(|text| valid_unit_string(ty, text)),
@@ -1150,17 +1167,29 @@ impl<'a> Parser<'a> {
             let _ = self.eat_word("query");
         }
         self.columns = false;
-        let at = if mutation && self.eat_word("at") { Some(self.time_date()?) } else { None };
+        let at = if mutation && self.eat_word("at") {
+            Some(self.time_date()?)
+        } else {
+            None
+        };
         let mut query = self.parse_braced(mutation)?;
         query.at = at;
         if !mutation && self.eat_word("as") {
-            self.expect_word("of")?; query.time = Some(TimeClause::AsOf(self.time_date()?));
+            self.expect_word("of")?;
+            query.time = Some(TimeClause::AsOf(self.time_date()?));
         } else if !mutation && self.eat_word("from") {
-            let from = self.time_date()?; self.expect_word("to")?; let to = self.time_date()?;
-            self.expect_word("by")?; let (unit,span)=self.ident()?;
-            if !matches!(unit.as_str(), "day"|"week"|"month") { return Err(self.err_at(span,"time series use day, week, or month")); }
-            if from>to { return Err(self.err_at(span,"series starts after it ends")); }
-            query.time = Some(TimeClause::Series { from,to,unit });
+            let from = self.time_date()?;
+            self.expect_word("to")?;
+            let to = self.time_date()?;
+            self.expect_word("by")?;
+            let (unit, span) = self.ident()?;
+            if !matches!(unit.as_str(), "day" | "week" | "month") {
+                return Err(self.err_at(span, "time series use day, week, or month"));
+            }
+            if from > to {
+                return Err(self.err_at(span, "series starts after it ends"));
+            }
+            query.time = Some(TimeClause::Series { from, to, unit });
         }
         self.take_pipeline(&mut query)?;
         Ok(Statement::Run(query))
@@ -1205,7 +1234,8 @@ impl<'a> Parser<'a> {
         if self.eat("}") {
             return Ok(Query {
                 mutation,
-                at: None, time: None,
+                at: None,
+                time: None,
                 skip: false,
                 then: Vec::new(),
                 root: None,
@@ -1215,7 +1245,8 @@ impl<'a> Parser<'a> {
         self.expect("}")?;
         Ok(Query {
             mutation,
-            at: None, time: None,
+            at: None,
+            time: None,
             skip: false,
             then: Vec::new(),
             root: Some(root),
@@ -1634,8 +1665,10 @@ impl<'a> Parser<'a> {
         let alias = alias.unwrap_or_else(|| name.clone());
         match name.as_str() {
             "firstTime" | "lastTime" => {
-                self.expect("(")?; let test=self.nested(self.i, Self::parse_or)?; self.expect(")")?;
-                Ok(Item::Time(alias,name=="lastTime",Box::new(test),span))
+                self.expect("(")?;
+                let test = self.nested(self.i, Self::parse_or)?;
+                self.expect(")")?;
+                Ok(Item::Time(alias, name == "lastTime", Box::new(test), span))
             }
             "hops" => {
                 if self.eat(":") {
@@ -1744,9 +1777,18 @@ impl<'a> Parser<'a> {
                 ty = format!("Vector<{n},{metric}>");
             }
             let unit = self.parse_unit(&mut ty, ty_span)?;
-            if self.eat("[") { self.expect("]")?; ty.push_str("[]"); }
-            if temporal { self.expect(">")?; ty = format!("<{ty}>"); }
-            if self.eat("[") { self.expect("]")?; ty.push_str("[]"); }
+            if self.eat("[") {
+                self.expect("]")?;
+                ty.push_str("[]");
+            }
+            if temporal {
+                self.expect(">")?;
+                ty = format!("<{ty}>");
+            }
+            if self.eat("[") {
+                self.expect("]")?;
+                ty.push_str("[]");
+            }
             let from = if self.starts_call("from", "(") {
                 self.expect_word("from")?;
                 if ty != "Point" && VectorSpec::parse(&ty).is_none() {
@@ -1903,7 +1945,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_ref(&mut self) -> Result<(Vec<String>, Vec<Span>, bool)> {
-        if self.eat("<") { return Err(self.err("not yet: APS 24 phase 2 (time-typed relationships)")); }
+        if self.eat("<") {
+            return Err(self.err("not yet: APS 24 phase 2 (time-typed relationships)"));
+        }
         self.skip();
         if self.eat("(") {
             let mut targets = Vec::new();
@@ -2106,7 +2150,11 @@ impl<'a> Parser<'a> {
 
     #[inline(never)]
     fn item_head(&mut self) -> Result<ItemHead> {
-        if self.eat("<") { let (name,span)=self.ident()?; self.expect(">")?; return Ok(ItemHead::Done(Item::Series(name,span))); }
+        if self.eat("<") {
+            let (name, span) = self.ident()?;
+            self.expect(">")?;
+            return Ok(ItemHead::Done(Item::Series(name, span)));
+        }
         self.skip();
         self.reject_discovery_block()?;
         if self.src[self.i..].starts_with('@') {
@@ -2357,26 +2405,55 @@ impl<'a> Parser<'a> {
     /// of line, to keep this frame small on the recursive path
     /// (zegadb/zega#48).
     fn parse_pred(&mut self) -> Result<Pred> {
-        self.skip(); let start = self.i;
+        self.skip();
+        let start = self.i;
         if self.starts_word("ever") || self.starts_word("always") {
-            let always = self.eat_word("always"); if !always { self.expect_word("ever")?; }
+            let always = self.eat_word("always");
+            if !always {
+                self.expect_word("ever")?;
+            }
             let test = self.nested(start, Self::parse_atom)?;
-            return Ok(Pred::Ever(always, Box::new(test), self.span_bytes(start,self.i)));
+            return Ok(Pred::Ever(
+                always,
+                Box::new(test),
+                self.span_bytes(start, self.i),
+            ));
         }
-        if self.src[self.i..].starts_with("@firstTime") || self.src[self.i..].starts_with("@lastTime") {
-            self.expect("@")?; let (function, span) = self.ident()?;
-            if !matches!(function.as_str(), "firstTime" | "lastTime") { return Err(self.err_at(span, "expected @firstTime or @lastTime")); }
+        if self.src[self.i..].starts_with("@firstTime")
+            || self.src[self.i..].starts_with("@lastTime")
+        {
+            self.expect("@")?;
+            let (function, span) = self.ident()?;
+            if !matches!(function.as_str(), "firstTime" | "lastTime") {
+                return Err(self.err_at(span, "expected @firstTime or @lastTime"));
+            }
             let last = function == "lastTime";
-            self.expect("(")?; let test=self.nested(self.i, Self::parse_or)?; self.expect(")")?;
-            let cmp = if self.eat("!=") { TimeCompare::NotEqual }
-                else if self.eat("=") { TimeCompare::Equal }
-                else if self.eat(">=") { TimeCompare::Ordered(Cmp::Gte) }
-                else if self.eat("<=") { TimeCompare::Ordered(Cmp::Lte) }
-                else if self.eat(">") { TimeCompare::Ordered(Cmp::Gt) }
-                else if self.eat("<") { TimeCompare::Ordered(Cmp::Lt) }
-                else { return Err(self.err("time comparison needs =, !=, <, <=, >, or >=")); };
-            let at=self.time_date()?;
-            return Ok(Pred::Time(last,Box::new(test),cmp,at,self.span_bytes(start,self.i)));
+            self.expect("(")?;
+            let test = self.nested(self.i, Self::parse_or)?;
+            self.expect(")")?;
+            let cmp = if self.eat("!=") {
+                TimeCompare::NotEqual
+            } else if self.eat("=") {
+                TimeCompare::Equal
+            } else if self.eat(">=") {
+                TimeCompare::Ordered(Cmp::Gte)
+            } else if self.eat("<=") {
+                TimeCompare::Ordered(Cmp::Lte)
+            } else if self.eat(">") {
+                TimeCompare::Ordered(Cmp::Gt)
+            } else if self.eat("<") {
+                TimeCompare::Ordered(Cmp::Lt)
+            } else {
+                return Err(self.err("time comparison needs =, !=, <, <=, >, or >="));
+            };
+            let at = self.time_date()?;
+            return Ok(Pred::Time(
+                last,
+                Box::new(test),
+                cmp,
+                at,
+                self.span_bytes(start, self.i),
+            ));
         }
         if let Some(word) = self.chain_word() {
             return self.chain(word).map(Pred::Chain);
@@ -3021,9 +3098,17 @@ impl<'a> Parser<'a> {
     }
 
     fn time_date(&mut self) -> Result<i64> {
-        self.skip(); let start=self.i;
-        while self.i < self.src.len() && self.src.as_bytes()[self.i].is_ascii() && (self.src.as_bytes()[self.i].is_ascii_digit() || matches!(self.src.as_bytes()[self.i],b'-'|b'T'|b':')) { self.i+=1; }
-        crate::history::date(&self.src[start..self.i]).map_err(|message| self.err_at(self.span_bytes(start,self.i),message))
+        self.skip();
+        let start = self.i;
+        while self.i < self.src.len()
+            && self.src.as_bytes()[self.i].is_ascii()
+            && (self.src.as_bytes()[self.i].is_ascii_digit()
+                || matches!(self.src.as_bytes()[self.i], b'-' | b'T' | b':'))
+        {
+            self.i += 1;
+        }
+        crate::history::date(&self.src[start..self.i])
+            .map_err(|message| self.err_at(self.span_bytes(start, self.i), message))
     }
 
     fn parse_value(&mut self) -> Result<Json> {
@@ -3034,15 +3119,22 @@ impl<'a> Parser<'a> {
                 if !p.eat("]") {
                     loop {
                         values.push(p.parse_value()?);
-                        if p.eat("]") { break; }
+                        if p.eat("]") {
+                            break;
+                        }
                         p.expect(",")?;
                     }
                 }
                 Ok(Json::Array(values))
             });
         }
-        if self.src.as_bytes()[self.i..].get(..5).is_some_and(|b| b[..4].iter().all(u8::is_ascii_digit) && b[4] == b'-') {
-            return self.time_date().map(|t| Json::String(crate::history::format_date(t)));
+        if self.src.as_bytes()[self.i..]
+            .get(..5)
+            .is_some_and(|b| b[..4].iter().all(u8::is_ascii_digit) && b[4] == b'-')
+        {
+            return self
+                .time_date()
+                .map(|t| Json::String(crate::history::format_date(t)));
         }
         if self.starts_call("vector", "[") { return Ok(self.vector()?.to_json()); }
         if self.starts_call("point", "(") {
@@ -3227,7 +3319,8 @@ fn bind_query(
         return Ok(Some(query.clone()));
     };
     Ok(bind_selection(root, row)?.map(|root| Query {
-        at: query.at, time: query.time.clone(),
+        at: query.at,
+        time: query.time.clone(),
         mutation: query.mutation,
         skip: query.skip,
         then: query.then.clone(),
@@ -3906,11 +3999,20 @@ impl Check<'_> {
                 Item::Score(_, span) => { if sel.near.is_none() { self.push(*span, "@score requires an @near(...) selection", None); } }
                 Item::Similarity(_, sim) => self.ensure_vector(sel, sim),
                 Item::Prop(name, span) => self.ensure_prop(sel, name, *span),
-                Item::Series(name,span) => {
-                    self.ensure_prop(sel,name,*span);
-                    if !matches!(self.schema.prop(&sel.type_name,name),Ok(Field::Prop {ty,..}) if crate::history::is_temporal(ty)) { self.push(*span,"series needs a <T> field",None); }
+                Item::Series(name, span) => {
+                    self.ensure_prop(sel, name, *span);
+                    if !matches!(self.schema.prop(&sel.type_name,name),Ok(Field::Prop {ty,..}) if crate::history::is_temporal(ty))
+                    {
+                        self.push(*span, "series needs a <T> field", None);
+                    }
                 }
-                Item::Time(_,_,test,_) => { let types=selection_types(sel).into_iter().map(str::to_string).collect::<Vec<_>>(); self.expr(sel,&types,test,Group::Alone); },
+                Item::Time(_, _, test, _) => {
+                    let types = selection_types(sel)
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect::<Vec<_>>();
+                    self.expr(sel, &types, test, Group::Alone);
+                }
                 Item::Distance(_, distance) => {
                     self.ensure_point(sel, &distance.field, distance.span)
                 }
@@ -4008,7 +4110,8 @@ impl Check<'_> {
     /// a chain's `same` may name.
     fn test(&mut self, sel: &Selection, types: &[String], pred: &Pred, earlier: &[BoolExpr], group: Group) {
         if let Pred::Ever(_, test, _) | Pred::Time(_, test, ..) = pred {
-            self.expr(sel,types,test,Group::Alone); return;
+            self.expr(sel, types, test, Group::Alone);
+            return;
         }
         if let Pred::Chain(chain) = pred {
             self.chain(types, chain, earlier, group);
@@ -4577,7 +4680,14 @@ impl Check<'_> {
 
     fn ensure_vector(&mut self, sel: &Selection, sim: &Similarity) {
         for name in selection_types(sel) {
-            let spec = self.schema.prop(name, &sim.field).ok().and_then(|f| match f { Field::Prop {ty,..} => VectorSpec::parse(&crate::history::plain_type(ty)), _ => None });
+            let spec = self
+                .schema
+                .prop(name, &sim.field)
+                .ok()
+                .and_then(|f| match f {
+                    Field::Prop { ty, .. } => VectorSpec::parse(&crate::history::plain_type(ty)),
+                    _ => None,
+                });
             match spec {
                 Some(spec) if spec.dimensions == sim.query.dimensions() => {},
                 Some(spec) => self.push(sim.span, format!("Vector<{}> query needs exactly {} numbers, got {}", spec.dimensions, spec.dimensions, sim.query.dimensions()), None),
@@ -4636,7 +4746,9 @@ impl Check<'_> {
         }
         for item in &sel.items {
             let refused = match item {
-                Item::Series(_, span) | Item::Time(_, _, _, span) => Some((*span, "a delete returns only `@id` and fields")),
+                Item::Series(_, span) | Item::Time(_, _, _, span) => {
+                    Some((*span, "a delete returns only `@id` and fields"))
+                }
                 Item::Detach(_) | Item::Id(_) | Item::Prop(_, _) => None,
                 Item::Walk { span, .. } => Some((*span, "a delete removes nodes, not relationships")),
                 Item::EdgeProp(_, span) | Item::EdgeSet(_, _, span) => Some((*span, "a deleted row was not reached by an edge")),

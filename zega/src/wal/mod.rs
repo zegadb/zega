@@ -83,8 +83,19 @@ pub enum Operation {
         file: String,
     },
     // APS 24: append only; the preceding discriminants are old WAL wire IDs.
-    InsertNodeAt { id: NodeId, labels: Vec<String>, props: HashMap<String,Value>, at:i64, fields:Vec<String> },
-    UpdateNodeAt { id: NodeId, props: HashMap<String,Value>, at:i64, fields:Vec<String> },
+    InsertNodeAt {
+        id: NodeId,
+        labels: Vec<String>,
+        props: HashMap<String, Value>,
+        at: i64,
+        fields: Vec<String>,
+    },
+    UpdateNodeAt {
+        id: NodeId,
+        props: HashMap<String, Value>,
+        at: i64,
+        fields: Vec<String>,
+    },
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -570,7 +581,9 @@ impl Wal {
 /// nothing left over, and no length prefix allowed to claim more than `bytes`
 /// holds. WAL entries, legacy WAL entries and snapshots all decode here, so a
 /// frame that is not exactly one value is corruption wherever it is read.
-pub(crate) fn decode_exact<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, bincode::Error> {
+pub(crate) fn decode_exact<T: serde::de::DeserializeOwned>(
+    bytes: &[u8],
+) -> Result<T, bincode::Error> {
     exact(bytes).deserialize(bytes)
 }
 
@@ -1060,7 +1073,7 @@ pub fn encode_snapshot(graph: &Graph) -> Result<Vec<u8>, WalError> {
     };
     let mut bytes = Vec::new();
     serialize_into(&mut bytes, &snapshot)?;
-    if let Some(history)=graph.history.bytes().map_err(io::Error::other)? {
+    if let Some(history) = graph.history.bytes().map_err(io::Error::other)? {
         bytes.extend_from_slice(&history);
         bytes.extend_from_slice(&(history.len() as u64).to_le_bytes());
         bytes.extend_from_slice(&crc32fast::hash(&history).to_le_bytes());
@@ -1121,8 +1134,10 @@ fn decode_snapshot_history(bytes: &[u8]) -> Result<Graph, WalError> {
     let (bytes, history) = if bytes.ends_with(b"HIST") && bytes.len() >= 16 {
         let end = bytes.len() - 16;
         let len = u64::from_le_bytes(bytes[end..end + 8].try_into().expect("8 bytes"));
-        let start = end.checked_sub(usize::try_from(len)
-            .map_err(|_| io::Error::other("HIST length overflow"))?)
+        let start = end
+            .checked_sub(
+                usize::try_from(len).map_err(|_| io::Error::other("HIST length overflow"))?,
+            )
             .ok_or_else(|| io::Error::other("invalid HIST length"))?;
         let history = &bytes[start..end];
         let crc = u32::from_le_bytes(bytes[end + 8..end + 12].try_into().expect("4 bytes"));
@@ -1134,17 +1149,19 @@ fn decode_snapshot_history(bytes: &[u8]) -> Result<Graph, WalError> {
         (bytes, None)
     };
     let mut restored = decode_snapshot_compatible(bytes)?;
-    if let Some(bytes) = history { restored.history = crate::history::Store::lazy(bytes); }
+    if let Some(bytes) = history {
+        restored.history = crate::history::Store::lazy(bytes);
+    }
     Ok(restored)
 }
 
 fn decode_snapshot_compatible(bytes: &[u8]) -> Result<Graph, WalError> {
-    decode_snapshot(bytes, SnapshotFormat::Current).or_else(|_| {
-        decode_snapshot(bytes, SnapshotFormat::Legacy)
-    }).map_err(|error| WalError::Corruption {
-        offset: 0,
-        reason: format!("invalid snapshot: {error}"),
-    })
+    decode_snapshot(bytes, SnapshotFormat::Current)
+        .or_else(|_| decode_snapshot(bytes, SnapshotFormat::Legacy))
+        .map_err(|error| WalError::Corruption {
+            offset: 0,
+            reason: format!("invalid snapshot: {error}"),
+        })
 }
 
 /// A snapshot is the graph, its id counters, and what its last `.graph`

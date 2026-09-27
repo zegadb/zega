@@ -57,7 +57,9 @@ pub(crate) fn atomically<T, E: From<WalError>>(
         ops: Vec::new(),
         undo: Vec::new(),
         next_ids: graph.next_ids(),
-        temporal: Vec::new(), at: crate::history::now(), history_error: None,
+        temporal: Vec::new(),
+        at: crate::history::now(),
+        history_error: None,
     };
     let result = statement(graph, &mut journal);
     let result = match journal.history_error.take() {
@@ -69,7 +71,8 @@ pub(crate) fn atomically<T, E: From<WalError>>(
             let Journal {
                 ops,
                 undo,
-                next_ids, ..
+                next_ids,
+                ..
             } = journal;
             if let Err(error) = wal.append_statement(ops) {
                 roll_back(graph, undo, next_ids);
@@ -88,9 +91,14 @@ fn roll_back(graph: &mut Graph, undo: Vec<Undo>, next_ids: (NodeId, RelId)) {
     for change in undo.into_iter().rev() {
         match change {
             Undo::History(id, before) => {
-                let histories = graph.history.get_mut().expect("history was decoded before mutation");
-                histories.retain(|(node,_),_| *node != id);
-                for (field,h) in before { histories.insert((id,field),h); }
+                let histories = graph
+                    .history
+                    .get_mut()
+                    .expect("history was decoded before mutation");
+                histories.retain(|(node, _), _| *node != id);
+                for (field, h) in before {
+                    histories.insert((id, field), h);
+                }
             }
             Undo::Created(id) => graph.delete_node(id),
             Undo::Replaced(node) => graph.restore_node(node.id, node.labels, node.props),
@@ -106,18 +114,44 @@ fn roll_back(graph: &mut Graph, undo: Vec<Undo>, next_ids: (NodeId, RelId)) {
 impl Journal {
     pub(crate) fn configure_time(&mut self, schema: &crate::lang::Schema, at: Option<i64>) {
         self.at = at.unwrap_or_else(crate::history::now);
-        self.temporal = schema.types.iter().flat_map(|t| t.fields.iter().filter_map(|f| match f {
-            crate::lang::Field::Prop {name,ty,..} if crate::history::is_temporal(ty) => Some((t.name.clone(),name.clone())),
-            _ => None,
-        })).collect();
+        self.temporal = schema
+            .types
+            .iter()
+            .flat_map(|t| {
+                t.fields.iter().filter_map(|f| match f {
+                    crate::lang::Field::Prop { name, ty, .. }
+                        if crate::history::is_temporal(ty) =>
+                    {
+                        Some((t.name.clone(), name.clone()))
+                    }
+                    _ => None,
+                })
+            })
+            .collect();
     }
-    fn fields(&self, labels: &[String], props: &HashMap<String,Value>) -> Vec<String> {
-        self.temporal.iter().filter(|(ty,f)| labels.contains(ty) && props.contains_key(f)).map(|(_,f)|f.clone()).collect()
+    fn fields(&self, labels: &[String], props: &HashMap<String, Value>) -> Vec<String> {
+        self.temporal
+            .iter()
+            .filter(|(ty, f)| labels.contains(ty) && props.contains_key(f))
+            .map(|(_, f)| f.clone())
+            .collect()
     }
     fn save_history(&mut self, graph: &mut Graph, id: NodeId) -> bool {
         match graph.history.get() {
-            Ok(h) => { self.undo.push(Undo::History(id,h.iter().filter(|((n,_),_)|*n==id).map(|((_,f),h)|(f.clone(),h.clone())).collect())); true }
-            Err(e) => { self.history_error=Some(e); false }
+            Ok(h) => {
+                self.undo.push(Undo::History(
+                    id,
+                    h.iter()
+                        .filter(|((n, _), _)| *n == id)
+                        .map(|((_, f), h)| (f.clone(), h.clone()))
+                        .collect(),
+                ));
+                true
+            }
+            Err(e) => {
+                self.history_error = Some(e);
+                false
+            }
         }
     }
 
@@ -129,11 +163,20 @@ impl Journal {
     ) -> NodeId {
         let id = graph.create_node(labels.clone(), props.clone());
         self.undo.push(Undo::Created(id));
-        let fields = self.fields(&labels,&props);
-        if fields.is_empty() { self.ops.push(Operation::InsertNode { id, labels, props }); }
-        else if self.save_history(graph,id) {
-            graph.record_history(id,self.at,&props,&fields).expect("decoded history");
-            self.ops.push(Operation::InsertNodeAt { id, labels, props, at:self.at, fields });
+        let fields = self.fields(&labels, &props);
+        if fields.is_empty() {
+            self.ops.push(Operation::InsertNode { id, labels, props });
+        } else if self.save_history(graph, id) {
+            graph
+                .record_history(id, self.at, &props, &fields)
+                .expect("decoded history");
+            self.ops.push(Operation::InsertNodeAt {
+                id,
+                labels,
+                props,
+                at: self.at,
+                fields,
+            });
         }
         id
     }
@@ -149,22 +192,37 @@ impl Journal {
         let Some(before) = graph.get_node(id).map(|node| node.to_node()) else {
             return;
         };
-        let fields = self.fields(&before.labels,&props);
+        let fields = self.fields(&before.labels, &props);
         if fields.is_empty() {
             graph.update_node(id, props.clone());
             self.undo.push(Undo::Replaced(before));
             self.ops.push(Operation::UpdateNode { id, props });
-        } else if self.save_history(graph,id) {
-            let mut current=props.clone();
-            graph.record_history(id,self.at,&props,&fields).expect("decoded history");
+        } else if self.save_history(graph, id) {
+            let mut current = props.clone();
+            graph
+                .record_history(id, self.at, &props, &fields)
+                .expect("decoded history");
             for field in &fields {
-                if let Some(h)=graph.history.get().expect("decoded history").get(&(id,field.clone())) {
-                    current.insert(field.clone(),h.changes.last().expect("nonempty history").1.clone());
+                if let Some(h) = graph
+                    .history
+                    .get()
+                    .expect("decoded history")
+                    .get(&(id, field.clone()))
+                {
+                    current.insert(
+                        field.clone(),
+                        h.changes.last().expect("nonempty history").1.clone(),
+                    );
                 }
             }
-            graph.update_node(id,current);
+            graph.update_node(id, current);
             self.undo.push(Undo::Replaced(before));
-            self.ops.push(Operation::UpdateNodeAt { id, props, at:self.at, fields });
+            self.ops.push(Operation::UpdateNodeAt {
+                id,
+                props,
+                at: self.at,
+                fields,
+            });
         }
     }
 
@@ -177,8 +235,14 @@ impl Journal {
             self.delete_relationship(graph, rel);
         }
         if graph.history.has_data() {
-            if !self.save_history(graph,id) { return; }
-            graph.history.get_mut().expect("decoded history").retain(|(node,_),_| *node != id);
+            if !self.save_history(graph, id) {
+                return;
+            }
+            graph
+                .history
+                .get_mut()
+                .expect("decoded history")
+                .retain(|(node, _), _| *node != id);
         }
         graph.delete_node(id);
         self.undo.push(Undo::Replaced(before));
