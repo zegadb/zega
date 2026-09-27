@@ -1,0 +1,1376 @@
+{
+  "_comment": "Locations on the shared known-world frame (x west->east, y north->south, 0-1000). Entries with x/y are hand-placed relative to the anchor places copied from the paused map draft (browser/docs/tiles.md); entries with old_x/old_y keep hand-reads off theMountainGoat/Tear's fan map, which the build script fits per region onto the same frame.",
+  "Acorn Hall": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "old_x": 570,
+    "old_y": 380
+  },
+  "Antlers": {
+    "kind": "castle",
+    "region": "The Crownlands",
+    "old_x": 690,
+    "old_y": 790
+  },
+  "Ashemark": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "old_x": 260,
+    "old_y": 760
+  },
+  "Ashford": {
+    "kind": "castle",
+    "region": "The Reach",
+    "old_x": 580,
+    "old_y": 660
+  },
+  "Asshai": {
+    "kind": "city",
+    "region": "Shadow Lands",
+    "anchor": true
+  },
+  "Astapor": {
+    "kind": "city",
+    "region": "Slaver's Bay",
+    "anchor": true
+  },
+  "Bandallon": {
+    "kind": "castle",
+    "region": "The Reach",
+    "x": 66,
+    "y": 552
+  },
+  "Banefort": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "x": 48,
+    "y": 452
+  },
+  "Barrowton": {
+    "kind": "town",
+    "region": "The North",
+    "anchor": true
+  },
+  "Bear Island": {
+    "kind": "region",
+    "region": "The North",
+    "anchor": true
+  },
+  "Bitterbridge": {
+    "kind": "town",
+    "region": "The Reach",
+    "anchor": true
+  },
+  "Blackcrown": {
+    "kind": "town",
+    "region": "The Reach",
+    "old_x": 240,
+    "old_y": 890
+  },
+  "Blackhaven": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 680,
+    "old_y": 675
+  },
+  "Blackmont": {
+    "kind": "castle",
+    "region": "Dorne",
+    "old_x": 475,
+    "old_y": 880
+  },
+  "Blacktyde": {
+    "kind": "castle",
+    "region": "The Iron Islands",
+    "old_x": 300,
+    "old_y": 570
+  },
+  "Blackwater Rush": {
+    "kind": "region",
+    "region": "The Crownlands",
+    "old_x": 660,
+    "old_y": 460
+  },
+  "Bloodstone": {
+    "kind": "castle",
+    "region": "The Stepstones",
+    "old_x": 955,
+    "old_y": 700
+  },
+  "Bloody Gate": {
+    "kind": "castle",
+    "region": "The Vale",
+    "anchor": true
+  },
+  "Boneway": {
+    "kind": "region",
+    "region": "Dorne",
+    "x": 168,
+    "y": 553
+  },
+  "Braavos": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "Brightwater Keep": {
+    "kind": "castle",
+    "region": "The Reach",
+    "old_x": 290,
+    "old_y": 745
+  },
+  "Broken Arm": {
+    "kind": "region",
+    "region": "Dorne",
+    "x": 205,
+    "y": 572
+  },
+  "Bronzegate": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 815,
+    "old_y": 565
+  },
+  "Cape Wrath": {
+    "kind": "region",
+    "region": "The Stormlands",
+    "x": 150,
+    "y": 560
+  },
+  "Castamere": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "x": 76,
+    "y": 476
+  },
+  "Casterly Rock": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "anchor": true
+  },
+  "Castle Black": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Cerwyn": {
+    "kind": "castle",
+    "region": "The North",
+    "old_x": 390,
+    "old_y": 258
+  },
+  "Chroyane": {
+    "kind": "ruin",
+    "region": "Free Cities",
+    "x": 274,
+    "y": 497
+  },
+  "Cider Hall": {
+    "kind": "castle",
+    "region": "The Reach",
+    "old_x": 500,
+    "old_y": 645
+  },
+  "Claw Isle": {
+    "kind": "region",
+    "region": "The Crownlands",
+    "old_x": 945,
+    "old_y": 740
+  },
+  "Coldwater Burn": {
+    "kind": "castle",
+    "region": "The Vale",
+    "old_x": 795,
+    "old_y": 450
+  },
+  "Cornfield": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "x": 70,
+    "y": 505
+  },
+  "Crackclaw Point": {
+    "kind": "region",
+    "region": "The Crownlands",
+    "old_x": 900,
+    "old_y": 730
+  },
+  "Crakehall": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "old_x": 195,
+    "old_y": 560
+  },
+  "Craster's Keep": {
+    "kind": "castle",
+    "region": "Beyond the Wall",
+    "anchor": true
+  },
+  "Crow's Nest": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 800,
+    "old_y": 650
+  },
+  "Darkdell": {
+    "kind": "castle",
+    "region": "The Reach",
+    "x": 95,
+    "y": 535
+  },
+  "Darry": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "old_x": 650,
+    "old_y": 715
+  },
+  "Deep Den": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "old_x": 385,
+    "old_y": 630
+  },
+  "Deepwood Motte": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Dragonstone": {
+    "kind": "castle",
+    "region": "The Crownlands",
+    "anchor": true
+  },
+  "Driftmark": {
+    "kind": "castle",
+    "region": "The Crownlands",
+    "x": 173,
+    "y": 489
+  },
+  "Duskendale": {
+    "kind": "town",
+    "region": "The Crownlands",
+    "anchor": true
+  },
+  "Eastwatch-by-the-Sea": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Elyria": {
+    "kind": "city",
+    "region": "Slaver's Bay",
+    "x": 414,
+    "y": 633
+  },
+  "Estermont": {
+    "kind": "island",
+    "region": "The Stormlands",
+    "x": 205,
+    "y": 545
+  },
+  "Evenfall Hall": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "anchor": true
+  },
+  "Fair Isle": {
+    "kind": "island",
+    "region": "The Westerlands",
+    "x": 40,
+    "y": 481
+  },
+  "Faircastle": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "old_x": 235,
+    "old_y": 460
+  },
+  "Fairmarket": {
+    "kind": "town",
+    "region": "The Riverlands",
+    "old_x": 365,
+    "old_y": 655
+  },
+  "Fawnton": {
+    "kind": "town",
+    "region": "The Reach",
+    "old_x": 645,
+    "old_y": 500
+  },
+  "Feastfires": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "old_x": 220,
+    "old_y": 495
+  },
+  "Felwood": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 800,
+    "old_y": 590
+  },
+  "Fingers": {
+    "kind": "region",
+    "region": "The Vale",
+    "old_x": 960,
+    "old_y": 470
+  },
+  "Fist of the First Men": {
+    "kind": "ruin",
+    "region": "Beyond the Wall",
+    "anchor": true
+  },
+  "Ghaston Grey": {
+    "kind": "castle",
+    "region": "Dorne",
+    "old_x": 700,
+    "old_y": 865
+  },
+  "Ghost Hill": {
+    "kind": "castle",
+    "region": "Dorne",
+    "x": 208,
+    "y": 599
+  },
+  "Gods Eye": {
+    "kind": "region",
+    "region": "The Riverlands",
+    "x": 122,
+    "y": 498
+  },
+  "Godsgrace": {
+    "kind": "castle",
+    "region": "Dorne",
+    "old_x": 790,
+    "old_y": 930
+  },
+  "Goldengrove": {
+    "kind": "castle",
+    "region": "The Reach",
+    "old_x": 420,
+    "old_y": 567
+  },
+  "Grandview": {
+    "kind": "castle",
+    "region": "The Reach",
+    "old_x": 755,
+    "old_y": 565
+  },
+  "Grassy Vale": {
+    "kind": "town",
+    "region": "The Reach",
+    "old_x": 645,
+    "old_y": 567
+  },
+  "Great Wyk": {
+    "kind": "region",
+    "region": "The Iron Islands",
+    "old_x": 195,
+    "old_y": 600
+  },
+  "Greenblood": {
+    "kind": "river",
+    "region": "Dorne",
+    "x": 158,
+    "y": 585
+  },
+  "Greenshield": {
+    "kind": "island",
+    "region": "The Reach",
+    "x": 55,
+    "y": 543
+  },
+  "Greenstone": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 945,
+    "old_y": 680
+  },
+  "Grey Glen": {
+    "kind": "castle",
+    "region": "The Vale",
+    "x": 168,
+    "y": 425
+  },
+  "Greyshield": {
+    "kind": "island",
+    "region": "The Reach",
+    "x": 49,
+    "y": 549
+  },
+  "Greywater Watch": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Griffin's Roost": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 845,
+    "old_y": 645
+  },
+  "Gulltown": {
+    "kind": "city",
+    "region": "The Vale",
+    "anchor": true
+  },
+  "Hammerhorn": {
+    "kind": "castle",
+    "region": "The Iron Islands",
+    "x": 55,
+    "y": 463
+  },
+  "Hardhome": {
+    "kind": "town",
+    "region": "Beyond the Wall",
+    "anchor": true
+  },
+  "Harlaw": {
+    "kind": "castle",
+    "region": "The Iron Islands",
+    "old_x": 345,
+    "old_y": 645
+  },
+  "Harrenhal": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "anchor": true
+  },
+  "Harvest Hall": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "x": 112,
+    "y": 548
+  },
+  "Haystack Hall": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 870,
+    "old_y": 525
+  },
+  "Heart's Home": {
+    "kind": "castle",
+    "region": "The Vale",
+    "old_x": 750,
+    "old_y": 545
+  },
+  "Hellholt": {
+    "kind": "castle",
+    "region": "Dorne",
+    "old_x": 610,
+    "old_y": 975
+  },
+  "High Hermitage": {
+    "kind": "castle",
+    "region": "Dorne",
+    "x": 96,
+    "y": 592
+  },
+  "High Tide": {
+    "kind": "castle",
+    "region": "The Crownlands",
+    "x": 176,
+    "y": 492
+  },
+  "Highgarden": {
+    "kind": "castle",
+    "region": "The Reach",
+    "anchor": true
+  },
+  "Honeyholt": {
+    "kind": "castle",
+    "region": "The Reach",
+    "old_x": 310,
+    "old_y": 780
+  },
+  "Honeywine": {
+    "kind": "river",
+    "region": "The Reach",
+    "x": 71,
+    "y": 570
+  },
+  "Horn Hill": {
+    "kind": "castle",
+    "region": "The Reach",
+    "anchor": true
+  },
+  "Hornvale": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "x": 100,
+    "y": 489
+  },
+  "Hornwood": {
+    "kind": "castle",
+    "region": "The North",
+    "old_x": 475,
+    "old_y": 268
+  },
+  "Ibben": {
+    "kind": "island",
+    "region": "Ibben",
+    "x": 380,
+    "y": 235
+  },
+  "Ironoaks": {
+    "kind": "castle",
+    "region": "The Vale",
+    "old_x": 840,
+    "old_y": 600
+  },
+  "Isle of Faces": {
+    "kind": "island",
+    "region": "The Riverlands",
+    "x": 124,
+    "y": 500
+  },
+  "Karhold": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Kayce": {
+    "kind": "town",
+    "region": "The Westerlands",
+    "old_x": 210,
+    "old_y": 465
+  },
+  "King's Landing": {
+    "kind": "city",
+    "region": "The Crownlands",
+    "anchor": true
+  },
+  "Kingsgrave": {
+    "kind": "town",
+    "region": "Dorne",
+    "old_x": 580,
+    "old_y": 865
+  },
+  "Kingswood": {
+    "kind": "region",
+    "region": "The Crownlands",
+    "old_x": 735,
+    "old_y": 500
+  },
+  "Lannisport": {
+    "kind": "city",
+    "region": "The Westerlands",
+    "anchor": true
+  },
+  "Last Hearth": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Lemonwood": {
+    "kind": "castle",
+    "region": "Dorne",
+    "old_x": 945,
+    "old_y": 985
+  },
+  "Longbow Hall": {
+    "kind": "castle",
+    "region": "The Vale",
+    "old_x": 890,
+    "old_y": 500
+  },
+  "Longtable": {
+    "kind": "town",
+    "region": "The Reach",
+    "old_x": 535,
+    "old_y": 620
+  },
+  "Lorath": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "Lord Harroway's Town": {
+    "kind": "town",
+    "region": "The Riverlands",
+    "x": 116,
+    "y": 455
+  },
+  "Lordsport": {
+    "kind": "town",
+    "region": "The Iron Islands",
+    "x": 60,
+    "y": 453
+  },
+  "Lys": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "Maidenpool": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "anchor": true
+  },
+  "Mander": {
+    "kind": "river",
+    "region": "The Reach",
+    "x": 80,
+    "y": 540
+  },
+  "Mantarys": {
+    "kind": "city",
+    "region": "Valyria",
+    "anchor": true
+  },
+  "Massey's Hook": {
+    "kind": "region",
+    "region": "The Stormlands",
+    "x": 193,
+    "y": 520
+  },
+  "Meereen": {
+    "kind": "city",
+    "region": "Slaver's Bay",
+    "anchor": true
+  },
+  "Mistwood": {
+    "kind": "town",
+    "region": "The Stormlands",
+    "old_x": 860,
+    "old_y": 680
+  },
+  "Moat Cailin": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Mole's Town": {
+    "kind": "town",
+    "region": "The North",
+    "old_x": 510,
+    "old_y": 168
+  },
+  "Mountains of the Moon": {
+    "kind": "region",
+    "region": "The Vale",
+    "x": 160,
+    "y": 430
+  },
+  "Mummer's Ford": {
+    "kind": "region",
+    "region": "The Riverlands",
+    "x": 108,
+    "y": 498
+  },
+  "Myr": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "New Barrel": {
+    "kind": "castle",
+    "region": "The Reach",
+    "x": 104,
+    "y": 533
+  },
+  "New Ghis": {
+    "kind": "city",
+    "region": "Slaver's Bay",
+    "x": 448,
+    "y": 646
+  },
+  "Nightsong": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "anchor": true
+  },
+  "Norvos": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "Nunn's Deep": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "x": 93,
+    "y": 496
+  },
+  "Ny Sar": {
+    "kind": "ruin",
+    "region": "Free Cities",
+    "x": 251,
+    "y": 487
+  },
+  "Oakenshield": {
+    "kind": "island",
+    "region": "The Reach",
+    "x": 57,
+    "y": 553
+  },
+  "Old Ghis": {
+    "kind": "ruin",
+    "region": "Slaver's Bay",
+    "anchor": true
+  },
+  "Old Oak": {
+    "kind": "town",
+    "region": "The Reach",
+    "old_x": 300,
+    "old_y": 608
+  },
+  "Old Wyk": {
+    "kind": "region",
+    "region": "The Iron Islands",
+    "old_x": 255,
+    "old_y": 610
+  },
+  "Oldcastle": {
+    "kind": "castle",
+    "region": "The North",
+    "old_x": 683,
+    "old_y": 355
+  },
+  "Oldstones": {
+    "kind": "ruin",
+    "region": "The Riverlands",
+    "old_x": 355,
+    "old_y": 605
+  },
+  "Oldtown": {
+    "kind": "city",
+    "region": "The Reach",
+    "anchor": true
+  },
+  "Orkmont": {
+    "kind": "region",
+    "region": "The Iron Islands",
+    "old_x": 290,
+    "old_y": 590
+  },
+  "Oros": {
+    "kind": "ruin",
+    "region": "Valyria",
+    "x": 393,
+    "y": 671
+  },
+  "Oxcross": {
+    "kind": "town",
+    "region": "The Westerlands",
+    "old_x": 250,
+    "old_y": 845
+  },
+  "Pebble": {
+    "kind": "castle",
+    "region": "The Vale",
+    "x": 196,
+    "y": 428
+  },
+  "Pentos": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "Pinkmaiden": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "old_x": 490,
+    "old_y": 462
+  },
+  "Planky Town": {
+    "kind": "town",
+    "region": "Dorne",
+    "x": 172,
+    "y": 576
+  },
+  "Port of Ibben": {
+    "kind": "city",
+    "region": "Ibben",
+    "anchor": true
+  },
+  "Prince's Pass": {
+    "kind": "region",
+    "region": "Dorne",
+    "x": 118,
+    "y": 567
+  },
+  "Pyke": {
+    "kind": "castle",
+    "region": "The Iron Islands",
+    "anchor": true
+  },
+  "Qarth": {
+    "kind": "city",
+    "region": "Jade Sea",
+    "anchor": true
+  },
+  "Qohor": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "Queenscrown": {
+    "kind": "town",
+    "region": "The North",
+    "old_x": 460,
+    "old_y": 178
+  },
+  "Quiet Isle": {
+    "kind": "island",
+    "region": "The Riverlands",
+    "x": 111,
+    "y": 474
+  },
+  "Rain House": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 860,
+    "old_y": 700
+  },
+  "Rainwood": {
+    "kind": "forest",
+    "region": "The Stormlands",
+    "x": 158,
+    "y": 549
+  },
+  "Ramsgate": {
+    "kind": "town",
+    "region": "The North",
+    "old_x": 770,
+    "old_y": 230
+  },
+  "Raventree Hall": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "old_x": 555,
+    "old_y": 745
+  },
+  "Red Lake": {
+    "kind": "castle",
+    "region": "The Reach",
+    "x": 70,
+    "y": 527
+  },
+  "Red Waste": {
+    "kind": "region",
+    "region": "Red Waste",
+    "x": 555,
+    "y": 615
+  },
+  "Redfort": {
+    "kind": "castle",
+    "region": "The Vale",
+    "old_x": 810,
+    "old_y": 650
+  },
+  "Rhoyne": {
+    "kind": "river",
+    "region": "Free Cities",
+    "x": 265,
+    "y": 500
+  },
+  "Riverrun": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "anchor": true
+  },
+  "Rook's Rest": {
+    "kind": "castle",
+    "region": "The Crownlands",
+    "old_x": 745,
+    "old_y": 790
+  },
+  "Ruby Ford": {
+    "kind": "region",
+    "region": "The Riverlands",
+    "x": 121,
+    "y": 483
+  },
+  "Runestone": {
+    "kind": "castle",
+    "region": "The Vale",
+    "anchor": true
+  },
+  "Saath": {
+    "kind": "city",
+    "region": "Free Cities",
+    "x": 282,
+    "y": 350
+  },
+  "Saltpans": {
+    "kind": "town",
+    "region": "The Riverlands",
+    "x": 143,
+    "y": 469
+  },
+  "Sandstone": {
+    "kind": "castle",
+    "region": "Dorne",
+    "old_x": 535,
+    "old_y": 985
+  },
+  "Sarsfield": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "old_x": 300,
+    "old_y": 850
+  },
+  "Scourge": {
+    "kind": "river",
+    "region": "Dorne",
+    "x": 150,
+    "y": 596
+  },
+  "Sea Dragon Point": {
+    "kind": "region",
+    "region": "The North",
+    "x": 72,
+    "y": 356
+  },
+  "Seagard": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "anchor": true
+  },
+  "Sealskin Point": {
+    "kind": "castle",
+    "region": "The Iron Islands",
+    "x": 47,
+    "y": 456
+  },
+  "Selhorys": {
+    "kind": "city",
+    "region": "Free Cities",
+    "x": 296,
+    "y": 534
+  },
+  "Sharp Point": {
+    "kind": "castle",
+    "region": "The Crownlands",
+    "old_x": 900,
+    "old_y": 865
+  },
+  "Silverhill": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "old_x": 420,
+    "old_y": 513
+  },
+  "Sisterton": {
+    "kind": "town",
+    "region": "The Vale",
+    "anchor": true
+  },
+  "Skagos": {
+    "kind": "island",
+    "region": "The North",
+    "x": 172,
+    "y": 331
+  },
+  "Skyreach": {
+    "kind": "castle",
+    "region": "Dorne",
+    "anchor": true
+  },
+  "Snakewood": {
+    "kind": "castle",
+    "region": "The Vale",
+    "old_x": 845,
+    "old_y": 495
+  },
+  "Southshield": {
+    "kind": "island",
+    "region": "The Reach",
+    "x": 51,
+    "y": 559
+  },
+  "Starfall": {
+    "kind": "castle",
+    "region": "Dorne",
+    "anchor": true
+  },
+  "Stone Hedge": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "x": 96,
+    "y": 477
+  },
+  "Stone Mill": {
+    "kind": "town",
+    "region": "The Riverlands",
+    "old_x": 555,
+    "old_y": 695
+  },
+  "Stonedance": {
+    "kind": "castle",
+    "region": "The Crownlands",
+    "x": 185,
+    "y": 512
+  },
+  "Stonehelm": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "old_x": 790,
+    "old_y": 715
+  },
+  "Stoney Sept": {
+    "kind": "town",
+    "region": "The Riverlands",
+    "old_x": 540,
+    "old_y": 855
+  },
+  "Storm's End": {
+    "kind": "castle",
+    "region": "The Stormlands",
+    "anchor": true
+  },
+  "Strongsong": {
+    "kind": "castle",
+    "region": "The Vale",
+    "old_x": 690,
+    "old_y": 545
+  },
+  "Stygai": {
+    "kind": "ruin",
+    "region": "Shadow Lands",
+    "x": 935,
+    "y": 700
+  },
+  "Summerhall": {
+    "kind": "ruin",
+    "region": "The Stormlands",
+    "anchor": true
+  },
+  "Sunflower Hall": {
+    "kind": "castle",
+    "region": "The Reach",
+    "old_x": 310,
+    "old_y": 930
+  },
+  "Sunset Sea": {
+    "kind": "sea",
+    "region": "The Westerlands",
+    "x": 35,
+    "y": 430
+  },
+  "Sunspear": {
+    "kind": "city",
+    "region": "Dorne",
+    "anchor": true
+  },
+  "Tall Trees Town": {
+    "kind": "city",
+    "region": "Summer Isles",
+    "anchor": true
+  },
+  "Tarbeck Hall": {
+    "kind": "ruin",
+    "region": "The Westerlands",
+    "x": 83,
+    "y": 470
+  },
+  "Tarth": {
+    "kind": "region",
+    "region": "The Stormlands",
+    "old_x": 965,
+    "old_y": 555
+  },
+  "Ten Towers": {
+    "kind": "castle",
+    "region": "The Iron Islands",
+    "anchor": true
+  },
+  "The Arbor": {
+    "kind": "region",
+    "region": "The Reach",
+    "old_x": 235,
+    "old_y": 655
+  },
+  "The Axe": {
+    "kind": "region",
+    "region": "Free Cities",
+    "x": 281,
+    "y": 397
+  },
+  "The Crag": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "x": 55,
+    "y": 468
+  },
+  "The Disputed Lands": {
+    "kind": "region",
+    "region": "Free Cities",
+    "x": 218,
+    "y": 545
+  },
+  "The Dreadfort": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "The Eyrie": {
+    "kind": "castle",
+    "region": "The Vale",
+    "anchor": true
+  },
+  "The Flatlands": {
+    "kind": "region",
+    "region": "Free Cities",
+    "x": 225,
+    "y": 470
+  },
+  "The Frostfangs": {
+    "kind": "region",
+    "region": "Beyond the Wall",
+    "x": 95,
+    "y": 252
+  },
+  "The Gift": {
+    "kind": "region",
+    "region": "The North",
+    "x": 130,
+    "y": 296
+  },
+  "The Golden Tooth": {
+    "kind": "castle",
+    "region": "The Westerlands",
+    "anchor": true
+  },
+  "The Haunted Forest": {
+    "kind": "region",
+    "region": "Beyond the Wall",
+    "old_x": 500,
+    "old_y": 140
+  },
+  "The Neck": {
+    "kind": "region",
+    "region": "The North",
+    "old_x": 345,
+    "old_y": 380
+  },
+  "The Shadow Tower": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "The Smoking Sea": {
+    "kind": "sea",
+    "region": "Valyria",
+    "x": 372,
+    "y": 670
+  },
+  "The Sorrows": {
+    "kind": "region",
+    "region": "Free Cities",
+    "x": 270,
+    "y": 505
+  },
+  "The Stepstones": {
+    "kind": "region",
+    "region": "The Stepstones",
+    "x": 197,
+    "y": 578
+  },
+  "The Tor": {
+    "kind": "castle",
+    "region": "Dorne",
+    "x": 199,
+    "y": 580
+  },
+  "The Trident": {
+    "kind": "region",
+    "region": "The Riverlands",
+    "old_x": 560,
+    "old_y": 520
+  },
+  "The Twins": {
+    "kind": "castle",
+    "region": "The Riverlands",
+    "anchor": true
+  },
+  "The Wall": {
+    "kind": "region",
+    "region": "Beyond the Wall",
+    "old_x": 500,
+    "old_y": 163
+  },
+  "Thenn": {
+    "kind": "region",
+    "region": "Beyond the Wall",
+    "x": 130,
+    "y": 240
+  },
+  "Three Sisters": {
+    "kind": "region",
+    "region": "The Vale",
+    "old_x": 705,
+    "old_y": 390
+  },
+  "Three Towers": {
+    "kind": "town",
+    "region": "The Reach",
+    "old_x": 275,
+    "old_y": 900
+  },
+  "Tolos": {
+    "kind": "city",
+    "region": "Slaver's Bay",
+    "x": 427,
+    "y": 621
+  },
+  "Torrhen's Square": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Tower of Joy": {
+    "kind": "ruin",
+    "region": "Dorne",
+    "x": 115,
+    "y": 585
+  },
+  "Tumbleton": {
+    "kind": "town",
+    "region": "The Reach",
+    "old_x": 590,
+    "old_y": 500
+  },
+  "Tyria": {
+    "kind": "ruin",
+    "region": "Valyria",
+    "x": 382,
+    "y": 687
+  },
+  "Tyrosh": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "Uplands": {
+    "kind": "castle",
+    "region": "The Reach",
+    "x": 113,
+    "y": 541
+  },
+  "Vaes Dothrak": {
+    "kind": "city",
+    "region": "The Dothraki Sea",
+    "anchor": true
+  },
+  "Vaes Tolorro": {
+    "kind": "ruin",
+    "region": "Red Waste",
+    "x": 543,
+    "y": 622
+  },
+  "Vaith": {
+    "kind": "castle",
+    "region": "Dorne",
+    "old_x": 760,
+    "old_y": 965
+  },
+  "Valyria": {
+    "kind": "ruin",
+    "region": "Valyria",
+    "anchor": true
+  },
+  "Valysar": {
+    "kind": "city",
+    "region": "Free Cities",
+    "x": 287,
+    "y": 551
+  },
+  "Volantis": {
+    "kind": "city",
+    "region": "Free Cities",
+    "anchor": true
+  },
+  "Volon Therys": {
+    "kind": "city",
+    "region": "Free Cities",
+    "x": 264,
+    "y": 522
+  },
+  "Vulture's Roost": {
+    "kind": "castle",
+    "region": "The Reach",
+    "old_x": 580,
+    "old_y": 760
+  },
+  "Water Gardens": {
+    "kind": "castle",
+    "region": "Dorne",
+    "old_x": 920,
+    "old_y": 945
+  },
+  "Weeping Town": {
+    "kind": "town",
+    "region": "The Stormlands",
+    "old_x": 875,
+    "old_y": 710
+  },
+  "Wendish Town": {
+    "kind": "town",
+    "region": "The Riverlands",
+    "old_x": 455,
+    "old_y": 460
+  },
+  "Whispering Sound": {
+    "kind": "region",
+    "region": "The Reach",
+    "old_x": 245,
+    "old_y": 900
+  },
+  "White Harbor": {
+    "kind": "city",
+    "region": "The North",
+    "anchor": true
+  },
+  "Whitetree": {
+    "kind": "town",
+    "region": "Beyond the Wall",
+    "old_x": 450,
+    "old_y": 150
+  },
+  "Wickenden": {
+    "kind": "town",
+    "region": "The Crownlands",
+    "old_x": 815,
+    "old_y": 720
+  },
+  "Widow's Watch": {
+    "kind": "castle",
+    "region": "The North",
+    "old_x": 915,
+    "old_y": 255
+  },
+  "Winterfell": {
+    "kind": "castle",
+    "region": "The North",
+    "anchor": true
+  },
+  "Wintertown": {
+    "kind": "town",
+    "region": "The North",
+    "x": 108,
+    "y": 349
+  },
+  "Wolfswood": {
+    "kind": "forest",
+    "region": "The North",
+    "x": 95,
+    "y": 342
+  },
+  "Wyl": {
+    "kind": "castle",
+    "region": "Dorne",
+    "x": 187,
+    "y": 565
+  },
+  "Yronwood": {
+    "kind": "castle",
+    "region": "Dorne",
+    "anchor": true
+  },
+  "Yunkai": {
+    "kind": "city",
+    "region": "Slaver's Bay",
+    "anchor": true
+  }
+}
