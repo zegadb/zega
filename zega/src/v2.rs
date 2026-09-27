@@ -10,6 +10,7 @@ mod chain;
 mod chain_model_tests;
 mod discovery;
 mod time;
+mod periods;
 
 use crate::location::{Bounds, Point, EARTH_RADIUS};
 use crate::vector::{Vector, VectorSpec, Metric};
@@ -373,23 +374,19 @@ fn run_statement(
 ) -> Result<Json, LangError> {
     match statement {
         Statement::Run(query) => {
+            let resolved = periods::prepare(query, graph, schema, work)?;
+            let query = resolved.as_ref();
             if query.mutation {
                 journal.configure_time(schema, query.at);
             }
-            work.at = match query.time {
-                Some(crate::lang::TimeClause::AsOf(at)) => Some(at),
-                _ => None,
-            };
-            work.series = match &query.time {
-                Some(crate::lang::TimeClause::Series { from, to, unit }) => {
-                    Some((*from, *to, unit.clone()))
-                }
+            work.at = match &query.time {
+                Some(crate::lang::TimeClause::AsOf(at)) => Some(at.instant()?),
                 _ => None,
             };
             let mut window_query;
-            let query = if let Some(crate::lang::TimeClause::Window(window)) = query.time {
+            let query = if let Some(crate::lang::TimeClause::Window(window)) = &query.time {
                 window_query = query.clone();
-                if let Some(root) = &mut window_query.root { root.window = Some(window); }
+                if let Some(root) = &mut window_query.root { root.window = Some(window.clone()); }
                 &window_query
             } else { query };
             if !query.mutation && (!query.then.is_empty() || query.skip) {
@@ -743,7 +740,7 @@ fn read(
     root: &Selection,
     context: &mut ReadContext<'_>,
 ) -> Result<Json, LangError> {
-    if let Some(window) = root.window { return time::window_read(graph, schema, root, None, window, context); }
+    if let Some(window) = root.window.clone() { return time::window_read(graph, schema, root, None, window, context); }
     let mut ids = candidates(graph, schema, root, context.work)?;
     // Candidates are in ascending id order, which is also the result order,
     // so without a ranking (`near`, `order by`) the first `limit` matches are
@@ -1383,16 +1380,10 @@ fn project(
                 object.insert(name.clone(), value);
             }
             Item::Series(name, span) => {
-                let (from, to, unit) = context.work.series.clone().ok_or_else(|| {
-                    LangError::at(
-                        *span,
-                        "<field> needs from <date> to <date> by day|week|month",
-                    )
-                })?;
-                object.insert(
-                    name.clone(),
-                    time::series(graph, id, name, from, to, &unit, context.work)?,
-                );
+                if context.work.series.is_none() {
+                    return Err(LangError::at(*span, "<field> needs from <date> to <date> by day|week|month|<calendar word>"));
+                }
+                object.insert(name.clone(), time::series(graph, id, name, context.work)?);
             }
             Item::Time(alias, last, test, _) => {
                 let at = time::first_last(graph, schema, id, test, *last, context.work)?;
@@ -1443,7 +1434,7 @@ fn project(
                 span,
                 ..
             } => {
-                if let Some(window) = target.window {
+                if let Some(window) = target.window.clone() {
                     if path.is_some() { return Err(LangError::at(*span, "time windows select nodes; use as of for a dated path")); }
                     let parent = time::WindowWalk { id, field, direction: *direction, range: *range, span: *span, hops };
                     let value = time::window_read(graph, schema, target, Some(parent), window, context)?;
@@ -2458,14 +2449,15 @@ fn pred_matches(
     match pred {
         Pred::Chain(walk) => return chain::holds(graph, schema, id, walk, work),
         Pred::Ever(always, test, window, _) => {
-            return time::ever_always(graph, schema, id, test, *always, *window, work)
+            return time::ever_always(graph, schema, id, test, *always, window.clone(), work)
         }
         Pred::Time(last, test, cmp, at, _) => {
+            let at = at.instant()?;
             return Ok(
                 time::first_last(graph, schema, id, test, *last, work)?.is_some_and(
                     |t| match cmp {
-                        crate::lang::TimeCompare::Equal => t == *at,
-                        crate::lang::TimeCompare::NotEqual => t != *at,
+                        crate::lang::TimeCompare::Equal => t == at,
+                        crate::lang::TimeCompare::NotEqual => t != at,
                         crate::lang::TimeCompare::Ordered(cmp) => {
                             cmp_json(&json!(t), *cmp, &json!(at))
                         }
@@ -2662,7 +2654,7 @@ fn json_to_value(value: &Json) -> Result<Value, LangError> {
 /// wasm32 (where there is no clock to read) out of it.
 pub(crate) struct Work {
     at: Option<i64>,
-    series: Option<(i64, i64, String)>,
+    series: Option<Vec<i64>>,
     left: usize,
     deadline: Option<Deadline>,
     /// For a chain's `within N hops`, the end nodes an index pinned: by

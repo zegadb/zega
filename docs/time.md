@@ -200,10 +200,235 @@ Both window forms also work after the outer query block to compare values.
 }
 ```
 
-A bare year in a time comparison means January 1 of that year. The APS
-example `during 2023-24` parses, but execution asks for explicit dates:
-APS 24 does not define league season boundaries. Write `during 2023-10-10
-to 2024-04-18` for the NHL example instead of guessing a calendar interval.
+## Named periods: seasons are nodes
+
+A bare `2026` means the calendar year: January 1 in `as of`, and January 1
+through December 31 in `during 2026`. Declaring a calendar never changes that
+meaning. Name a season explicitly with `season 26`, `season 2026`, or
+`season 26-27`; all three select the node whose Int name is 2026. Two-digit
+years mean 20xx, and a pair must be consecutive.
+
+The schema declares the date and name fields, then gives each consuming type
+one or more calendar words. The dates themselves live on ordinary nodes.
+
+```zql
+schema {
+  type Season {
+    year: Int
+    starts: Date
+    ends: Date
+    games:<Int>
+    period from starts to ends named by year
+  }
+
+  type Team {
+    name: String
+    points:<Int>
+    calendar season -> Season
+  }
+}
+```
+
+The NHL's 2020 COVID season ran in 2021. Its actual dates take precedence over
+any assumption about the year in its name:
+
+```zql
+mutation {
+  Season {
+    year: 2020
+    starts: 2021-01-13
+    ends: 2021-07-07
+    games: 56
+  }
+}
+```
+
+The NHL moved from 82 to 84 games per team for 2026–27. Because `games` is
+time-typed, the same Season node can retain that change. The announcement date
+of July 1, 2025 below is illustrative, as are the creation date and season
+endpoints; they are example data, not an official schedule.
+
+```zql
+mutation at 2025-01-01 {
+  Season {
+    year: 2026
+    starts: 2026-10-01
+    ends: 2027-06-30
+    games: 82
+  }
+}
+```
+
+```zql
+mutation at 2025-07-01 {
+  Season(year: 2026) set games: 84
+}
+```
+
+Before the announcement, the recorded schedule still had 82 games:
+
+```zql
+{
+  Season(year = 2026) { games }
+} as of 2025-06-30
+```
+
+```json
+{ "games": 82 }
+```
+
+The current value is 84:
+
+```zql
+{
+  Season(year = 2026) { games }
+}
+```
+
+```json
+{ "games": 84 }
+```
+
+The first recorded date with 84 games is the illustrative announcement date:
+
+```zql
+{
+  Season(year = 2026) { @firstTime(games = 84) }
+}
+```
+
+```json
+{ "firstTime": "2025-07-01T00:00" }
+```
+
+For an illustrative points history:
+
+```zql
+mutation at 2021-01-13 {
+  Team(name: "Example" && points: 50) { name }
+}
+```
+
+```zql
+mutation at 2021-07-07 {
+  Team(name = "Example") set points: 56 { points }
+}
+```
+
+```zql
+{
+  Team(always points >= 50 during season 20) limit 100 { name }
+}
+```
+
+```zql
+{
+  Team(ever points >= 50 during season 20) limit 100 { name }
+}
+```
+
+The lost 2004 NHL season can be omitted. Then `during season 04` reports
+`no season 2004 in Season` and asks for a node with its dates; it never guesses
+boundaries. Alternatively, keep a Season node with `games: 0` and the dates
+of the planned span if your dataset records the cancelled schedule. A period
+with zero games still defines a window; games are ordinary data.
+
+For a cross-year season, store its real endpoints:
+
+```zql
+mutation {
+  Season {
+    year: 2023
+    starts: 2023-10-10
+    ends: 2024-06-24
+    games: 82
+  }
+}
+```
+
+```zql
+{
+  Team limit 100 { name points }
+} during season 23
+```
+
+```zql
+{
+  Team limit 100 { name points }
+} as of start of season 23
+```
+
+```zql
+{
+  Team limit 100 { name points }
+} as of end of season 23
+```
+
+The series uses the period nodes already in this example:
+
+```zql
+{
+  Team limit 100 { name < points > }
+} from season 20 to season 23 by season
+```
+
+Once season 25 is present, `as of end of season 25` uses its stored end.
+
+`from season 24 to season 26` uses the first node's start and the last node's
+end. `by season` produces one sample per period node overlapping that range,
+ordered by its stored start date, with the field's value at that start. It
+does not invent buckets for absent seasons or aggregate values. Endpoints
+are the stored Date instants, with the same inclusive window semantics as
+explicit dates. Named dates also work in `changes from … to …` and time
+function comparisons.
+
+Other period types use their naming field's value:
+
+```zql
+schema {
+  type Era {
+    name: String
+    starts: Date
+    ends: Date
+    period from starts to ends named by name
+  }
+
+  type Team {
+    name: String
+    points:<Int>
+    calendar era -> Era
+  }
+}
+```
+
+This example dataset defines its era using the calendar years 1942–1967:
+
+```zql
+mutation {
+  Era {
+    name: "Original Six"
+    starts: 1942-01-01
+    ends: 1967-12-31
+  }
+}
+```
+
+```zql
+{
+  Team limit 100 { name }
+} during era "Original Six"
+```
+
+A type may declare both `calendar season -> Season` and `calendar era -> Era`.
+Each word resolves on the type where it is used. Missing calendars, missing
+period declarations, unknown names, and duplicate names report how to fix
+the schema or data. Start and end fields must exist and be Date; the naming
+field must exist. Period nodes need valid dates with start no later than end.
+
+Adding or correcting a period uses an ordinary mutation. Queries resolve
+against the current graph, including when the query reads historical facts;
+adding next season requires no schema change. Adding a period declaration or
+calendar is safe in schema diff; removing or renaming a calendar word warns.
 
 Adding relationship history typing or a lifetime declaration is safe in
 schema diff. Removing history typing from a relationship with retained

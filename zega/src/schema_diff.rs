@@ -45,6 +45,8 @@ pub struct SchemaChange {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ChangeKind {
     TypeAdded { name: String },
+    PeriodChanged { type_name: String },
+    CalendarChanged { type_name: String, word: String, from: Option<String>, to: Option<String> },
     LifetimeChanged { type_name: String, bound: String, from: Option<String>, to: Option<String> },
     TypeRemoved { name: String },
     TypeRenamed { from: String, to: String },
@@ -161,6 +163,26 @@ fn history_count(graph: &Graph, ty: &str, field: Option<&str>) -> u64 {
 }
 
 fn diff_type_fields(graph: &Graph, old_ty: &TypeDef, new_ty: &TypeDef, changes: &mut Vec<SchemaChange>) {
+    if old_ty.period != new_ty.period {
+        changes.push(SchemaChange {
+            severity: if old_ty.period.is_none() { Severity::Safe } else { Severity::Warn },
+            kind: ChangeKind::PeriodChanged { type_name: old_ty.name.clone() }, affected: 0,
+            message: format!("changes period declaration on {}", old_ty.name),
+        });
+    }
+    let words: std::collections::BTreeSet<_> = old_ty.calendars.keys().chain(new_ty.calendars.keys()).collect();
+    for word in words {
+        let from = old_ty.calendars.get(word);
+        let to = new_ty.calendars.get(word);
+        if from != to {
+            changes.push(SchemaChange {
+                severity: if from.is_none() { Severity::Safe } else { Severity::Warn },
+                kind: ChangeKind::CalendarChanged { type_name: old_ty.name.clone(), word: word.clone(), from: from.cloned(), to: to.cloned() },
+                affected: 0, message: format!("changes {} calendar {word} from {from:?} to {to:?}", old_ty.name),
+            });
+        }
+    }
+
     for (bound, from, to) in [("appears", &old_ty.appears, &new_ty.appears), ("ends", &old_ty.ends, &new_ty.ends)] {
         if from != to {
             changes.push(SchemaChange { severity: if from.is_none() { Severity::Safe } else { Severity::Warn },
