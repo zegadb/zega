@@ -312,7 +312,7 @@ fn named_periods_nhl_games_keep_announcement_history() {
     .unwrap();
     db.run_lang(
         schema,
-        "mutation at 2025-07-01 { Season(year = 2026) { games: 84 } }",
+        "mutation at 2025-07-01 { Season(year: 2026) set games: 84 }",
     )
     .unwrap();
 

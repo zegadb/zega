@@ -261,7 +261,7 @@ mutation at 2025-01-01 {
 
 ```zql
 mutation at 2025-07-01 {
-  Season(year = 2026) { games: 84 }
+  Season(year: 2026) set games: 84
 }
 ```
 

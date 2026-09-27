@@ -2043,12 +2043,9 @@ impl<'a> Parser<'a> {
     /// once per nested selection stay small (zegadb/zega#48).
     fn parse_selection(&mut self) -> Result<Selection> {
         let mut selection = self.selection_head()?;
-        // A head condition selects existing nodes; body values update them.
-        // Without a head condition, body values initialize a new node.
-        let update = selection.condition.is_some() || !selection.sets.is_empty();
         if self.eat("{") {
             while !self.eat("}") {
-                if self.body_writes && self.body_write(&mut selection, update)? { continue; }
+                if self.body_writes && self.body_write(&mut selection)? { continue; }
                 selection.items.push(self.parse_item()?);
                 self.skip();
             }
@@ -2057,18 +2054,13 @@ impl<'a> Parser<'a> {
     }
 
     #[inline(never)]
-    fn body_write(&mut self, selection: &mut Selection, update: bool) -> Result<bool> {
+    fn body_write(&mut self, selection: &mut Selection) -> Result<bool> {
         let mut look = self.fork();
         if look.ident().is_err() || !look.eat(":") { return Ok(false); }
         look.skip();
         if look.src[look.i..].starts_with('@') { return Ok(false); }
         let (field, span) = self.ident()?; self.expect(":")?;
         let value = self.parse_value()?;
-        if update {
-            selection.sets.push((field.clone(), value, span));
-            selection.items.push(Item::Prop(field, span));
-            return Ok(true);
-        }
         let pred = BoolExpr::Test(Pred::Eq(field.clone(), value, span));
         selection.condition = Some(match selection.condition.take() {
             None => pred,
