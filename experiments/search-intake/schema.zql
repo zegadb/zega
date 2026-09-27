@@ -1,4 +1,4 @@
 schema {
- type Entity { qid: String label: String aliases: String kind: String official_site: String RELATED_TO -> Entity[] ABOUT <- Page[] }
+ type Entity { qid: String label: String aliases: String kind: String official_site: String site_prefix: String RELATED_TO -> Entity[] ABOUT <- Page[] }
  type Page { url: String host: String title: String text: String language: String fetch_date: String entity_qid: String link_method: String confidence: Float outlinks: String LINKS_TO -> Page[] ABOUT -> Entity }
 } unique { Entity { qid } Page { url } }
