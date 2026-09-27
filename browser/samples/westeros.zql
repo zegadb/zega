@@ -412,7 +412,3 @@ mutation {
     heldSeat -> link Location(name: "Dragonstone") { &to: 300 }
   }
 }
-
-query {
-  Character(alive: true && has memberOf(name: "House Stark")) { name title }
-}

@@ -230,6 +230,7 @@ for (const [name, entry] of Object.entries(locationsSeed)) {
   if (!page.found) { console.warn(`[locations] skip (no source): ${name}`); continue; }
   let x, y;
   if (ANCHORS[name]) [x, y] = ANCHORS[name];
+  else if (ANCHORS[`The ${name}`]) [x, y] = ANCHORS[`The ${name}`];
   else if (entry.x !== undefined && entry.old_x === undefined) [x, y] = [entry.x, entry.y];
   else if (entry.old_x !== undefined) {
     [x, y] = applyFit(REGION_FITS[entry.region], entry.old_x, entry.old_y);

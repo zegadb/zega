@@ -1,6 +1,9 @@
 name,alive,title,culture,source
 Ternesio Terys,true,,Braavosi,/index.php/Ternesio_Terys
+Kindly man,true,,Braavosi,/index.php/Kindly_man
 Izembaro,true,,Braavosi,/index.php/Izembaro
+Black Pearl of Braavos,true,,,/index.php/Black_Pearl_of_Braavos
+Widow of the Waterfront,true,,Volantene,/index.php/Widow_of_the_Waterfront
 Bellegere Otherys,true,Widow Wind,Braavosi,/index.php/Bellegere_Otherys
 Brusco,true,,Braavosi,/index.php/Brusco
 Talea,true,,Braavosi,/index.php/Talea
@@ -48,6 +51,7 @@ Robert Arryn,true,Eyrie,Valemen,/index.php/Robert_Arryn
 Elbert Arryn,false,Ser,,/index.php/Elbert_Arryn
 Sharra Arryn,true,Queen,Valemen,/index.php/Sharra_Arryn
 Ronnel Arryn,true,,,/index.php/Ronnel_Arryn
+Harrold Hardyng,true,Ser,Valemen,/index.php/Harrold_Hardyng
 Androw Ashford,true,Ser,Reach,/index.php/Androw_Ashford
 Robert Ashford,true,Ser,Reach,/index.php/Robert_Ashford
 Quenten Banefort,true,Lord of Banefort,Westermen,/index.php/Quenten_Banefort
@@ -132,6 +136,7 @@ Aenys Frey,false,Ser,,/index.php/Aenys_Frey
 Walder Rivers,true,Ser,Rivermen,/index.php/Walder_Rivers
 Jared Frey,false,Ser,Rivermen,/index.php/Jared_Frey
 Raymund Frey,true,Ser,Rivermen,/index.php/Raymund_Frey
+Olyvar Frey,true,Squire,Rivermen,/index.php/Olyvar_Frey
 Robett Glover,true,,Northmen,/index.php/Robett_Glover
 Galbart Glover,true,,Northmen,/index.php/Galbart_Glover
 Sybelle Glover,true,Deepwood Motte,Northmen,/index.php/Sybelle_Glover
@@ -201,6 +206,7 @@ Donnel Locke,false,Ser,Northmen,/index.php/Donnel_Locke
 Amory Lorch,false,Ser,,/index.php/Amory_Lorch
 Jason Mallister,true,Seagard,Riverlands,/index.php/Jason_Mallister
 Patrek Mallister,true,,,/index.php/Patrek_Mallister
+Denys Mallister,true,,Rivermen,/index.php/Denys_Mallister
 Wyman Manderly,true,White Harbor,,/index.php/Wyman_Manderly
 Wylis Manderly,true,Ser,,/index.php/Wylis_Manderly
 Wendel Manderly,false,Ser,,/index.php/Wendel_Manderly
@@ -287,6 +293,7 @@ Lyarra Stark,true,,Northmen,/index.php/Lyarra_Stark
 Mordane,false,Septa,Westerosi,/index.php/Mordane
 Old Nan,true,,Northmen,/index.php/Old_Nan
 Hodor,true,,Northmen,/index.php/Hodor
+Hallis Mollen,true,Captain of the guard,Northmen,/index.php/Hallis_Mollen
 Bronn,true,,,/index.php/Bronn
 Falyse Stokeworth,false,,,/index.php/Falyse_Stokeworth
 Lollys Stokeworth,true,Stokeworth,,/index.php/Lollys_Stokeworth
@@ -298,6 +305,7 @@ Dorna Swyft,true,,Westermen,/index.php/Dorna_Swyft
 Helman Tallhart,false,,Northmen,/index.php/Helman_Tallhart
 Leobald Tallhart,false,Castellan,Northmen,/index.php/Leobald_Tallhart
 Benfred Tallhart,false,,Northmen,/index.php/Benfred_Tallhart
+Eddara Tallhart,true,Lady of Torrhen's Square,Northmen,/index.php/Eddara_Tallhart
 Aegon I Targaryen,false,King of All Westeros Shield of His People,,/index.php/Aegon_I_Targaryen
 Aerys II Targaryen,false,"King of the Andals, the Rhoynar, and the First Men",,/index.php/Aerys_II_Targaryen
 Rhaegar Targaryen,false,Prince of Dragonstone,Crownlands,/index.php/Rhaegar_Targaryen
@@ -323,9 +331,11 @@ Aegon IV Targaryen,false,Andals,,/index.php/Aegon_IV_Targaryen
 Aerion Targaryen,false,,Valyrian,/index.php/Aerion_Targaryen
 Daeron II Targaryen,false,,,/index.php/Daeron_II_Targaryen
 Aenys I Targaryen,false,"King of the Andals, the Rhoynar, and the First Men",,/index.php/Aenys_I_Targaryen
+Willem Darry,false,,Rivermen,/index.php/Willem_Darry
 Randyll Tarly,true,Horn Hill,,/index.php/Randyll_Tarly
 Samwell Tarly,true,,Reachmen,/index.php/Samwell_Tarly
 Dickon Tarly,true,,,/index.php/Dickon_Tarly
+Melessa Florent,true,Horn Hill,Reach,/index.php/Melessa_Florent
 Talla Tarly,true,,Marcher,/index.php/Talla_Tarly
 Brienne of Tarth,true,,,/index.php/Brienne_of_Tarth
 Selwyn Tarth,true,Evenstar,,/index.php/Selwyn_Tarth
@@ -429,6 +439,8 @@ Aggo,true,,Dothraki,/index.php/Aggo
 Jhogo,true,Bloodrider,Dothraki,/index.php/Jhogo
 Quaro,false,,Dothraki,/index.php/Quaro
 Haggo,false,Bloodrider,Dothraki,/index.php/Haggo
+Pono,true,,Dothraki,/index.php/Pono
+Ogo,false,Khal,Dothraki,/index.php/Ogo
 Mirri Maz Duur,false,,Lhazareen,/index.php/Mirri_Maz_Duur
 High Sparrow,true,High Septon,,/index.php/High_Sparrow
 Shagga,true,,Vale mountain clans,/index.php/Shagga
@@ -465,6 +477,7 @@ Yezzan zo Qaggaz,false,,Ghiscari,/index.php/Yezzan_zo_Qaggaz
 Luwin,false,Maester,Westeros,/index.php/Luwin
 Edd Tollett,true,,Valemen,/index.php/Edd_Tollett
 Chett,false,,Rivermen,/index.php/Chett
+Waif,true,,Braavosi,/index.php/Waif
 Hallyne,true,,Crownlands,/index.php/Hallyne
 Maekar I Targaryen,false,Andals,,/index.php/Maekar_I_Targaryen
 Viserys II Targaryen,false,Andals,,/index.php/Viserys_II_Targaryen
@@ -475,3 +488,10 @@ Wylla Manderly,true,,,/index.php/Wylla_Manderly
 Marillion,false,,,/index.php/Marillion
 Polliver,false,Castellan,Westermen,/index.php/Polliver
 Weese,false,,Rivermen,/index.php/Weese
+Edric Storm,true,,Stormlander,/index.php/Edric_Storm
+Moon Boy,true,,Westeros,/index.php/Moon_Boy
+Maester Cressen,false,Maester,Westerosi,/index.php/Maester_Cressen
+Patchface,true,,,/index.php/Patchface
+Dagmer,true,,Ironborn,/index.php/Dagmer
+Lymond Goodbrook,true,Lord,Rivermen,/index.php/Lymond_Goodbrook
+Aemon Estermont,true,Ser,Stormlander,/index.php/Aemon_Estermont

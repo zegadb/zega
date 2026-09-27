@@ -95,17 +95,24 @@ test('the Westeros sample answers its fan questions', async ({ page }) => {
     'Oldcastle', 'The Dreadfort', 'The Shadow Tower', "Torrhen's Square",
     'Widow\'s Watch', 'Winterfell',
   ]);
-  // Battles in the Riverlands, with their AC years. AWOIAF writes the
-  // Whispering Wood's date in its older "AL" style (Years after Aegon's
-  // Landing — the same conquest-era count the dataset calls AC).
+  // Battles in the Riverlands, with their AC years: the Trident and the Bells
+  // in Robert's Rebellion, then the war of the five kings (the Whispering
+  // Wood's page dates it in the older "AL" style — Years after Aegon's
+  // Landing, the same conquest-era count the dataset calls AC).
   expect(list(answers.battlesRiverlands).sort((a, b) => String(a.year).localeCompare(String(b.year)))).toEqual([
     { name: 'Battle of the Bells', year: 283 },
+    { name: 'Battle of the Trident', year: 283 },
     { name: 'Battle of Riverrun', year: 298 },
     { name: 'Battle of the Whispering Wood', year: 298 },
     { name: 'Battle of the Camps', year: 299 },
+    { name: 'Battle of the Fords', year: 299 },
+    { name: 'Battle of the Green Fork', year: 299 },
+    { name: 'Battle of the Ruby Ford', year: 299 },
   ]);
-  // Daenerys's travels: every event she took part in, with where it happened.
+  // Daenerys's travels: Astapor, then the siege of Meereen, with where each
+  // happened.
   expect(answers.daenerysTravels[0].tookPartIn).toEqual([
+    { name: 'Siege of Meereen', year: 299, happenedAt: { name: 'Meereen' } },
     { name: 'Sack of Astapor', year: 299, happenedAt: { name: 'Astapor' } },
   ]);
   // Houses whose seat sits in their own region (the `same` join): the great
@@ -141,13 +148,14 @@ test('the Westeros sample answers its fan questions', async ({ page }) => {
     { name: 'Tommen Baratheon', from: 300, to: null },
   ]);
   // Events of 298 AC and later, including the Whispering Wood (its page dates
-  // it 298AL).
+  // it 298AL) and the siege of Meereen.
   expect(names(answers.recentEvents)).toEqual([
     'Battle of Castle Black', 'Battle of Deepwood Motte', 'Battle of Oxcross',
     'Battle of Riverrun', 'Battle of the Blackwater', 'Battle of the Camps',
     'Battle of the Fords', 'Battle of the Golden Tooth', 'Battle of the Green Fork',
     'Battle of the Ruby Ford', 'Battle of the Shield Islands', 'Battle of the Whispering Wood',
     'Fall of Moat Cailin', 'Red Wedding', 'Sack of Astapor', 'Sack of Winterfell',
+    'Siege of Meereen',
   ]);
   // The Red Wedding: 299 AC at the Twins.
   expect(answers.redWedding[0].year).toBe(299);
@@ -171,17 +179,18 @@ test('the Westeros sample answers its fan questions', async ({ page }) => {
     ['House Banefort', 'Banefort'], ['House Brax', 'Hornvale'], ['House Crakehall', 'Crakehall'],
     ['House Farman', 'Faircastle'], ['House Marbrand', 'Ashemark'], ['House Prester', 'Feastfires'],
     ['House Reyne', 'Castamere'], ['House Spicer', 'Castamere'], ['House Swyft', 'Cornfield'],
-    ['House Tarbeck', 'Tarbeck Hall'],
+    ['House Tarbeck', 'Tarbeck Hall'], ['House Westerling', 'The Crag'],
   ]);
-  // The North holds its locations; Wintertown sits just outside Winterfell's
-  // walls.
+  // The North holds its locations, the Wolfswood among them. (Wintertown
+  // would sit outside Winterfell's walls, but the archive never captured its
+  // source page, so it is dropped from the dataset.)
   expect(names(answers.northLocations[0].locations)).toEqual([
     'Barrowton', 'Bear Island', 'Castle Black', 'Cerwyn', 'Deepwood Motte',
     'Eastwatch-by-the-Sea', 'Greywater Watch', 'Hornwood', 'Karhold', 'Last Hearth',
     'Moat Cailin', "Mole's Town", 'Oldcastle', 'Queenscrown', 'Ramsgate',
     'Sea Dragon Point', 'Skagos', 'The Dreadfort', 'The Gift', 'The Neck',
     'The Shadow Tower', "Torrhen's Square", 'White Harbor', "Widow's Watch", 'Winterfell',
-    'Wintertown',
+    'Wolfswood',
   ]);
   // Seats whose infobox names differ from the dataset's page titles: the
   // Twins gained their "The" on the wiki, Pinkmaiden Castle is Pinkmaiden,

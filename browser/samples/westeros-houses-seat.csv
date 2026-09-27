@@ -1,5 +1,6 @@
 house,location
 House Allyrion,Godsgrace
+House Arryn,The Eyrie
 House Ashford,Ashford
 House Banefort,Banefort
 House Baratheon,Storm's End
@@ -8,25 +9,31 @@ House Baratheon of King's Landing,King's Landing
 House Beesbury,Honeyholt
 House Blacktyde,Blacktyde
 House Blackwood,Raventree Hall
+House Bolton,The Dreadfort
 House Botley,Lordsport
 House Bracken,Stone Hedge
 House Brax,Hornvale
 House Bulwer,Blackcrown
 House Caswell,Bitterbridge
 House Celtigar,Claw Isle
+House Cerwyn,Cerwyn
 House Connington,Griffin's Roost
 House Corbray,Heart's Home
 House Crakehall,Crakehall
 House Crane,Red Lake
 House Darry,Darry
 House Dayne,Starfall
+House Dustin,Barrowton
 House Farman,Faircastle
+House Farwynd,Sealskin Point
 House Florent,Brightwater Keep
 House Footly,Tumbleton
 House Fossoway of Cider Hall,Cider Hall
 House Fossoway of New Barrel,New Barrel
 House Fowler,Skyreach
+House Frey,The Twins
 House Glover,Deepwood Motte
+House Goodbrother,Hammerhorn
 House Greyjoy,Pyke
 House Grimm,Greyshield
 House Harlaw,Ten Towers
@@ -42,14 +49,18 @@ House Manwoody,Kingsgrave
 House Marbrand,Ashemark
 House Martell,Sunspear
 House Merryweather,Longtable
+House Mormont,Bear Island
 House Mullendore,Uplands
 House Oakheart,Old Oak
+House Piper,Pinkmaiden
 House Prester,Feastfires
 House Redfort,Redfort
+House Redwyne,The Arbor
 House Reed,Greywater Watch
 House Reyne,Castamere
 House Rowan,Goldengrove
 House Royce,Runestone
+House Selmy,Harvest Hall
 House Serry,Southshield
 House Spicer,Castamere
 House Stark,Winterfell
@@ -65,5 +76,6 @@ House Umber,Last Hearth
 House Velaryon,High Tide
 House Vyrwel,Darkdell
 House Waynwood,Ironoaks
+House Westerling,The Crag
 House Whent,Harrenhal
 House Yronwood,Yronwood

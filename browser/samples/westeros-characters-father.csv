@@ -17,6 +17,7 @@ Black Walder Frey,Ryman Frey
 Walder Rivers,Walder Frey
 Jared Frey,Walder Frey
 Raymund Frey,Walder Frey
+Olyvar Frey,Walder Frey
 Balon Greyjoy,Quellon Greyjoy
 Euron Greyjoy,Quellon Greyjoy
 Theon Greyjoy,Balon Greyjoy
@@ -51,6 +52,7 @@ Bran Stark,Eddard Stark
 Rickon Stark,Eddard Stark
 Dorna Swyft,Harys Swyft
 Benfred Tallhart,Helman Tallhart
+Eddara Tallhart,Helman Tallhart
 Aerys II Targaryen,Jaehaerys II Targaryen
 Rhaegar Targaryen,Aerys II Targaryen
 Daenerys Targaryen,Aerys II Targaryen
@@ -63,6 +65,7 @@ Aegon III Targaryen,Daemon Targaryen
 Jaehaerys I Targaryen,Aenys I Targaryen
 Aegon II Targaryen,Viserys I Targaryen
 Aenys I Targaryen,Aegon I Targaryen
+Melessa Florent,Alester Florent
 Talla Tarly,Randyll Tarly
 Edmure Tully,Hoster Tully
 Margaery Tyrell,Mace Tyrell
@@ -83,3 +86,4 @@ Albar Royce,Nestor Royce
 Sigorn,Styr
 Maekar I Targaryen,Daeron II Targaryen
 Viserys II Targaryen,Daemon Targaryen
+Edric Storm,Robert Baratheon

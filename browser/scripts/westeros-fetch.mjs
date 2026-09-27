@@ -19,7 +19,7 @@
 // ~1 req/s to archive.org, and fewer requests overall than a CDX-first
 // walk.
 //
-// Usage: node scripts/westeros-fetch.mjs [cacheDir]
+// Usage: node scripts/westeros-fetch.mjs [cacheDir] [--no-cdx] [--pending-only]
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -36,6 +36,12 @@ const cacheArg = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
 // overloaded: pages archived near any known crawl era still resolve through
 // the redirector, and the rest are dropped instead of blocking on CDX.
 const ALLOW_CDX = !process.argv.includes('--no-cdx');
+// --pending-only: skip titles already cached (or already judged unarchived)
+// without the inter-request delay — a filesystem check makes no request, so
+// pacing only applies between actual archive.org asks. Turns the full-list
+// sweep (25 minutes of waiting on cache hits) into a quick pass over the
+// outstanding titles.
+const PENDING_ONLY = process.argv.includes('--pending-only');
 const CACHE = resolve(cacheArg || '../.tmp/wiki-cache');
 const RAW = resolve(CACHE, 'raw');
 await mkdir(RAW, { recursive: true });
@@ -125,15 +131,19 @@ async function latestSnapshot(title) {
   // Under load the archive intermittently answers no-captures (an empty body,
   // or a header row the filters then leave without data rows) for URLs that
   // do have captures — a single ask can turn that hiccup into a permanent,
-  // wrong "unarchived" verdict. Require three consistent no-capture answers,
-  // with backoff between, before believing one; a parse failure or a mixed
+  // wrong "unarchived" verdict. A genuine no-match answers with the JSON
+  // empty array "[]"; an EMPTY body is a degraded answer and must throw, not
+  // count toward the no-capture streak. Require three consistent genuine
+  // no-capture answers before believing one; a parse failure or a mixed
   // streak still throws, landing the title in the end-of-run error retry.
   let noCaptures = 0;
   for (let attempt = 0; attempt < 6; attempt++) {
     const text = await fetchWithRetry(url, 1, 90000);
+    if (text !== null && text.trim() === '') throw new Error('CDX answered an empty body');
     if (text) {
       const rows = JSON.parse(text);
       if (Array.isArray(rows) && rows.length >= 2) return rows[rows.length - 1];
+      if (!Array.isArray(rows)) throw new Error('CDX answered a non-JSON body');
     }
     noCaptures++;
     if (noCaptures >= 3) return null;
@@ -223,16 +233,19 @@ async function loadTitles() {
 }
 
 const titles = await loadTitles();
+const outstanding = [];
+for (const title of titles) if (!await known(title)) outstanding.push(title);
+const ask = PENDING_ONLY ? outstanding : titles;
 const stats = { cached: 0, fetched: 0, missing: 0, error: 0 };
 const errored = [];
 let done = 0;
-for (const title of titles) {
+for (const title of ask) {
   const status = await fetchOne(title, ALLOW_CDX);
   stats[status] = (stats[status] || 0) + 1;
   if (status === 'error') errored.push(title);
   if (status === 'fetched') console.log(`[fetched] ${title}`);
   done++;
-  if (done % 5 === 0) console.log(`${done}/${titles.length} ${JSON.stringify(stats)}`);
+  if (done % 5 === 0) console.log(`${done}/${ask.length} ${JSON.stringify(stats)}`);
   await sleep(DELAY_MS);
 }
 // Archive flakiness lands on arbitrary pages; every 'error' gets one clean
@@ -243,4 +256,4 @@ for (const title of errored) {
   stats[status] = (stats[status] || 0) + 1;
   await sleep(DELAY_MS);
 }
-console.log('DONE', JSON.stringify({ total: titles.length, ...stats }));
+console.log('DONE', JSON.stringify({ total: ask.length, ...stats }));
