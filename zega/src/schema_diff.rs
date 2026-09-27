@@ -45,6 +45,7 @@ pub struct SchemaChange {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ChangeKind {
     TypeAdded { name: String },
+    LifetimeChanged { type_name: String, bound: String, from: Option<String>, to: Option<String> },
     TypeRemoved { name: String },
     TypeRenamed { from: String, to: String },
     FieldAdded { #[serde(rename = "type")] type_name: String, field: String, required: bool },
@@ -160,6 +161,13 @@ fn history_count(graph: &Graph, ty: &str, field: Option<&str>) -> u64 {
 }
 
 fn diff_type_fields(graph: &Graph, old_ty: &TypeDef, new_ty: &TypeDef, changes: &mut Vec<SchemaChange>) {
+    for (bound, from, to) in [("appears", &old_ty.appears, &new_ty.appears), ("ends", &old_ty.ends, &new_ty.ends)] {
+        if from != to {
+            changes.push(SchemaChange { severity: if from.is_none() { Severity::Safe } else { Severity::Warn },
+                kind: ChangeKind::LifetimeChanged { type_name: old_ty.name.clone(), bound: bound.into(), from: from.clone(), to: to.clone() },
+                affected: 0, message: format!("changes {} {bound} at from {from:?} to {to:?}", old_ty.name) });
+        }
+    }
     let old_fields: HashMap<&str, &Field> = old_ty.fields.iter().map(|f| (field_name(f), f)).collect();
     let new_fields: HashMap<&str, &Field> = new_ty.fields.iter().map(|f| (field_name(f), f)).collect();
 
@@ -317,16 +325,25 @@ fn diff_type_fields(graph: &Graph, old_ty: &TypeDef, new_ty: &TypeDef, changes: 
                     });
                 }
             }
-            Field::Edge { field, rel, direction, targets, many, props, .. } => {
+            Field::Edge { field, rel, direction, targets, many, props, temporal, .. } => {
                 if let Some(Field::Edge {
                     rel: new_rel,
                     direction: new_direction,
                     targets: new_targets,
                     many: new_many,
                     props: new_props,
+                    temporal: new_temporal,
                     ..
                 }) = new_fields.get(field.as_str())
                 {
+                    if temporal != new_temporal {
+                        let affected = if *temporal && graph.history.has_data() {
+                            graph.history.get().map(|h| h.relationships.values().filter(|h| &h.rel.kind == rel).count() as u64).unwrap_or(u64::MAX)
+                        } else { 0 };
+                        changes.push(SchemaChange { severity: if affected > 0 { Severity::Blocks } else { Severity::Safe },
+                            kind: ChangeKind::RelationshipChanged { type_name: old_ty.name.clone(), field: field.clone(), from_rel: rel.clone(), to_rel: new_rel.clone() },
+                            affected, message: format!("changes history typing of {}.{}; {affected} retained intervals", old_ty.name, field) });
+                    }
                     if rel != new_rel
                         || direction != new_direction
                         || targets != new_targets
@@ -787,7 +804,9 @@ fn count_non_converting(graph: &Graph, type_name: &str, prop: &str, target_ty: &
 }
 
 fn count_rels_with_kind(graph: &Graph, kind: &str) -> u64 {
-    graph.relationships().filter(|r| r.kind == kind).count() as u64
+    let live = graph.relationships().filter(|r| r.kind == kind).count() as u64;
+    if !graph.history.has_data() { return live; }
+    graph.history.get().map(|h| live + h.relationships.values().filter(|h| h.rel.kind == kind && graph.get_relationship(h.rel.id).is_none()).count() as u64).unwrap_or(u64::MAX)
 }
 
 fn count_rels_missing_prop(graph: &Graph, kind: &str, prop: &str) -> u64 {

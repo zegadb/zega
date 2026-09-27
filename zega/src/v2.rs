@@ -214,6 +214,7 @@ impl Zega {
         )
         .map_err(|error| explain(error, "schema", schema_src))?;
         atomically(&mut graph, &self.wal, |graph, journal| {
+            journal.configure_time(&schema, None);
             connect(
                 graph,
                 journal,
@@ -385,6 +386,12 @@ fn run_statement(
                 }
                 _ => None,
             };
+            let mut window_query;
+            let query = if let Some(crate::lang::TimeClause::Window(window)) = query.time {
+                window_query = query.clone();
+                if let Some(root) = &mut window_query.root { root.window = Some(window); }
+                &window_query
+            } else { query };
             if !query.mutation && (!query.then.is_empty() || query.skip) {
                 return discovery::pipeline(graph, schema, query, work);
             }
@@ -736,6 +743,7 @@ fn read(
     root: &Selection,
     context: &mut ReadContext<'_>,
 ) -> Result<Json, LangError> {
+    if let Some(window) = root.window { return time::window_read(graph, schema, root, None, window, context); }
     let mut ids = candidates(graph, schema, root, context.work)?;
     // Candidates are in ascending id order, which is also the result order,
     // so without a ranking (`near`, `order by`) the first `limit` matches are
@@ -937,6 +945,7 @@ fn apply_node(
                 field,
                 span,
                 link,
+                unlink,
                 direction,
                 target,
                 range,
@@ -958,6 +967,13 @@ fn apply_node(
                 }
                 let child = if *link {
                     let child_id = lookup_one(graph, schema, target, uniques, work)?;
+                    if *unlink {
+                        let rels: Vec<_> = time::neighbors_at(graph, schema, id, rel, *direction, journal.relationship_time(rel))?.into_iter().filter(|(next, _)| *next == child_id).map(|(_, rel)| rel).collect();
+                        for rel in rels { journal.delete_relationship(graph, rel); }
+                        let row = project(graph, schema, target, child_id, 0, None, &mut ReadContext { work, trace: None })?;
+                        if many { lists.entry(field.clone()).or_default().push(row); } else { object.insert(field.clone(), row); }
+                        continue;
+                    }
                     let props = edge_sets(target)?;
                     let props_span = target
                         .items
@@ -1413,9 +1429,7 @@ fn project(
                 let rel_id = arrived.ok_or_else(|| {
                     LangError::bare(format!("&{name} needs the relationship that arrived here"))
                 })?;
-                let value = graph
-                    .get_relationship(rel_id)
-                    .and_then(|rel| rel.prop(name))
+                let value = time::edge_property(graph, rel_id, name, context.work.at)?
                     .map(value_to_json)
                     .unwrap_or(Json::Null);
                 object.insert(name.clone(), value);
@@ -1429,6 +1443,13 @@ fn project(
                 span,
                 ..
             } => {
+                if let Some(window) = target.window {
+                    if path.is_some() { return Err(LangError::at(*span, "time windows select nodes; use as of for a dated path")); }
+                    let parent = time::WindowWalk { id, field, direction: *direction, range: *range, span: *span, hops };
+                    let value = time::window_read(graph, schema, target, Some(parent), window, context)?;
+                    object.insert(field.clone(), value);
+                    continue;
+                }
                 let edge = schema.edge(node_type(node, sel)?, field)?;
                 let (_, rel, schema_dir, targets, many) = edge.as_edge().unwrap();
                 if *direction != schema_dir {
@@ -1493,8 +1514,12 @@ fn project(
                         ensure_single_valued(graph, id, rel, field, *direction, *span)?;
                     }
                     context.work.charge(1)?;
-                    neighbors(graph, id, rel, *direction)
-                        .into_iter()
+                    let adjacent = if context.work.at.is_none() {
+                        neighbors(graph, id, rel, *direction)
+                    } else {
+                        time::neighbors_at(graph, schema, id, rel, *direction, context.work.at)?
+                    };
+                    adjacent.into_iter()
                         .filter(|(next, _)| node_has_any_label(graph, *next, targets))
                         .map(|(next, rel_id)| (next, 1usize, rel_id))
                         .collect()
@@ -1618,8 +1643,9 @@ fn route(
     };
     // Every node after the start is one the target selection can read.
     let next = |node: NodeId, work: &mut Work| -> Result<Vec<(NodeId, RelId)>, LangError> {
-        let out: Vec<_> = neighbors(graph, node, rel, direction)
-            .into_iter()
+        let adjacent = if work.at.is_none() { neighbors(graph, node, rel, direction) }
+            else { time::neighbors_at(graph, schema, node, rel, direction, work.at)? };
+        let out: Vec<_> = adjacent.into_iter()
             .filter(|(to, _)| node_has_any_label(graph, *to, targets))
             .collect();
         work.charge(out.len())?;
@@ -1706,7 +1732,7 @@ fn route(
                 let mut out = Vec::new();
                 for (to, rel_id) in next(node, work)? {
                     let edge = || format!("{field}#{rel_id} from {} to {}", describe(node), describe(to));
-                    let stored = graph.get_relationship(rel_id).and_then(|r| r.prop(weight));
+                    let stored = time::edge_property(graph, rel_id, weight, work.at)?;
                     let weight_value = match stored {
                         Some(Value::Int(n)) => *n as f64,
                         Some(Value::Float(bits)) => f64::from_bits(*bits),
@@ -1793,12 +1819,8 @@ fn route(
             nodes.push(project(graph, schema, target, *node, hops + i, arrived, context)?);
         }
     }
-    let edges: Vec<Json> = route
-        .rels
-        .iter()
-        .filter_map(|id| graph.get_relationship(*id))
-        .map(rel_json)
-        .collect();
+    let edges: Vec<Json> = route.rels.iter().map(|id| time::edge_json(graph, *id, context.work.at))
+        .collect::<Result<Vec<_>, _>>()?.into_iter().flatten().collect();
     Ok(json!({ "cost": cost, "hops": steps, "nodes": nodes, "edges": edges }))
 }
 
@@ -1909,7 +1931,7 @@ fn retain_first_matches(
     work: &mut Work,
 ) -> Result<(), LangError> {
     let enough = enough.unwrap_or(usize::MAX);
-    if condition.is_none() {
+    if condition.is_none() && work.at.is_none() {
         ids.truncate(enough);
         return Ok(());
     }
@@ -2361,6 +2383,7 @@ fn node_matches(
     condition: Option<&BoolExpr>,
     work: &mut Work,
 ) -> Result<bool, LangError> {
+    if work.at.is_some() && !time::visible(graph, schema, id, work.at)? { return Ok(false); }
     match condition {
         None => Ok(true),
         Some(expr) => eval_expr(graph, schema, id, expr, work),
@@ -2434,8 +2457,8 @@ fn pred_matches(
     };
     match pred {
         Pred::Chain(walk) => return chain::holds(graph, schema, id, walk, work),
-        Pred::Ever(always, test, _) => {
-            return time::ever_always(graph, schema, id, test, *always, work)
+        Pred::Ever(always, test, window, _) => {
+            return time::ever_always(graph, schema, id, test, *always, *window, work)
         }
         Pred::Time(last, test, cmp, at, _) => {
             return Ok(

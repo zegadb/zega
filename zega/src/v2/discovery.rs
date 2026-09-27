@@ -115,12 +115,9 @@ fn stage(
             Ok(json!({"id": node.id, "labels": labels, "props": props}))
         })
         .collect::<Result<Vec<_>, LangError>>()?;
-    let edges: Vec<_> = rels
-        .iter()
-        .filter_map(|id| graph.get_relationship(*id))
-        .filter(|rel| selected.nodes.contains(&rel.from) && selected.nodes.contains(&rel.to))
-        .map(rel_json)
-        .collect();
+    let edges: Vec<_> = rels.iter().map(|id| time::edge_json(graph, *id, at))
+        .collect::<Result<Vec<_>, _>>()?.into_iter().flatten()
+        .filter(|rel| selected.nodes.contains(&rel["from"].as_u64().unwrap()) && selected.nodes.contains(&rel["to"].as_u64().unwrap())).collect();
     let mut result = json!({"index": index, "kind": kind, "nodes": nodes, "edges": edges});
     if kind == "then" {
         result["couldBeEdges"] = json!(selected.edges);

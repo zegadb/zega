@@ -96,6 +96,9 @@ pub enum Operation {
         at: i64,
         fields: Vec<String>,
     },
+    InsertRelAt { rel: Relationship, at: i64 },
+    EndRelAt { rel: Relationship, at: i64 },
+    SetLifetime { id: NodeId, appears: Option<i64>, ends: Option<i64> },
 }
 
 #[cfg(not(target_arch = "wasm32"))]

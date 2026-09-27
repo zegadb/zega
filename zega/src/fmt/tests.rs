@@ -63,7 +63,7 @@ fn ast(source: &str) -> Result<Parsed> {
                 terms.iter_mut().for_each(expr);
             }
             BoolExpr::Test(p) => match p {
-                Pred::Ever(_, test, s) | Pred::Time(_, test, _, _, s) => {
+                Pred::Ever(_, test, _, s) | Pred::Time(_, test, _, _, s) => {
                     span(s);
                     expr(test);
                 }

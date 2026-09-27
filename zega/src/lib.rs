@@ -601,6 +601,25 @@ impl Drop for Zega {
 #[cfg(not(target_arch = "wasm32"))]
 fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path) -> Result<()> {
     match op {
+        Operation::InsertRelAt { rel, at } => {
+            graph.restore_relationship(rel.id, rel.kind.clone(), rel.from, rel.to, rel.props.clone());
+            graph.history.get_mut().map_err(ZegaError::Execution)?.relationships.insert(rel.id,
+                crate::history::RelHistory { rel: rel.clone(), from: *at, to: None });
+        }
+        Operation::EndRelAt { rel, at } => {
+            let h = graph.history.get_mut().map_err(ZegaError::Execution)?;
+            let entry = h.relationships.entry(rel.id).or_insert_with(|| crate::history::RelHistory {
+                rel: rel.clone(), from: i64::MIN, to: None,
+            });
+            entry.to = Some(*at);
+            graph.delete_relationship(rel.id);
+        }
+        Operation::SetLifetime { id, appears, ends } => {
+            let h = graph.history.get_mut().map_err(ZegaError::Execution)?;
+            for (dates, value) in [(&mut h.appears, appears), (&mut h.ends, ends)] {
+                if let Some(value) = value { dates.insert(*id, *value); } else { dates.remove(id); }
+            }
+        }
         Operation::InsertNodeAt {
             id,
             labels,
@@ -648,11 +667,10 @@ fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path)
         }
         Operation::DeleteNode { id } => {
             if graph.history.has_data() {
-                graph
-                    .history
-                    .get_mut()
-                    .map_err(ZegaError::Execution)?
-                    .retain(|(n, _), _| n != id);
+                let h = graph.history.get_mut().map_err(ZegaError::Execution)?;
+                h.retain(|(n, _), _| n != id);
+                h.appears.remove(id); h.ends.remove(id);
+                h.relationships.retain(|_, r| r.rel.from != *id && r.rel.to != *id);
             }
             graph.delete_node(*id);
         }
@@ -859,3 +877,9 @@ const IMPORTS_DIR: &str = "graphs";
 /// import or checkpoint; deleted once it does.
 #[cfg(not(target_arch = "wasm32"))]
 const SNAPSHOT_FILE: &str = "snapshot.bin";
+
+#[cfg(test)]
+mod time_phase2_tests;
+
+#[cfg(test)]
+mod time_live_bench;
