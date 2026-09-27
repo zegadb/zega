@@ -178,12 +178,8 @@
       "results": [
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/oilers/info/oilersplus"
-            },
-            {
-              "url": "https://www.nhl.com/oilers/fans/sms-sign-up"
-            }
+            { "url": "https://www.nhl.com/oilers/info/oilersplus" },
+            { "url": "https://www.nhl.com/oilers/fans/sms-sign-up" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q205973",
@@ -199,12 +195,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/oilers/eocf/contact-us"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/oilers/eocf/contact-us" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q205973",
@@ -220,15 +212,9 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/oilers/info/oilersplus"
-            },
-            {
-              "url": "https://www.nhl.com/oilers/fans/sms-sign-up"
-            },
-            {
-              "url": "https://www.nhl.com/oilers/info/oilersplus-faq"
-            }
+            { "url": "https://www.nhl.com/oilers/info/oilersplus" },
+            { "url": "https://www.nhl.com/oilers/fans/sms-sign-up" },
+            { "url": "https://www.nhl.com/oilers/info/oilersplus-faq" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q205973",
@@ -244,12 +230,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/oilers/fans/sms-sign-up"
-            },
-            {
-              "url": "https://www.nhl.com/oilers/info/oilersplus-faq"
-            }
+            { "url": "https://www.nhl.com/oilers/fans/sms-sign-up" },
+            { "url": "https://www.nhl.com/oilers/info/oilersplus-faq" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q205973",
@@ -265,12 +247,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/oilers/eocf/"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/oilers/eocf/" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q205973",
@@ -286,12 +264,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/oilers/info/oilersplus"
-            },
-            {
-              "url": "https://www.nhl.com/oilers/info/oilersplus-faq"
-            }
+            { "url": "https://www.nhl.com/oilers/info/oilersplus" },
+            { "url": "https://www.nhl.com/oilers/info/oilersplus-faq" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q205973",
@@ -307,15 +281,9 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/oilers/info/oilersplus"
-            },
-            {
-              "url": "https://www.nhl.com/oilers/fans/sms-sign-up"
-            },
-            {
-              "url": "https://www.nhl.com/oilers/info/oilersplus-faq"
-            }
+            { "url": "https://www.nhl.com/oilers/info/oilersplus" },
+            { "url": "https://www.nhl.com/oilers/fans/sms-sign-up" },
+            { "url": "https://www.nhl.com/oilers/info/oilersplus-faq" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q205973",
@@ -331,15 +299,9 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/oilers/eocf/"
-            },
-            {
-              "url": "https://www.nhl.com/oilers/eocf/contact-us"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/oilers/eocf/" },
+            { "url": "https://www.nhl.com/oilers/eocf/contact-us" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q205973",
@@ -369,12 +331,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/ducks/roster"
-            },
-            {
-              "url": "https://www.nhl.com/ducks/schedule"
-            }
+            { "url": "https://www.nhl.com/ducks/roster" },
+            { "url": "https://www.nhl.com/ducks/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192751",
@@ -395,12 +353,8 @@
       "results": [
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/flames/team/owners"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" },
+            { "url": "https://www.nhl.com/flames/team/owners" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -416,9 +370,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -434,12 +386,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/flames/team/owners"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" },
+            { "url": "https://www.nhl.com/flames/team/owners" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -455,9 +403,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/team/owners"
-            }
+            { "url": "https://www.nhl.com/flames/team/owners" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -473,12 +419,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/flames/team/owners"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" },
+            { "url": "https://www.nhl.com/flames/team/owners" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -494,12 +436,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/flames/team/owners"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" },
+            { "url": "https://www.nhl.com/flames/team/owners" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -515,12 +453,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/flames/team/owners"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" },
+            { "url": "https://www.nhl.com/flames/team/owners" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -536,12 +470,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/flames/team/owners"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" },
+            { "url": "https://www.nhl.com/flames/team/owners" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -590,9 +520,7 @@
       "results": [
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q203384",
@@ -608,12 +536,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/mapleleafs/roster"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/mapleleafs/roster" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q203384",
@@ -629,12 +553,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/mapleleafs/roster"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/mapleleafs/roster" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q203384",
@@ -650,12 +570,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/mapleleafs/roster"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/mapleleafs/roster" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q203384",
@@ -671,12 +587,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/mapleleafs/roster"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/mapleleafs/roster" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q203384",
@@ -692,12 +604,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/mapleleafs/roster"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/mapleleafs/roster" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q203384",
@@ -713,12 +621,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/mapleleafs/roster"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/mapleleafs/roster" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q203384",
@@ -734,12 +638,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/mapleleafs/roster"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/mapleleafs/roster" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q203384",
@@ -769,9 +669,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/avalanche/fans/wallpapers"
-            }
+            { "url": "https://www.nhl.com/avalanche/fans/wallpapers" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q206297",
@@ -918,9 +816,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/avalanche/fans/wallpapers"
-            }
+            { "url": "https://www.nhl.com/avalanche/fans/wallpapers" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q206297",
@@ -941,18 +837,10 @@
       "results": [
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/hockey-operations"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/canucks/team/hockey-operations" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -968,18 +856,10 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -995,18 +875,10 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/hockey-operations"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/canucks/team/hockey-operations" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1022,18 +894,10 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/hockey-operations"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/hockey-operations" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1049,21 +913,11 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/hockey-operations"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/canucks/team/hockey-operations" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1079,21 +933,11 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/hockey-operations"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/canucks/team/hockey-operations" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1109,21 +953,11 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/hockey-operations"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/canucks/team/hockey-operations" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1139,21 +973,11 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/hockey-operations"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/canucks/team/hockey-operations" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1183,9 +1007,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/avalanche/fans/wallpapers"
-            }
+            { "url": "https://www.nhl.com/avalanche/fans/wallpapers" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q206297",
@@ -1206,9 +1028,7 @@
       "results": [
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/bruins/schedule"
-            }
+            { "url": "https://www.nhl.com/bruins/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194121",
@@ -1238,9 +1058,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/bruins/schedule"
-            }
+            { "url": "https://www.nhl.com/bruins/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194121",
@@ -1256,9 +1074,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/bruins/schedule"
-            }
+            { "url": "https://www.nhl.com/bruins/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194121",
@@ -1274,9 +1090,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/bruins/schedule"
-            }
+            { "url": "https://www.nhl.com/bruins/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194121",
@@ -1292,9 +1106,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/bruins/schedule"
-            }
+            { "url": "https://www.nhl.com/bruins/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194121",
@@ -1310,9 +1122,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/bruins/schedule"
-            }
+            { "url": "https://www.nhl.com/bruins/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194121",
@@ -1328,9 +1138,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/bruins/schedule"
-            }
+            { "url": "https://www.nhl.com/bruins/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194121",
@@ -1360,9 +1168,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/avalanche/fans/wallpapers"
-            }
+            { "url": "https://www.nhl.com/avalanche/fans/wallpapers" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q206297",
@@ -1397,9 +1203,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q1215892",
@@ -1415,9 +1219,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q1215892",
@@ -1433,9 +1235,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/stars/multimedia/broadcast"
-            }
+            { "url": "https://www.nhl.com/stars/multimedia/broadcast" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q208652",
@@ -1493,18 +1293,10 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1534,12 +1326,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.thepwhl.com/en/about"
-            },
-            {
-              "url": "https://www.thepwhl.com/en/media-credential-requests"
-            }
+            { "url": "https://www.thepwhl.com/en/about" },
+            { "url": "https://www.thepwhl.com/en/media-credential-requests" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q122234845",
@@ -1574,9 +1362,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/stars/multimedia/broadcast"
-            }
+            { "url": "https://www.nhl.com/stars/multimedia/broadcast" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q208652",
@@ -1634,18 +1420,10 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1689,9 +1467,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/avalanche/fans/wallpapers"
-            }
+            { "url": "https://www.nhl.com/avalanche/fans/wallpapers" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q206297",
@@ -1740,9 +1516,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -1758,9 +1532,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/stars/multimedia/broadcast"
-            }
+            { "url": "https://www.nhl.com/stars/multimedia/broadcast" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q208652",
@@ -1790,12 +1562,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/flames/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/flames/team/owners"
-            }
+            { "url": "https://www.nhl.com/flames/schedule" },
+            { "url": "https://www.nhl.com/flames/team/owners" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194126",
@@ -1839,18 +1607,10 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/front-office"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/front-office" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -1927,12 +1687,8 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/redwings/standings"
-            },
-            {
-              "url": "https://www.nhl.com/redwings/team/91"
-            }
+            { "url": "https://www.nhl.com/redwings/standings" },
+            { "url": "https://www.nhl.com/redwings/team/91" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q194116",
@@ -1976,9 +1732,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/penguins/tickets/groups"
-            }
+            { "url": "https://www.nhl.com/penguins/tickets/groups" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q193643",
@@ -1994,9 +1748,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q1215892",
@@ -2012,18 +1764,10 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/canucks/schedule"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/training-staff"
-            },
-            {
-              "url": "https://www.nhl.com/canucks/team/hockey-operations"
-            },
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/canucks/schedule" },
+            { "url": "https://www.nhl.com/canucks/team/training-staff" },
+            { "url": "https://www.nhl.com/canucks/team/hockey-operations" },
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q192890",
@@ -2053,9 +1797,7 @@
         },
         {
           "LINKS_TO": [
-            {
-              "url": "https://www.nhl.com/"
-            }
+            { "url": "https://www.nhl.com/" }
           ],
           "confidence": 1.0,
           "entity_qid": "Q24725640",
