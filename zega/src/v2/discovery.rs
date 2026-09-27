@@ -55,7 +55,7 @@ pub(super) fn pipeline(
     }
     let mut stages = Vec::new();
     if !query.skip {
-        stages.push(stage(graph, 0, "query", &selected, &trace.rels));
+        stages.push(stage(graph, 0, "query", &selected, &trace.rels, context.work.at)?);
     }
     for (i, then) in query.then.iter().enumerate() {
         selected = evaluate(
@@ -67,7 +67,7 @@ pub(super) fn pipeline(
         )?;
         selected.normalize();
         if !then.skip {
-            stages.push(stage(graph, i + 1, "then", &selected, &trace.rels));
+            stages.push(stage(graph, i + 1, "then", &selected, &trace.rels, context.work.at)?);
         }
     }
     Ok(json!({"stages": stages}))
@@ -79,20 +79,20 @@ fn stage(
     kind: &str,
     selected: &Matches,
     rels: &BTreeSet<RelId>,
-) -> Json {
+    at: Option<i64>,
+) -> Result<Json, LangError> {
     let nodes: Vec<_> = selected
         .nodes
         .iter()
         .filter_map(|id| graph.get_node(*id))
         .map(|node| {
-            let props: serde_json::Map<String, Json> = node
-                .props()
-                .map(|(key, value)| (key.to_string(), value_to_json(value)))
-                .collect();
+            let props = node.props().map(|(key, _)| {
+                Ok((key.to_string(), time::property(graph, node.id, key, at)?.map(value_to_json).unwrap_or(Json::Null)))
+            }).collect::<Result<serde_json::Map<String, Json>, LangError>>()?;
             let labels: Vec<&str> = node.labels().collect();
-            json!({"id": node.id, "labels": labels, "props": props})
+            Ok(json!({"id": node.id, "labels": labels, "props": props}))
         })
-        .collect();
+        .collect::<Result<Vec<_>, LangError>>()?;
     let edges: Vec<_> = rels
         .iter()
         .filter_map(|id| graph.get_relationship(*id))
@@ -103,7 +103,7 @@ fn stage(
     if kind == "then" {
         result["couldBeEdges"] = json!(selected.edges);
     }
-    result
+    Ok(result)
 }
 
 fn evaluate(
@@ -164,7 +164,7 @@ fn primitive_matches(
                     else {
                         continue;
                     };
-                    if field_ty != "String"
+                    if crate::history::plain_type(field_ty) != "String"
                         || (!fields.is_empty() && !fields.iter().any(|(f, _)| f == name))
                     {
                         continue;
@@ -179,17 +179,17 @@ fn primitive_matches(
                         TextOp::FindLike | TextOp::StartsLike | TextOp::EndsLike | TextOp::Regex => None,
                     };
                     let indexed =
-                        pattern_kind.and_then(|p| graph.text_candidates(&[&ty.name], name, p));
+                        pattern_kind.filter(|_| work.at.is_none()).and_then(|p| graph.text_candidates(&[&ty.name], name, p));
                     let candidates: Vec<_> = match indexed {
                         Some(ids) => ids.into_iter().filter(|id| input.contains(id)).collect(),
                         None => input.iter().copied().collect(),
                     };
                     for id in candidates {
-                        let Some(node) = graph.get_node(id).filter(|n| n.has_label(&ty.name))
+                        let Some(_) = graph.get_node(id).filter(|n| n.has_label(&ty.name))
                         else {
                             continue;
                         };
-                        let Some(Value::String(value)) = node.prop(name) else {
+                        let Some(Value::String(value)) = time::property(graph, id, name, work.at)? else {
                             continue;
                         };
                         work.charge(1)?;
@@ -233,11 +233,11 @@ fn primitive_matches(
                     let values: Option<Vec<Json>> = fields
                         .iter()
                         .map(|(field, _)| {
-                            node.prop(field)
+                            Ok(time::property(graph, *id, field, work.at)?
                                 .filter(|v| !matches!(v, Value::Null))
-                                .map(canonical_value)
+                                .map(canonical_value))
                         })
-                        .collect();
+                        .collect::<Result<Vec<_>, LangError>>()?.into_iter().collect();
                     let Some(values) = values else { continue };
                     let value = if values.len() == 1 {
                         values[0].clone()
@@ -277,7 +277,7 @@ fn primitive_matches(
         } => {
             for id in input {
                 let Some(Value::Vector(vector)) =
-                    graph.get_node(*id).and_then(|n| n.prop(field))
+                    time::property(graph, *id, field, work.at)?
                 else {
                     continue;
                 };
@@ -285,12 +285,12 @@ fn primitive_matches(
                 // HNSW traverses its index and falls back to its exact scan;
                 // omitted entries are scored directly (also covers no index).
                 work.charge(input.len())?;
-                let mut scores: BTreeMap<_, _> = graph
+                let mut scores: BTreeMap<_, _> = if work.at.is_some() { BTreeMap::new() } else { graph
                     .vector_nearest(field, vector, input.len(), false, |other| {
                         input.contains(&other) && other > *id
                     })
                     .into_iter()
-                    .collect();
+                    .collect() };
                 for other in
                     input.range((std::ops::Bound::Excluded(*id), std::ops::Bound::Unbounded))
                 {
@@ -299,7 +299,7 @@ fn primitive_matches(
                         continue;
                     }
                     if let Some(Value::Vector(v)) =
-                        graph.get_node(*other).and_then(|n| n.prop(field))
+                        time::property(graph, *other, field, work.at)?
                     {
                         if v.metric == vector.metric {
                             if let Some(score) = vector.score(v) {
@@ -326,21 +326,22 @@ fn primitive_matches(
             ..
         } => {
             for id in input {
-                let Some(point) = graph.get_node(*id).and_then(|n| point_prop(n, field)) else {
+                let Some(Value::Point(point)) = time::property(graph, *id, field, work.at)? else {
                     continue;
                 };
                 // Bounding boxes are conservative; exact portable haversine
                 // supplies both selection and the byte-identical host result.
-                for other in graph.spatial_candidates(field, Bounds::radius(point, *metres)) {
+                let candidates = if work.at.is_some() { input.iter().copied().collect() } else { graph.spatial_candidates(field, Bounds::radius(*point, *metres)) };
+                for other in candidates {
                     if other <= *id || !input.contains(&other) {
                         continue;
                     }
                     work.charge(1)?;
-                    let Some(target) = graph.get_node(other).and_then(|n| point_prop(n, field))
+                    let Some(Value::Point(target)) = time::property(graph, other, field, work.at)?
                     else {
                         continue;
                     };
-                    let distance = point.portable_distance(target);
+                    let distance = point.portable_distance(*target);
                     if distance < *metres || (*inclusive && distance == *metres) {
                         out.pair(
                             *id,

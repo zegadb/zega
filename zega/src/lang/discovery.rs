@@ -440,6 +440,8 @@ fn check_field(
                     format!("{ty}.{field} is a relationship; discovery requires {required}"),
                 ));
             };
+            let plain = crate::history::plain_type(actual);
+            let actual = plain.as_str();
             if required == "Vector" {
                 let spec = VectorSpec::parse(actual).ok_or_else(|| {
                     Error::at(span, format!("{ty}.{field} must be Vector, found {actual}"))

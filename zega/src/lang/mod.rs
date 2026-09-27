@@ -265,7 +265,12 @@ pub enum Direction {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum TimeClause { AsOf(i64), Series { from: i64, to: i64, unit: String } }
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Query {
+    pub at: Option<i64>,
+    pub time: Option<TimeClause>,
     pub mutation: bool,
     pub skip: bool,
     pub then: Vec<ThenStage>,
@@ -381,6 +386,8 @@ pub struct Distance {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Item {
+    Series(String, Span),
+    Time(String, bool, Box<BoolExpr>, Span),
     Score(String, Span),
     Similarity(String, Similarity),
     Distance(String, Distance),
@@ -482,7 +489,12 @@ impl DistanceUnit {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum TimeCompare { Ordered(Cmp), Equal, NotEqual }
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Pred {
+    Ever(bool, Box<BoolExpr>, Span),
+    Time(bool, Box<BoolExpr>, TimeCompare, i64, Span),
     Similarity(Similarity, Cmp, f64),
     Distance(Distance, Cmp, f64),
     Box(String, Bounds, Span),
@@ -578,6 +590,7 @@ impl Chain {
 impl Pred {
     pub fn field(&self) -> &str {
         match self {
+            Pred::Ever(..) | Pred::Time(..) => "@time",
             Pred::Similarity(sim, ..) => &sim.field,
             Pred::Distance(distance, ..) => &distance.field,
             Pred::Box(field, ..) => field,
@@ -596,6 +609,7 @@ impl Pred {
 
     pub fn span(&self) -> Span {
         match self {
+            Pred::Ever(_, _, span) | Pred::Time(_, _, _, _, span) => *span,
             Pred::Similarity(sim, ..) => sim.span,
             Pred::Distance(distance, ..) => distance.span,
             Pred::Box(_, _, span) => *span,
@@ -864,6 +878,9 @@ fn json_matches(ty: &str, value: &Json) -> bool {
     {
         return true;
     }
+    if crate::history::is_temporal(ty) { return json_matches(&crate::history::plain_type(ty), value); }
+    if let Some(inner) = ty.strip_suffix("[]") { return value.as_array().is_some_and(|a| a.iter().all(|v| json_matches(inner,v))); }
+    if ty == "Date" { return value.as_str().is_some_and(|s| crate::history::date(s).is_ok()); }
     match ty {
         "String" => value.is_string(),
         "String<url>" | "String<iso2>" => value.as_str().is_some_and(|text| valid_unit_string(ty, text)),
@@ -1133,7 +1150,18 @@ impl<'a> Parser<'a> {
             let _ = self.eat_word("query");
         }
         self.columns = false;
+        let at = if mutation && self.eat_word("at") { Some(self.time_date()?) } else { None };
         let mut query = self.parse_braced(mutation)?;
+        query.at = at;
+        if !mutation && self.eat_word("as") {
+            self.expect_word("of")?; query.time = Some(TimeClause::AsOf(self.time_date()?));
+        } else if !mutation && self.eat_word("from") {
+            let from = self.time_date()?; self.expect_word("to")?; let to = self.time_date()?;
+            self.expect_word("by")?; let (unit,span)=self.ident()?;
+            if !matches!(unit.as_str(), "day"|"week"|"month") { return Err(self.err_at(span,"time series use day, week, or month")); }
+            if from>to { return Err(self.err_at(span,"series starts after it ends")); }
+            query.time = Some(TimeClause::Series { from,to,unit });
+        }
         self.take_pipeline(&mut query)?;
         Ok(Statement::Run(query))
     }
@@ -1177,6 +1205,7 @@ impl<'a> Parser<'a> {
         if self.eat("}") {
             return Ok(Query {
                 mutation,
+                at: None, time: None,
                 skip: false,
                 then: Vec::new(),
                 root: None,
@@ -1186,6 +1215,7 @@ impl<'a> Parser<'a> {
         self.expect("}")?;
         Ok(Query {
             mutation,
+            at: None, time: None,
             skip: false,
             then: Vec::new(),
             root: Some(root),
@@ -1305,7 +1335,7 @@ impl<'a> Parser<'a> {
                         .with_help(prop_help(schema, &type_name, &field)));
                 };
                 match kind {
-                    IndexKind::Text if !is_string(field_ty) => {
+                    IndexKind::Text if !is_string(&crate::history::plain_type(field_ty)) => {
                         return Err(self
                             .err_at(
                                 field_span,
@@ -1313,7 +1343,7 @@ impl<'a> Parser<'a> {
                             )
                             .with_help("`text` speeds findExact, startsExact and endsExact on a String (not the `…Like` forms)"));
                     }
-                    IndexKind::Range if !orderable(field_ty) => {
+                    IndexKind::Range if !orderable(&crate::history::plain_type(field_ty)) => {
                         return Err(self
                             .err_at(
                                 field_span,
@@ -1603,6 +1633,10 @@ impl<'a> Parser<'a> {
         }
         let alias = alias.unwrap_or_else(|| name.clone());
         match name.as_str() {
+            "firstTime" | "lastTime" => {
+                self.expect("(")?; let test=self.nested(self.i, Self::parse_or)?; self.expect(")")?;
+                Ok(Item::Time(alias,name=="lastTime",Box::new(test),span))
+            }
             "hops" => {
                 if self.eat(":") {
                     return Err(self.err_at(span, "@hops is measured, not stored")
@@ -1674,6 +1708,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_field(&mut self) -> Result<Field> {
+        if self.starts_word("appears") || self.starts_word("ends") {
+            return Err(self.err("not yet: APS 24 phase 2 (node lifetimes)"));
+        }
         let (name, name_span) = self.ident()?;
         let optional = self.eat("?");
         if self.eat(":") {
@@ -1691,6 +1728,7 @@ impl<'a> Parser<'a> {
                 }
                 return self.finish_edge(name, rel, direction, targets, target_spans, many);
             }
+            let temporal = self.eat("<");
             let (mut ty, ty_span) = self.ident()?;
             if ty == "Vector" {
                 self.expect("<")?;
@@ -1706,6 +1744,9 @@ impl<'a> Parser<'a> {
                 ty = format!("Vector<{n},{metric}>");
             }
             let unit = self.parse_unit(&mut ty, ty_span)?;
+            if self.eat("[") { self.expect("]")?; ty.push_str("[]"); }
+            if temporal { self.expect(">")?; ty = format!("<{ty}>"); }
+            if self.eat("[") { self.expect("]")?; ty.push_str("[]"); }
             let from = if self.starts_call("from", "(") {
                 self.expect_word("from")?;
                 if ty != "Point" && VectorSpec::parse(&ty).is_none() {
@@ -1862,6 +1903,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_ref(&mut self) -> Result<(Vec<String>, Vec<Span>, bool)> {
+        if self.eat("<") { return Err(self.err("not yet: APS 24 phase 2 (time-typed relationships)")); }
         self.skip();
         if self.eat("(") {
             let mut targets = Vec::new();
@@ -2064,6 +2106,7 @@ impl<'a> Parser<'a> {
 
     #[inline(never)]
     fn item_head(&mut self) -> Result<ItemHead> {
+        if self.eat("<") { let (name,span)=self.ident()?; self.expect(">")?; return Ok(ItemHead::Done(Item::Series(name,span))); }
         self.skip();
         self.reject_discovery_block()?;
         if self.src[self.i..].starts_with('@') {
@@ -2314,7 +2357,27 @@ impl<'a> Parser<'a> {
     /// of line, to keep this frame small on the recursive path
     /// (zegadb/zega#48).
     fn parse_pred(&mut self) -> Result<Pred> {
-        self.skip();
+        self.skip(); let start = self.i;
+        if self.starts_word("ever") || self.starts_word("always") {
+            let always = self.eat_word("always"); if !always { self.expect_word("ever")?; }
+            let test = self.nested(start, Self::parse_atom)?;
+            return Ok(Pred::Ever(always, Box::new(test), self.span_bytes(start,self.i)));
+        }
+        if self.src[self.i..].starts_with("@firstTime") || self.src[self.i..].starts_with("@lastTime") {
+            self.expect("@")?; let (function, span) = self.ident()?;
+            if !matches!(function.as_str(), "firstTime" | "lastTime") { return Err(self.err_at(span, "expected @firstTime or @lastTime")); }
+            let last = function == "lastTime";
+            self.expect("(")?; let test=self.nested(self.i, Self::parse_or)?; self.expect(")")?;
+            let cmp = if self.eat("!=") { TimeCompare::NotEqual }
+                else if self.eat("=") { TimeCompare::Equal }
+                else if self.eat(">=") { TimeCompare::Ordered(Cmp::Gte) }
+                else if self.eat("<=") { TimeCompare::Ordered(Cmp::Lte) }
+                else if self.eat(">") { TimeCompare::Ordered(Cmp::Gt) }
+                else if self.eat("<") { TimeCompare::Ordered(Cmp::Lt) }
+                else { return Err(self.err("time comparison needs =, !=, <, <=, >, or >=")); };
+            let at=self.time_date()?;
+            return Ok(Pred::Time(last,Box::new(test),cmp,at,self.span_bytes(start,self.i)));
+        }
         if let Some(word) = self.chain_word() {
             return self.chain(word).map(Pred::Chain);
         }
@@ -2957,8 +3020,30 @@ impl<'a> Parser<'a> {
         Ok(Similarity { field, query, span })
     }
 
+    fn time_date(&mut self) -> Result<i64> {
+        self.skip(); let start=self.i;
+        while self.i < self.src.len() && self.src.as_bytes()[self.i].is_ascii() && (self.src.as_bytes()[self.i].is_ascii_digit() || matches!(self.src.as_bytes()[self.i],b'-'|b'T'|b':')) { self.i+=1; }
+        crate::history::date(&self.src[start..self.i]).map_err(|message| self.err_at(self.span_bytes(start,self.i),message))
+    }
+
     fn parse_value(&mut self) -> Result<Json> {
         self.skip();
+        if self.eat("[") {
+            return self.nested(self.i - 1, |p| {
+                let mut values = Vec::new();
+                if !p.eat("]") {
+                    loop {
+                        values.push(p.parse_value()?);
+                        if p.eat("]") { break; }
+                        p.expect(",")?;
+                    }
+                }
+                Ok(Json::Array(values))
+            });
+        }
+        if self.src.as_bytes()[self.i..].get(..5).is_some_and(|b| b[..4].iter().all(u8::is_ascii_digit) && b[4] == b'-') {
+            return self.time_date().map(|t| Json::String(crate::history::format_date(t)));
+        }
         if self.starts_call("vector", "[") { return Ok(self.vector()?.to_json()); }
         if self.starts_call("point", "(") {
             return Ok(self.point()?.to_json());
@@ -3142,6 +3227,7 @@ fn bind_query(
         return Ok(Some(query.clone()));
     };
     Ok(bind_selection(root, row)?.map(|root| Query {
+        at: query.at, time: query.time.clone(),
         mutation: query.mutation,
         skip: query.skip,
         then: query.then.clone(),
@@ -3820,6 +3906,11 @@ impl Check<'_> {
                 Item::Score(_, span) => { if sel.near.is_none() { self.push(*span, "@score requires an @near(...) selection", None); } }
                 Item::Similarity(_, sim) => self.ensure_vector(sel, sim),
                 Item::Prop(name, span) => self.ensure_prop(sel, name, *span),
+                Item::Series(name,span) => {
+                    self.ensure_prop(sel,name,*span);
+                    if !matches!(self.schema.prop(&sel.type_name,name),Ok(Field::Prop {ty,..}) if crate::history::is_temporal(ty)) { self.push(*span,"series needs a <T> field",None); }
+                }
+                Item::Time(_,_,test,_) => { let types=selection_types(sel).into_iter().map(str::to_string).collect::<Vec<_>>(); self.expr(sel,&types,test,Group::Alone); },
                 Item::Distance(_, distance) => {
                     self.ensure_point(sel, &distance.field, distance.span)
                 }
@@ -3916,6 +4007,9 @@ impl Check<'_> {
     /// One test; `earlier` are the terms before it in its `&&` group, which
     /// a chain's `same` may name.
     fn test(&mut self, sel: &Selection, types: &[String], pred: &Pred, earlier: &[BoolExpr], group: Group) {
+        if let Pred::Ever(_, test, _) | Pred::Time(_, test, ..) = pred {
+            self.expr(sel,types,test,Group::Alone); return;
+        }
         if let Pred::Chain(chain) = pred {
             self.chain(types, chain, earlier, group);
             return;
@@ -4483,7 +4577,7 @@ impl Check<'_> {
 
     fn ensure_vector(&mut self, sel: &Selection, sim: &Similarity) {
         for name in selection_types(sel) {
-            let spec = self.schema.prop(name, &sim.field).ok().and_then(|f| match f { Field::Prop {ty,..} => VectorSpec::parse(ty), _ => None });
+            let spec = self.schema.prop(name, &sim.field).ok().and_then(|f| match f { Field::Prop {ty,..} => VectorSpec::parse(&crate::history::plain_type(ty)), _ => None });
             match spec {
                 Some(spec) if spec.dimensions == sim.query.dimensions() => {},
                 Some(spec) => self.push(sim.span, format!("Vector<{}> query needs exactly {} numbers, got {}", spec.dimensions, spec.dimensions, sim.query.dimensions()), None),
@@ -4542,6 +4636,7 @@ impl Check<'_> {
         }
         for item in &sel.items {
             let refused = match item {
+                Item::Series(_, span) | Item::Time(_, _, _, span) => Some((*span, "a delete returns only `@id` and fields")),
                 Item::Detach(_) | Item::Id(_) | Item::Prop(_, _) => None,
                 Item::Walk { span, .. } => Some((*span, "a delete removes nodes, not relationships")),
                 Item::EdgeProp(_, span) | Item::EdgeSet(_, _, span) => Some((*span, "a deleted row was not reached by an edge")),
@@ -4558,7 +4653,7 @@ impl Check<'_> {
 
     fn ensure_point(&mut self, sel: &Selection, name: &str, span: Span) {
         if !selection_types(sel).iter().any(
-            |ty| matches!(self.schema.prop(ty, name), Ok(Field::Prop { ty, .. }) if ty == "Point"),
+            |ty| matches!(self.schema.prop(ty, name), Ok(Field::Prop { ty, .. }) if crate::history::plain_type(ty) == "Point"),
         ) {
             self.push(
                 span,
@@ -4577,6 +4672,14 @@ impl Check<'_> {
         }
         for type_name in selection_types(sel) {
             if let Ok(Field::Prop { ty, optional, .. }) = self.schema.prop(type_name, name) {
+                let plain = crate::history::plain_type(ty);
+                let ty = plain.as_str();
+                if ty.ends_with("[]") {
+                    if !(json_matches(ty, value) || value.is_null() && *optional) {
+                        self.push(span, format!("{type_name}.{name} must be {ty}"), None);
+                    }
+                    continue;
+                }
                 if self.mutation && is_unit_string(ty) && !(value.is_null() && *optional) && !json_matches(ty, value) {
                     self.push(span, format!("{type_name}.{name} must be {ty}"),
                         Some(unit_string_help(ty).into()));

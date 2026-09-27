@@ -147,6 +147,11 @@ pub(super) fn tokens(source: &str) -> Vec<Token<'_>> {
                     break;
                 }
             }
+        } else if rest.as_bytes().get(..5).is_some_and(|b| b[..4].iter().all(u8::is_ascii_digit) && b[4] == b'-') {
+            while i < source.len() && (source.as_bytes()[i].is_ascii_digit()
+                || matches!(source.as_bytes()[i], b'-' | b'T' | b':')) {
+                i += 1;
+            }
         } else if c.is_ascii_alphanumeric()
             || c == '_'
             || (c == '-' && rest.as_bytes().get(1).is_some_and(u8::is_ascii_digit))

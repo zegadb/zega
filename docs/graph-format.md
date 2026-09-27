@@ -78,16 +78,24 @@ section = tag:4 bytes  length:u64  payload:length bytes  crc:u32
 | 3 | `SCHM` | schema | yes |
 | 4 | `NODE` | nodes | yes |
 | 5 | `RELS` | relationships | yes |
-| 6 | `DONE` | done | no |
+| 6 | `HIST` | typed field history (optional; APS 24) | yes |
+| 7 | `DONE` | done | no |
 
 - The magic's first byte is outside ASCII and it ends in a newline, so a file
   mangled by a text-mode transfer fails the magic check.
-- The sections appear exactly once each, in this order. Nothing may follow
+- The sections appear exactly once each, in this order, except that `HIST`
+  is omitted when there is no history. Nothing may follow
   `DONE`.
 - `crc` is the CRC-32 (IEEE 802.3, as in zlib and PNG) of the section's
   payload, not including its tag or length.
 - A payload must be consumed exactly by its records: bytes left over, or a
   record that runs past `length`, make the file invalid.
+
+The optional `HIST` payload uses the column encoding described in
+[typed history](time.md). Its CRC and content digest are checked during
+import; its records are decoded lazily on the first history access. A reader
+from before APS 24 will reject a file containing this new section. Files
+without it retain their existing layout.
 
 ### Manifest (`MNFT`)
 
