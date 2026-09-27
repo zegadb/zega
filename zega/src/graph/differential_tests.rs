@@ -390,3 +390,51 @@ fn churning_ids_stay_correct() {
     let ids: Vec<u64> = g.nodes().map(|n| n.id).collect();
     assert_eq!(ids, live.iter().copied().collect::<Vec<_>>());
 }
+
+/// Unsorted valid-time writes and corrections against a simple map model.
+#[test]
+fn aps24_histories_match_reference_model() {
+    let mut graph = Graph::new();
+    let mut model = BTreeMap::<(u64, String), BTreeMap<i64, Value>>::new();
+    let mut rng = Rng(24);
+    for id in 1..=12 {
+        graph.restore_node(id, vec!["T".into()], HashMap::new());
+    }
+    for step in 0..600 {
+        let id = 1 + rng.below(12);
+        let field = format!("f{}", rng.below(3));
+        let at = rng.below(60) as i64 * 86400;
+        let value = value(&mut rng, false);
+        model
+            .entry((id, field.clone()))
+            .or_default()
+            .insert(at, value.clone());
+        graph
+            .record_history(id, at, &HashMap::from([(field.clone(), value)]), &[field])
+            .unwrap();
+        for ((id, field), versions) in &model {
+            let node = graph.get_node(*id).unwrap();
+            for at in [-1, 0, 13 * 86400, 35 * 86400, 100 * 86400] {
+                let expected = versions.range(..=at).next_back().map(|(_, value)| value);
+                let view = crate::history::AsOf {
+                    node,
+                    histories: graph.history.get().unwrap(),
+                    at,
+                };
+                assert_eq!(
+                    view.prop(field),
+                    expected,
+                    "step {step}, node {id}, field {field}, at {at}"
+                );
+            }
+        }
+        if step % 100 == 0 {
+            let bytes = crate::wal::encode_snapshot(&graph).unwrap();
+            crate::wal::restore_bytes(&mut graph, &bytes).unwrap();
+            let mut bytes = Vec::new();
+            crate::graph_file::write(&graph, &Default::default(), "test", &mut bytes).unwrap();
+            graph = crate::graph_file::read(&bytes[..]).unwrap().0;
+            assert_eq!(graph.history.accesses(), 0);
+        }
+    }
+}

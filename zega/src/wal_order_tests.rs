@@ -360,3 +360,40 @@ fn refused_api_connect_and_deletes_change_nothing() {
     let before = store.state().0;
     assert_eq!(store.reopened().graph_json().unwrap(), before);
 }
+
+#[test]
+fn aps24_refused_write_preserves_history() {
+    let store = Store::open();
+    let schema = "type Team { name: String points: <Int> }";
+    store
+        .zega
+        .run_lang(
+            schema,
+            r#"mutation at 2024-01-01 { Team(name: "Oilers" && points: 10) { name } }"#,
+        )
+        .unwrap();
+    let before = store
+        .zega
+        .lock_graph()
+        .unwrap()
+        .history
+        .get()
+        .unwrap()
+        .clone();
+    store.refused(|db| {
+        db.run_lang(
+            schema,
+            r#"mutation at 2024-01-02 { Team(name = "Oilers") set points: 20 { points } }"#,
+        )
+    });
+    assert_eq!(
+        *store.zega.lock_graph().unwrap().history.get().unwrap(),
+        before
+    );
+    let db = store.reopened();
+    assert_eq!(
+        db.run_lang(schema, "{ Team limit 10 { points } } as of 2024-01-03")
+            .unwrap(),
+        serde_json::json!([{"points":10}])
+    );
+}

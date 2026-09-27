@@ -463,6 +463,8 @@ impl<'a> Printer<'a> {
             }
         };
         let Query {
+            at: _,
+            time,
             mutation: _,
             root,
             skip,
@@ -480,6 +482,27 @@ impl<'a> Printer<'a> {
             Vec::new()
         };
         let mut stages = vec![self.block(header, items, Block::Top).doc];
+        if let Some(time) = time {
+            let mut p = self.parser();
+            match time {
+                TimeClause::AsOf(_) => {
+                    p.expect_word("as")?;
+                    p.expect_word("of")?;
+                    p.time_date()?;
+                }
+                TimeClause::Series { .. } => {
+                    p.expect_word("from")?;
+                    p.time_date()?;
+                    p.expect_word("to")?;
+                    p.time_date()?;
+                    p.expect_word("by")?;
+                    p.ident()?;
+                }
+            }
+            let suffix = self.until(p.i, false);
+            let query = stages.pop().expect("query block");
+            stages.push(Doc::seq([query, Doc::text(" "), suffix]));
+        }
         if *skip {
             stages.push(self.stage_display()?.doc);
         }
@@ -718,7 +741,9 @@ impl<'a> Printer<'a> {
                 distance_form(distance);
                 Ok(Node::leaf(self.until(end, false)))
             }
-            Item::Score(_, _)
+            Item::Series(..)
+            | Item::Time(..)
+            | Item::Score(_, _)
             | Item::Prop(_, _)
             | Item::Hops(_)
             | Item::Id(_)
@@ -758,6 +783,7 @@ fn condition_forms(expr: &BoolExpr) {
             }
         }
         BoolExpr::Test(pred) => match pred {
+            Pred::Ever(_, test, _) | Pred::Time(_, test, _, _, _) => condition_forms(test),
             Pred::Similarity(similarity, cmp, _) => {
                 similarity_form(similarity);
                 cmp_text(*cmp);

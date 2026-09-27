@@ -256,6 +256,7 @@ fn stored_value<'g>(nodes: &'g IdMap<NodeRecord>, shapes: &Shapes, id: NodeId, f
 }
 
 pub struct Graph {
+    pub(crate) history: crate::history::Store,
     names: Names,
     shapes: Shapes,
     nodes: IdMap<NodeRecord>,
@@ -289,8 +290,28 @@ impl Default for Graph {
 }
 
 impl Graph {
+    pub(crate) fn record_history(
+        &mut self,
+        id: NodeId,
+        at: i64,
+        props: &HashMap<String, Value>,
+        fields: &[String],
+    ) -> Result<(), String> {
+        let histories = self.history.get_mut()?;
+        for field in fields {
+            if let Some(value) = props.get(field) {
+                histories
+                    .entry((id, field.clone()))
+                    .and_modify(|h| h.insert(at, value.clone()))
+                    .or_insert_with(|| crate::history::History::new(at, value.clone()));
+            }
+        }
+        Ok(())
+    }
+
     pub fn new() -> Self {
         Graph {
+            history: Default::default(),
             names: Names::default(),
             shapes: Shapes::default(),
             nodes: IdMap::default(),

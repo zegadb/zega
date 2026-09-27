@@ -58,6 +58,7 @@ pub enum Section {
     Schema,
     Nodes,
     Relationships,
+    History,
     Done,
 }
 
@@ -69,6 +70,7 @@ impl Section {
             Section::Schema => b"SCHM",
             Section::Nodes => b"NODE",
             Section::Relationships => b"RELS",
+            Section::History => b"HIST",
             Section::Done => b"DONE",
         }
     }
@@ -80,6 +82,7 @@ impl Section {
             Section::Schema => "schema",
             Section::Nodes => "nodes",
             Section::Relationships => "relationships",
+            Section::History => "history",
             Section::Done => "done",
         }
     }
@@ -572,6 +575,9 @@ fn encode_sections(
         }
         Ok(())
     })?;
+    if let Some(bytes) = graph.history.bytes().map_err(io::Error::other)? {
+        emit(Section::History, &|sink| Ok(sink.put(&bytes)?))?;
+    }
     Ok((node_count, rel_count))
 }
 
@@ -698,16 +704,38 @@ pub(crate) fn finish<F: Read + Write + std::io::Seek>(
 // Reading
 
 struct In<R: Read> {
+    pending: std::collections::VecDeque<u8>,
     inner: R,
     offset: u64,
     content: Option<Sha256>,
 }
 
 impl<R: Read> In<R> {
+    fn peek_tag(&mut self) -> Result<[u8; 4], Error> {
+        let mut tag = [0; 4];
+        let mut got = 0;
+        while got < tag.len() {
+            match self.inner.read(&mut tag[got..]) {
+                // Let read_section report truncated headers, including legacy DONE.
+                Ok(0) => break,
+                Ok(n) => got += n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e) => return Err(e.into()),
+            }
+        }
+        self.pending.extend(&tag[..got]);
+        Ok(tag)
+    }
+
     /// Fill `buf`, or return how many bytes arrived before the end of input.
     fn fill(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         let mut got = 0;
         while got < buf.len() {
+            if let Some(byte) = self.pending.pop_front() {
+                buf[got] = byte;
+                got += 1;
+                continue;
+            }
             match self.inner.read(&mut buf[got..]) {
                 Ok(0) => break,
                 Ok(n) => got += n,
@@ -1193,6 +1221,7 @@ fn read_relationships<R: Read>(
 /// the input ends right after the last section.
 pub(crate) fn read<R: Read>(input: R) -> Result<(Graph, ImportSummary), Error> {
     let mut input = In {
+        pending: Default::default(),
         inner: BufReader::with_capacity(BUFFER, input),
         offset: 0,
         content: None,
@@ -1240,6 +1269,19 @@ pub(crate) fn read<R: Read>(input: R) -> Result<(Graph, ImportSummary), Error> {
     let next_rel = read_section(&mut input, Section::Relationships, |s| {
         read_relationships(s, &mut graph, &mut names, &manifest)
     })?;
+    if input.peek_tag()? == *b"HIST" {
+        let bytes = read_section(&mut input, Section::History, |s| {
+            let mut bytes = Vec::new();
+            let mut chunk = [0; 8192];
+            while s.remaining > 0 {
+                let n = s.remaining.min(chunk.len() as u64) as usize;
+                s.take(&mut chunk[..n])?;
+                bytes.extend_from_slice(&chunk[..n]);
+            }
+            Ok(bytes)
+        })?;
+        graph.history = crate::history::Store::lazy(bytes);
+    }
     let digest: [u8; 32] = input
         .content
         .take()

@@ -273,7 +273,7 @@ an entire file; the server runs the same language on `POST /zql`. The
 and linking. Each core concept has its own page: [schema](docs/schema.md),
 [mutations](docs/mutation.md), [queries](docs/query.md),
 [conditions](docs/conditions.md), [relationships](docs/relationships.md),
-[unique fields](docs/unique.md) and [errors](docs/errors.md). The conformance
+[unique fields](docs/unique.md), [typed history](docs/time.md) and [errors](docs/errors.md). The conformance
 corpus lives in
 [zegadb/testsuite](https://github.com/zegadb/testsuite).
 
