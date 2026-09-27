@@ -217,7 +217,7 @@ schema {
     year: Int
     starts: Date
     ends: Date
-    games: Int
+    games:<Int>
     period from starts to ends named by year
   }
 
@@ -241,6 +241,64 @@ mutation {
     games: 56
   }
 }
+```
+
+The NHL moved from 82 to 84 games per team for 2026–27. Because `games` is
+time-typed, the same Season node can retain that change. The announcement date
+of July 1, 2025 below is illustrative, as are the creation date and season
+endpoints; they are example data, not an official schedule.
+
+```zql
+mutation at 2025-01-01 {
+  Season {
+    year: 2026
+    starts: 2026-10-01
+    ends: 2027-06-30
+    games: 82
+  }
+}
+```
+
+```zql
+mutation at 2025-07-01 {
+  Season(year = 2026) { games: 84 }
+}
+```
+
+Before the announcement, the recorded schedule still had 82 games:
+
+```zql
+{
+  Season(year = 2026) { games }
+} as of 2025-06-30
+```
+
+```json
+{ "games": 82 }
+```
+
+The current value is 84:
+
+```zql
+{
+  Season(year = 2026) { games }
+}
+```
+
+```json
+{ "games": 84 }
+```
+
+The first recorded date with 84 games is the illustrative announcement date:
+
+```zql
+{
+  Season(year = 2026) { @firstTime(games = 84) }
+}
+```
+
+```json
+{ "firstTime": "2025-07-01T00:00" }
 ```
 
 For an illustrative points history:

@@ -300,3 +300,35 @@ fn named_periods_traversal_changes_and_time_comparisons() {
         json!([{"name":"Oilers"}])
     );
 }
+
+#[test]
+fn named_periods_nhl_games_keep_announcement_history() {
+    let db = Zega::in_memory().build().unwrap();
+    let schema = "type Season { year: Int starts: Date ends: Date games: <Int> period from starts to ends named by year }";
+    db.run_lang(
+        schema,
+        "mutation at 2025-01-01 { Season { year: 2026 starts: 2026-10-01 ends: 2027-06-30 games: 82 } }",
+    )
+    .unwrap();
+    db.run_lang(
+        schema,
+        "mutation at 2025-07-01 { Season(year = 2026) { games: 84 } }",
+    )
+    .unwrap();
+
+    assert_eq!(
+        db.run_lang(schema, "{ Season(year = 2026) { games } } as of 2025-06-30")
+            .unwrap(),
+        json!({"games": 82})
+    );
+    assert_eq!(
+        db.run_lang(schema, "{ Season(year = 2026) { games } }")
+            .unwrap(),
+        json!({"games": 84})
+    );
+    assert_eq!(
+        db.run_lang(schema, "{ Season(year = 2026) { @firstTime(games = 84) } }")
+            .unwrap(),
+        json!({"firstTime": "2025-07-01T00:00"})
+    );
+}
