@@ -883,3 +883,6 @@ mod time_phase2_tests;
 
 #[cfg(test)]
 mod time_live_bench;
+
+#[cfg(test)]
+mod named_period_tests;

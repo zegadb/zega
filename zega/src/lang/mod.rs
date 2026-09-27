@@ -4,6 +4,8 @@
 #[path = "../fmt/mod.rs"]
 pub mod fmt;
 mod globe;
+mod periods;
+pub use periods::{Period, TimeDate};
 pub use globe::{GlobeCamera, GlobeCenter};
 mod node_display;
 pub use node_display::{NodeDisplay, NodeShape};
@@ -216,6 +218,8 @@ pub struct TypeDef {
     pub span: Span,
     pub fields: Vec<Field>,
     pub timeline_field: Option<String>,
+    pub period: Option<Period>,
+    pub calendars: std::collections::BTreeMap<String, String>,
     pub appears: Option<String>,
     pub ends: Option<String>,
 }
@@ -269,13 +273,13 @@ pub enum Direction {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TimeClause {
-    AsOf(i64),
-    Series { from: i64, to: i64, unit: String },
+    AsOf(TimeDate),
+    Series { from: TimeDate, to: TimeDate, unit: String },
     Window(TimeWindow),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TimeWindow { pub from: i64, pub to: i64, pub changes: bool, pub season: bool }
+#[derive(Clone, Debug, PartialEq)]
+pub struct TimeWindow { pub from: TimeDate, pub to: TimeDate, pub changes: bool }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Query {
@@ -510,7 +514,7 @@ pub enum TimeCompare {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Pred {
     Ever(bool, Box<BoolExpr>, Option<TimeWindow>, Span),
-    Time(bool, Box<BoolExpr>, TimeCompare, i64, Span),
+    Time(bool, Box<BoolExpr>, TimeCompare, TimeDate, Span),
     Similarity(Similarity, Cmp, f64),
     Distance(Distance, Cmp, f64),
     Box(String, Bounds, Span),
@@ -733,8 +737,28 @@ fn parse_schema_at(source: &str) -> Result<(Schema, usize)> {
         p.expect("{")?;
         let mut fields = Vec::new();
         let (mut appears, mut ends) = (None, None);
+        let mut period = None;
+        let mut calendars = std::collections::BTreeMap::new();
         while !p.eat("}") {
-            if p.starts_word("appears") || p.starts_word("ends") {
+            if p.type_directive("period") {
+                p.expect_word("period")?;
+                p.expect_word("from")?;
+                let from = p.ident()?.0;
+                p.expect_word("to")?;
+                let to = p.ident()?.0;
+                p.expect_word("named")?; p.expect_word("by")?;
+                let named = p.ident()?.0;
+                if period.replace(Period { from, to, named }).is_some() { return Err(p.err("declare only one period per type")); }
+                continue;
+            }
+            if p.type_directive("calendar") {
+                p.expect_word("calendar")?;
+                let word = p.ident()?.0; p.expect("->")?;
+                let target = p.ident()?.0;
+                if calendars.insert(word.clone(), target).is_some() { return Err(p.err(format!("duplicate calendar {word}; choose a distinct word"))); }
+                continue;
+            }
+            if p.type_directive("appears") || p.type_directive("ends") {
                 let start = p.eat_word("appears");
                 if !start { p.expect_word("ends")?; }
                 p.expect_word("at")?;
@@ -757,7 +781,17 @@ fn parse_schema_at(source: &str) -> Result<(Schema, usize)> {
                 return Err(p.err(format!("lifetime field {field} must be Date")));
             }
         }
-        types.push(TypeDef { name, span, fields, timeline_field, appears, ends });
+        if let Some(Period { from, to, named }) = &period {
+            for bound in [from, to] {
+                if !fields.iter().any(|f| matches!(f, Field::Prop { name, ty, .. } if name == bound && ty == "Date")) {
+                    return Err(p.err(format!("period field {name}.{bound} must exist and be Date")));
+                }
+            }
+            if !fields.iter().any(|f| matches!(f, Field::Prop { name, .. } if name == named)) {
+                return Err(p.err(format!("period name field {name}.{named} must exist; add the field or fix named by")));
+            }
+        }
+        types.push(TypeDef { name, span, fields, timeline_field, appears, ends, period, calendars });
     }
     if types.is_empty() {
         return Err(p
@@ -1113,6 +1147,7 @@ struct Parser<'a> {
     i: usize,
     /// `$Name` in a load template reads a column or a JSON key.
     columns: bool,
+    body_writes: bool,
     /// Levels of [`MAX_NESTING`] entered at the current position.
     depth: usize,
     /// Inside a hop's `(…)`, which tests that node's own fields: a walk
@@ -1131,6 +1166,7 @@ impl<'a> Parser<'a> {
             src,
             i: 0,
             columns: false,
+            body_writes: false,
             depth: 0,
             hop_test: false,
             temporal_test: false,
@@ -1144,6 +1180,7 @@ impl<'a> Parser<'a> {
             src: self.src,
             i: self.i,
             columns: self.columns,
+            body_writes: self.body_writes,
             depth: self.depth,
             hop_test: self.hop_test,
             temporal_test: self.temporal_test,
@@ -1211,18 +1248,15 @@ impl<'a> Parser<'a> {
         query.at = at;
         if !mutation && self.eat_word("as") {
             self.expect_word("of")?;
-            query.time = Some(TimeClause::AsOf(self.time_date()?));
+            query.time = Some(TimeClause::AsOf(self.time_endpoint(false)?));
         } else if !mutation && self.eat_word("from") {
-            let from = self.time_date()?;
+            let from = self.time_endpoint(false)?;
             self.expect_word("to")?;
-            let to = self.time_date()?;
+            let to = self.time_endpoint(true)?;
             self.expect_word("by")?;
             let (unit, span) = self.ident()?;
-            if !matches!(unit.as_str(), "day" | "week" | "month") {
-                return Err(self.err_at(span, "time series use day, week, or month"));
-            }
-            if from > to {
-                return Err(self.err_at(span, "series starts after it ends"));
+            if let (TimeDate::Instant(from), TimeDate::Instant(to)) = (&from, &to) {
+                if from > to { return Err(self.err_at(span, "series starts after it ends")); }
             }
             query.time = Some(TimeClause::Series { from, to, unit });
         }
@@ -1268,6 +1302,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_braced(&mut self, mutation: bool) -> Result<Query> {
+        self.body_writes = mutation;
         self.expect("{")?;
         self.skip();
         if self.eat("}") {
@@ -2010,11 +2045,30 @@ impl<'a> Parser<'a> {
         let mut selection = self.selection_head()?;
         if self.eat("{") {
             while !self.eat("}") {
+                if self.body_writes && self.body_write(&mut selection)? { continue; }
                 selection.items.push(self.parse_item()?);
                 self.skip();
             }
         }
         Ok(selection)
+    }
+
+    #[inline(never)]
+    fn body_write(&mut self, selection: &mut Selection) -> Result<bool> {
+        let mut look = self.fork();
+        if look.ident().is_err() || !look.eat(":") { return Ok(false); }
+        look.skip();
+        if look.src[look.i..].starts_with('@') { return Ok(false); }
+        let (field, span) = self.ident()?; self.expect(":")?;
+        let value = self.parse_value()?;
+        let pred = BoolExpr::Test(Pred::Eq(field.clone(), value, span));
+        selection.condition = Some(match selection.condition.take() {
+            None => pred,
+            Some(BoolExpr::And(mut items)) => { items.push(pred); BoolExpr::And(items) },
+            Some(old) => BoolExpr::And(vec![old, pred]),
+        });
+        selection.items.push(Item::Prop(field, span));
+        Ok(true)
     }
 
     #[inline(never)]
@@ -2486,7 +2540,7 @@ impl<'a> Parser<'a> {
             } else {
                 return Err(self.err("time comparison needs =, !=, <, <=, >, or >="));
             };
-            let at = self.time_date()?;
+            let at = self.time_endpoint(false)?;
             return Ok(Pred::Time(
                 last,
                 Box::new(test),
@@ -3147,25 +3201,11 @@ impl<'a> Parser<'a> {
     fn time_window(&mut self) -> Result<TimeWindow> {
         let changes = self.eat_word("changes");
         if changes { self.expect_word("from")?; } else { self.expect_word("during")?; }
-        self.skip();
-        let rest = &self.src[self.i..];
-        // Accept the exact APS 24 season syntax; league season bounds are unspecified.
-        if !changes && rest.len() >= 7 && rest.as_bytes()[..4].iter().all(u8::is_ascii_digit)
-            && rest.as_bytes()[4] == b'-' && rest.as_bytes()[5..7].iter().all(u8::is_ascii_digit)
-            && rest.as_bytes().get(7).is_none_or(|b| !b.is_ascii_digit() && *b != b'-') {
-            let first: i64 = rest[..4].parse().expect("digits");
-            let last = (first / 100) * 100 + rest[5..7].parse::<i64>().expect("digits");
-            if last < first { return Err(self.err("window starts after it ends")); }
-            self.i += 7;
-            let from = crate::history::date(&format!("{first:04}-01-01")).map_err(|e| self.err(e))?;
-            let to = crate::history::date(&format!("{:04}-01-01", last + 1)).map_err(|e| self.err(e))? - 1;
-            return Ok(TimeWindow { from, to, changes, season: true });
-        }
-        let from = self.time_date()?;
-        self.expect_word("to")?;
-        let to = self.time_date()?;
-        if from > to { return Err(self.err("window starts after it ends")); }
-        Ok(TimeWindow { from, to, changes, season: false })
+        let from = self.time_endpoint(false)?;
+        let to = if self.eat_word("to") { self.time_endpoint(true)? }
+            else if !changes { from.end_of_span().ok_or_else(|| self.err("during needs a period, a calendar year, or <date> to <date>"))? }
+            else { return Err(self.err("changes needs from <date> to <date>")); };
+        Ok(TimeWindow { from, to, changes })
     }
     fn time_date(&mut self) -> Result<i64> {
         self.skip();
@@ -3454,7 +3494,7 @@ fn bind_selection(
         }
     }
     Ok(Some(Selection {
-        window: sel.window,
+        window: sel.window.clone(),
         type_name: sel.type_name.clone(),
         type_span: sel.type_span,
         also: sel.also.clone(),

@@ -151,6 +151,7 @@ pub(super) fn tokens(source: &str) -> Vec<Token<'_>> {
             .as_bytes()
             .get(..5)
             .is_some_and(|b| b[..4].iter().all(u8::is_ascii_digit) && b[4] == b'-')
+            || source.as_bytes()[i..].get(..5).is_some_and(|b| b[..2].iter().all(u8::is_ascii_digit) && b[2] == b'-' && b[3..].iter().all(u8::is_ascii_digit))
         {
             while i < source.len()
                 && (source.as_bytes()[i].is_ascii_digit()

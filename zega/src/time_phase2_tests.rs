@@ -289,7 +289,7 @@ type Person {
         r#"{ Team(name = "Oilers") { name <points> } } from 2023-10-10 to 2024-04-18 by week"#,
         r#"{ Team(name = "Oilers") { players -> Person during 2023-10-10 to 2024-04-18 { name } } }"#,
         r#"{ Team(ever points > 100) limit 100 { name } }"#,
-        r#"{ Team(always points >= 50 during 2023-24) limit 100 { name } }"#,
+        r#"{ Team(always points >= 50 during season 23) limit 100 { name } }"#,
         r#"{ Team(name = "Oilers") { players -> Person changes from 2024-01-01 to 2024-03-08 { name } } }"#,
         r#"{ Team limit 100 { name @firstTime(points >= 100) } }"#,
         r#"{ Person(@firstTime(has team(name = "Oilers")) > 2023-10-01) limit 1000 { name } }"#,
@@ -547,11 +547,11 @@ fn aps24_phase2_zero_width_window_and_unresolved_season() {
     assert!(db
         .run_lang(
             ROSTER,
-            "{ Team(always points >= 50 during 2023-24) limit 100 { name } }"
+            "{ Team(always points >= 50 during season 23) limit 100 { name } }"
         )
         .unwrap_err()
         .to_string()
-        .contains("does not define season boundaries"));
+        .contains("has no calendar season"));
 }
 
 #[test]

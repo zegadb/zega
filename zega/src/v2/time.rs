@@ -192,37 +192,28 @@ pub(super) fn series(
     graph: &Graph,
     id: NodeId,
     field: &str,
-    from: i64,
-    to: i64,
-    unit: &str,
     work: &mut Work,
 ) -> Result<Json, LangError> {
     let h = graph.history.get().map_err(LangError::bare)?;
     let history = h.get(&(id, field.to_string()));
     let mut rows = Vec::new();
-    let mut t = from;
-    while t <= to {
+    for t in work.series.clone().unwrap_or_default() {
         work.step()?;
         rows.push(json!({"time":crate::history::format_date(t),"value":history.and_then(|h|h.at(t)).map(value_to_json).unwrap_or(Json::Null)}));
-        t = if unit == "month" {
-            let date = crate::history::format_date(t);
-            let year: i64 = date[..4]
-                .parse()
-                .map_err(|_| LangError::bare("series year out of range"))?;
-            let month: i64 = date[5..7].parse().expect("formatted month");
-            let (year, month) = if month == 12 {
-                (year + 1, 1)
-            } else {
-                (year, month + 1)
-            };
-            // Calendar-month samples are the first of the next month.
-            crate::history::date(&format!("{year:04}-{month:02}-01")).map_err(LangError::bare)?
-        } else {
-            t.checked_add(if unit == "week" { 7 * 86400 } else { 86400 })
-                .ok_or_else(|| LangError::bare("series time overflow"))?
-        };
     }
     Ok(Json::Array(rows))
+}
+
+pub(super) fn next_sample(t: i64, unit: &str) -> Result<i64, LangError> {
+    if unit == "month" {
+        let date = crate::history::format_date(t);
+        let year: i64 = date[..4].parse().map_err(|_| LangError::bare("series year out of range"))?;
+        let month: i64 = date[5..7].parse().expect("formatted month");
+        let (year, month) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+        crate::history::date(&format!("{year:04}-{month:02}-01")).map_err(LangError::bare)
+    } else {
+        t.checked_add(if unit == "week" { 7 * 86400 } else { 86400 }).ok_or_else(|| LangError::bare("series time overflow"))
+    }
 }
 
 fn lifetime(
@@ -322,41 +313,38 @@ fn boundaries(
     schema: &Schema,
     window: crate::lang::TimeWindow,
 ) -> Result<Vec<i64>, LangError> {
-    if window.season {
-        return Err(LangError::bare(
-            "APS 24 does not define season boundaries for YYYY-YY; use during <date> to <date>",
-        ));
-    }
+    let from = window.from.instant()?;
+    let to = window.to.instant()?;
     let h = graph.history.get().map_err(LangError::bare)?;
-    let mut dates = vec![window.from, window.to];
+    let mut dates = vec![from, to];
     if !window.changes {
         for history in h.values() {
-            let first = history.changes.partition_point(|c| c.0 <= window.from);
-            let last = history.changes.partition_point(|c| c.0 < window.to);
+            let first = history.changes.partition_point(|c| c.0 <= from);
+            let last = history.changes.partition_point(|c| c.0 < to);
             if first < last {
                 dates.extend(history.changes[first..last].iter().map(|c| c.0));
             }
         }
         for node in graph.nodes() {
-            let (from, to) = lifetime(graph, schema, h, node.id);
+            let (born, died) = lifetime(graph, schema, h, node.id);
             dates.extend(
-                from.into_iter()
-                    .chain(to)
-                    .filter(|t| *t > window.from && *t < window.to),
+                born.into_iter()
+                    .chain(died)
+                    .filter(|t| *t > from && *t < to),
             );
         }
         dates.extend(
             h.relationships
                 .values()
                 .flat_map(|h| std::iter::once(h.from).chain(h.to))
-                .filter(|t| *t > window.from && *t < window.to),
+                .filter(|t| *t > from && *t < to),
         );
         dates.extend(
             h.appears
                 .values()
                 .chain(h.ends.values())
                 .copied()
-                .filter(|t| *t > window.from && *t < window.to),
+                .filter(|t| *t > from && *t < to),
         );
     }
     dates.sort_unstable();
@@ -385,7 +373,7 @@ pub(super) fn window_read(
     let old_at = context.work.at;
     let pins = std::mem::take(&mut context.work.pins);
     let result = (|| {
-        let dates = boundaries(graph, schema, window)?;
+        let dates = boundaries(graph, schema, window.clone())?;
         let mut first = std::collections::BTreeMap::new();
         let mut last = std::collections::BTreeMap::new();
         let mut union = std::collections::BTreeMap::new();

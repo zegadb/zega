@@ -246,6 +246,8 @@ impl<'a> Printer<'a> {
             timeline_field: _,
             appears: _,
             ends: _,
+            period: _,
+            calendars: _,
         } = ty;
         let mut p = self.parser();
         p.expect_word("type")?;
@@ -254,14 +256,24 @@ impl<'a> Printer<'a> {
         let header = self.until(p.i, false);
         let mut items = Vec::new();
         for field in fields {
-            while matches!(self.peek(), "appears" | "ends") {
-                let mut p = self.parser(); p.ident()?; p.expect_word("at")?; p.ident()?;
+            while self.parser().type_directive(self.peek()) {
+                let mut p = self.parser();
+                if p.eat_word("period") {
+                    p.expect_word("from")?; p.ident()?; p.expect_word("to")?; p.ident()?;
+                    p.expect_word("named")?; p.expect_word("by")?; p.ident()?;
+                } else if p.eat_word("calendar") { p.ident()?; p.expect("->")?; p.ident()?; }
+                else { p.ident()?; p.expect_word("at")?; p.ident()?; }
                 items.push(Node::leaf(self.until(p.i, true)));
             }
             items.push(self.field(field)?);
         }
-        while matches!(self.peek(), "appears" | "ends") {
-            let mut p = self.parser(); p.ident()?; p.expect_word("at")?; p.ident()?;
+        while self.parser().type_directive(self.peek()) {
+            let mut p = self.parser();
+                if p.eat_word("period") {
+                    p.expect_word("from")?; p.ident()?; p.expect_word("to")?; p.ident()?;
+                    p.expect_word("named")?; p.expect_word("by")?; p.ident()?;
+                } else if p.eat_word("calendar") { p.ident()?; p.expect("->")?; p.ident()?; }
+                else { p.ident()?; p.expect_word("at")?; p.ident()?; }
             items.push(Node::leaf(self.until(p.i, true)));
         }
         Ok(self.block(header, items, Block::Fields))
@@ -500,13 +512,13 @@ impl<'a> Printer<'a> {
                 TimeClause::AsOf(_) => {
                     p.expect_word("as")?;
                     p.expect_word("of")?;
-                    p.time_date()?;
+                    p.time_endpoint(false)?;
                 }
                 TimeClause::Series { .. } => {
                     p.expect_word("from")?;
-                    p.time_date()?;
+                    p.time_endpoint(false)?;
                     p.expect_word("to")?;
-                    p.time_date()?;
+                    p.time_endpoint(true)?;
                     p.expect_word("by")?;
                     p.ident()?;
                 }
@@ -679,6 +691,7 @@ impl<'a> Printer<'a> {
         }
         let mut p = self.parser();
         p.columns = columns;
+        p.body_writes = true;
         p.parse_selection()?;
         let end = p.i;
         if let Some(open) = self.tokens[self.cursor..]
@@ -700,7 +713,10 @@ impl<'a> Printer<'a> {
     fn item(&mut self, item: &Item, columns: bool) -> Result<Node> {
         let mut p = self.parser();
         p.columns = columns;
-        p.parse_item()?;
+        let mut look = p.fork();
+        if matches!(item, Item::Prop(..)) && look.ident().is_ok() && look.eat(":") {
+            p.ident()?; p.expect(":")?; p.parse_value()?;
+        } else { p.parse_item()?; }
         let end = p.i;
         match item {
             Item::Walk {
