@@ -181,6 +181,63 @@ const CITIES_TOUR = [
   }
 }`]),
 ];
+// The Westeros sample: an unofficial fan graph (A Wiki of Ice and Fire,
+// CC BY-SA; the map credit links ATTRIBUTION.md). The example bar asks the
+// fan questions the graph is built for.
+const WESTEROS_TOUR = [
+  ['Who has held Winterfell', `{
+  Location(name: "Winterfell") {
+    name
+    heldBy <- Character {
+      name
+      &from
+      &to
+    }
+  }
+}`],
+  ['Killed by a Lannister', `{
+  Character(has killedBy in memberOf(name: "House Lannister")) { name }
+}`],
+  ['Houses sworn to Tully', `{
+  House(has swornTo(name: "House Tully")) { name }
+}`],
+  ['The Starks, alive', `{
+  Character(alive = true && has memberOf(name: "House Stark")) { name }
+}`],
+  ['Castles in the North', `{
+  Location(kind = "castle" && has region(name: "The North")) {
+    name
+    x
+    y
+  }
+}`],
+  ['Battles in the Riverlands', `{
+  Event(kind = "battle" && has happenedAt in region(name = "The Riverlands")) {
+    name
+    year
+  }
+}`],
+  ["Daenerys's travels", `{
+  Character(name: "Daenerys Targaryen") {
+    name
+    tookPartIn -> Event {
+      name
+      year
+      happenedAt -> Location {
+        name
+        x
+        y
+      }
+    }
+  }
+}`],
+  ['The Kingslayer', `{
+  Character(name: "Jaime Lannister") {
+    name
+    killed <- Character { name }
+  }
+}`],
+];
 // Samples with an example bar and a data credit on the map. Which one is
 // loaded persists with the panes, so both come back on reload and go with
 // the data on clear.
@@ -188,6 +245,7 @@ const OPENFLIGHTS = '<a href="https://openflights.org/data.php" target="_blank" 
 const SAMPLES = {
   flights: { tour: FLIGHTS_TOUR, credit: `Routes: ${OPENFLIGHTS}` },
   cities: { tour: CITIES_TOUR, credit: `Routes: ${OPENFLIGHTS}` },
+  westeros: { tour: WESTEROS_TOUR, credit: 'Facts: <a href="./samples/ATTRIBUTION.md" target="_blank" rel="noopener">A Wiki of Ice and Fire</a> (CC BY-SA)' },
 };
 
 function teamSeed(name, city, abbr, players) {
@@ -649,6 +707,7 @@ async function loadTourSample(key, path, label) {
 }
 $('#btn-flights').onclick = () => loadTourSample('flights', './samples/flights.zql', 'Flights');
 $('#btn-cities').onclick = () => loadTourSample('cities', './samples/cities.zql', 'Cities');
+$('#btn-westeros').onclick = () => loadTourSample('westeros', './samples/westeros.zql', 'Westeros');
 $('#btn-tickets').onclick = async () => {
   try {
     const response = await fetch('./samples/tickets.zql');
@@ -1280,7 +1339,7 @@ const remoteKey = $('#remote-key');
 const remoteError = $('#remote-error');
 const remoteSubmit = $('#remote-connect');
 // These load a sample by clearing the graph first: never on a customer's graph.
-const SAMPLE_BUTTONS = ['#btn-flights', '#btn-tickets', '#btn-cities', '#btn-calgary', '#btn-seed'];
+const SAMPLE_BUTTONS = ['#btn-flights', '#btn-tickets', '#btn-cities', '#btn-westeros', '#btn-calgary', '#btn-seed'];
 // Shown only now, with its handler attached (index.html has it hidden): a click
 // before this point would do nothing.
 remoteButton.hidden = Boolean(localDb.native);

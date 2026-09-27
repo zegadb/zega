@@ -1,0 +1,869 @@
+{
+  "Braavos": [
+    "Ternesio Terys",
+    "Kindly man",
+    "Izembaro",
+    "Black Pearl of Braavos",
+    "Widow of the Waterfront",
+    "Bellegere Otherys",
+    "Brusco",
+    "Talea",
+    "Tagganaro"
+  ],
+  "Brave Companions": [
+    "Vargo Hoat",
+    "Urswyck",
+    "Shagwell",
+    "Zollo",
+    "Rorge",
+    "Biter"
+  ],
+  "Brotherhood without Banners": [
+    "Beric Dondarrion",
+    "Thoros of Myr",
+    "Anguy",
+    "Lem",
+    "Tom of Sevenstreams"
+  ],
+  "Free Folk": [
+    "Mance Rayder",
+    "Tormund Giantsbane",
+    "Ygritte",
+    "Varamyr Sixskins",
+    "Rattleshirt",
+    "Styr",
+    "Orell",
+    "Harma Dogshead",
+    "Gilly",
+    "Val",
+    "Dalla",
+    "Weeper",
+    "Wun Wun"
+  ],
+  "Golden Company": [
+    "Myles Toyne",
+    "Harry Strickland",
+    "Lysono Maar",
+    "Gorys Edoryen",
+    "Black Balaq",
+    "Marq Mandrake",
+    "Tristan Rivers",
+    "Franklyn Flowers",
+    "Watty the Miller",
+    "Will of the Woods",
+    "Young John Mudd"
+  ],
+  "House Allyrion": [
+    "Ryon Allyrion"
+  ],
+  "House Ambrose": [
+    "Arthur Ambrose"
+  ],
+  "House Arryn": [
+    "Jon Arryn",
+    "Lysa Arryn",
+    "Robert Arryn",
+    "Elbert Arryn",
+    "Sharra Arryn",
+    "Ronnel Arryn",
+    "Harrold Hardyng"
+  ],
+  "House Ashford": [
+    "Androw Ashford",
+    "Robert Ashford"
+  ],
+  "House Banefort": [
+    "Quenten Banefort"
+  ],
+  "House Baratheon": [
+    "Robert Baratheon",
+    "Stannis Baratheon",
+    "Renly Baratheon",
+    "Joffrey Baratheon",
+    "Myrcella Baratheon",
+    "Tommen Baratheon",
+    "Shireen Baratheon",
+    "Steffon Baratheon",
+    "Cassana Baratheon",
+    "Orys Baratheon",
+    "Borros Baratheon"
+  ],
+  "House Beesbury": [
+    "Ben Beesbury"
+  ],
+  "House Blacktyde": [
+    "Baelor Blacktyde"
+  ],
+  "House Blackwood": [
+    "Tytos Blackwood",
+    "Brynden Rivers",
+    "Lucas Blackwood"
+  ],
+  "House Bolton": [
+    "Roose Bolton",
+    "Ramsay Bolton",
+    "Walton",
+    "Domeric Bolton"
+  ],
+  "House Botley": [
+    "Sawane Botley"
+  ],
+  "House Bracken": [
+    "Jonos Bracken",
+    "Barbara Bracken"
+  ],
+  "House Brax": [
+    "Tytos Brax",
+    "Flement Brax",
+    "Robin Brax"
+  ],
+  "House Brune": [
+    "Lothor Brune"
+  ],
+  "House Bulwer": [
+    "Alysanne Bulwer"
+  ],
+  "House Cassel": [
+    "Rodrik Cassel",
+    "Jory Cassel",
+    "Beth Cassel"
+  ],
+  "House Caswell": [
+    "Lorent Caswell"
+  ],
+  "House Celtigar": [
+    "Ardrian Celtigar"
+  ],
+  "House Cerwyn": [
+    "Cley Cerwyn",
+    "Jonelle Cerwyn",
+    "Medger Cerwyn"
+  ],
+  "House Clegane": [
+    "Sandor Clegane",
+    "Gregor Clegane"
+  ],
+  "House Connington": [
+    "Jon Connington",
+    "Ronnet Connington"
+  ],
+  "House Corbray": [
+    "Lyn Corbray"
+  ],
+  "House Crakehall": [
+    "Leo Lefford",
+    "Burton Crakehall",
+    "Roland Crakehall",
+    "Lyle Crakehall",
+    "Sumner Crakehall",
+    "Tybolt Crakehall"
+  ],
+  "House Crane": [
+    "Parmen Crane"
+  ],
+  "House Cuy": [
+    "Emmon Cuy"
+  ],
+  "House Darry": [
+    "Lyman Darry",
+    "Raymun Darry"
+  ],
+  "House Dayne": [
+    "Arthur Dayne",
+    "Ashara Dayne",
+    "Edric Dayne",
+    "Gerold Dayne",
+    "Allyria Dayne"
+  ],
+  "House Dustin": [
+    "Barbrey Dustin",
+    "Willam Dustin"
+  ],
+  "House Farman": [
+    "Jeyne Farman"
+  ],
+  "House Farwynd": [
+    "Torgon Farwynd"
+  ],
+  "House Florent": [
+    "Alester Florent",
+    "Selyse Florent",
+    "Imry Florent",
+    "Axell Florent",
+    "Rylene Florent"
+  ],
+  "House Footly": [],
+  "House Fossoway of Cider Hall": [
+    "Tanton Fossoway",
+    "Jon Fossoway"
+  ],
+  "House Fossoway of New Barrel": [
+    "Raymun Fossoway",
+    "Leonette Fossoway"
+  ],
+  "House Fowler": [
+    "Franklyn Fowler"
+  ],
+  "House Frey": [
+    "Walder Frey",
+    "Black Walder Frey",
+    "Lothar Frey",
+    "Roslin Frey",
+    "Perwyn Frey",
+    "Edwyn Frey",
+    "Stevron Frey",
+    "Emmon Frey",
+    "Ryman Frey",
+    "Aenys Frey",
+    "Walder Rivers",
+    "Jared Frey",
+    "Raymund Frey",
+    "Olyvar Frey"
+  ],
+  "House Glover": [
+    "Robett Glover",
+    "Galbart Glover",
+    "Sybelle Glover"
+  ],
+  "House Goodbrother": [
+    "Gorold Goodbrother"
+  ],
+  "House Greyjoy": [
+    "Balon Greyjoy",
+    "Euron Greyjoy",
+    "Victarion Greyjoy",
+    "Aeron Greyjoy",
+    "Theon Greyjoy",
+    "Asha Greyjoy",
+    "Quellon Greyjoy",
+    "Rodrik Greyjoy",
+    "Maron Greyjoy",
+    "Alannys Harlaw",
+    "Dagmer Cleftjaw",
+    "Wex Pyke",
+    "Erik Ironmaker",
+    "Qarl the Maid",
+    "Tristifer Botley",
+    "Gorold Goodbrother",
+    "Baelor Blacktyde"
+  ],
+  "House Grimm": [
+    "Guthor Grimm"
+  ],
+  "House Harlaw": [
+    "Rodrik Harlaw",
+    "Boremund Harlaw",
+    "Harras Harlaw",
+    "Sigfryd Harlaw"
+  ],
+  "House Hewett": [
+    "Humfrey Hewett"
+  ],
+  "House Hightower": [
+    "Leyton Hightower",
+    "Malora Hightower",
+    "Baelor Hightower",
+    "Lynesse Hightower",
+    "Gerold Hightower"
+  ],
+  "House Hornwood": [
+    "Halys Hornwood",
+    "Donella Hornwood",
+    "Daryn Hornwood",
+    "Larence Snow"
+  ],
+  "House Hotah": [
+    "Areo Hotah"
+  ],
+  "House Hunter": [
+    "Eon Hunter"
+  ],
+  "House Karstark": [
+    "Rickard Karstark",
+    "Harrion Karstark",
+    "Alys Karstark",
+    "Torrhen Karstark",
+    "Eddard Karstark",
+    "Arnolf Karstark",
+    "Alyn Karstark"
+  ],
+  "House Lannister": [
+    "Tywin Lannister",
+    "Cersei Lannister",
+    "Jaime Lannister",
+    "Tyrion Lannister",
+    "Kevan Lannister",
+    "Lancel Lannister",
+    "Joanna Lannister",
+    "Genna Lannister",
+    "Tygett Lannister",
+    "Gerion Lannister",
+    "Tyrek Lannister",
+    "Martyn Lannister",
+    "Willem Lannister",
+    "Joy Hill",
+    "Stafford Lannister",
+    "Daven Lannister",
+    "Jason Lannister",
+    "Damon Lannister",
+    "Gerold Lannister",
+    "Tytos Lannister",
+    "Lann the Clever",
+    "Janei Lannister"
+  ],
+  "House Lefford": [
+    "Leo Lefford",
+    "Alysanne Lefford"
+  ],
+  "House Locke": [
+    "Donnel Locke"
+  ],
+  "House Lorch": [
+    "Amory Lorch"
+  ],
+  "House Mallister": [
+    "Jason Mallister",
+    "Patrek Mallister",
+    "Denys Mallister"
+  ],
+  "House Manderly": [
+    "Wyman Manderly",
+    "Wylis Manderly",
+    "Wendel Manderly"
+  ],
+  "House Manwoody": [
+    "Myles Manwoody",
+    "Dagos Manwoody"
+  ],
+  "House Marbrand": [
+    "Addam Marbrand",
+    "Damon Marbrand"
+  ],
+  "House Martell": [
+    "Doran Martell",
+    "Oberyn Martell",
+    "Elia Martell",
+    "Arianne Martell",
+    "Quentyn Martell",
+    "Trystane Martell",
+    "Mellario",
+    "Ellaria Sand",
+    "Obara Sand",
+    "Nymeria Sand",
+    "Tyene Sand",
+    "Sarella Sand",
+    "Daemon Sand",
+    "Sylva Santagar"
+  ],
+  "House Merryweather": [
+    "Orton Merryweather",
+    "Taena Merryweather"
+  ],
+  "House Mormont": [
+    "Jeor Mormont",
+    "Maege Mormont",
+    "Jorah Mormont",
+    "Lyanna Mormont",
+    "Dacey Mormont"
+  ],
+  "House Mullendore": [],
+  "House Nymeros": [
+    "Nymeria"
+  ],
+  "House Oakheart": [
+    "Arys Oakheart",
+    "Arwyn Oakheart"
+  ],
+  "House Osgrey": [
+    "Eustace Osgrey",
+    "Addam Osgrey"
+  ],
+  "House Payne": [
+    "Podrick Payne",
+    "Ilyn Payne"
+  ],
+  "House Peake": [
+    "Titus Peake",
+    "Laswell Peake",
+    "Pykewood Peake"
+  ],
+  "House Penrose": [
+    "Elwood Meadows",
+    "Cortnay Penrose"
+  ],
+  "House Piper": [
+    "Clement Piper",
+    "Marq Piper"
+  ],
+  "House Plumm": [
+    "Ossifer Plumm",
+    "Philip Plumm",
+    "Maynard Plumm"
+  ],
+  "House Poole": [
+    "Vayon Poole"
+  ],
+  "House Prester": [
+    "Garrison Prester",
+    "Forley Prester"
+  ],
+  "House Redfort": [
+    "Jasper Redfort"
+  ],
+  "House Redwyne": [
+    "Paxter Redwyne",
+    "Horas Redwyne",
+    "Hobber Redwyne",
+    "Desmera Redwyne"
+  ],
+  "House Reed": [
+    "Howland Reed",
+    "Jojen Reed",
+    "Meera Reed"
+  ],
+  "House Reyne": [
+    "Roger Reyne",
+    "Reynard Reyne",
+    "Ellyn Reyne"
+  ],
+  "House Rosby": [
+    "Gyles Rosby"
+  ],
+  "House Rowan": [
+    "Mathis Rowan",
+    "Rhonda Rowan"
+  ],
+  "House Royce": [
+    "Yohn Royce",
+    "Andar Royce",
+    "Waymar Royce",
+    "Robar Royce"
+  ],
+  "House Ryswell": [
+    "Rodrik Ryswell",
+    "Barbrey Dustin",
+    "Barbrey Ryswell"
+  ],
+  "House Selmy": [
+    "Barristan Selmy"
+  ],
+  "House Serry": [
+    "Talbert Serry"
+  ],
+  "House Spicer": [
+    "Rolph Spicer"
+  ],
+  "House Stark": [
+    "Eddard Stark",
+    "Catelyn Stark",
+    "Robb Stark",
+    "Sansa Stark",
+    "Arya Stark",
+    "Bran Stark",
+    "Rickon Stark",
+    "Jon Snow",
+    "Rickard Stark",
+    "Lyanna Stark",
+    "Brandon Stark",
+    "Benjen Stark",
+    "Lyarra Stark",
+    "Mordane",
+    "Old Nan",
+    "Hodor",
+    "Hallis Mollen"
+  ],
+  "House Stokeworth": [
+    "Bronn",
+    "Falyse Stokeworth",
+    "Lollys Stokeworth",
+    "Tanda Stokeworth"
+  ],
+  "House Stone": [
+    "Mya Stone"
+  ],
+  "House Swann": [
+    "Balon Swann"
+  ],
+  "House Swyft": [
+    "Harys Swyft",
+    "Dorna Swyft"
+  ],
+  "House Tallhart": [
+    "Helman Tallhart",
+    "Leobald Tallhart",
+    "Benfred Tallhart",
+    "Eddara Tallhart"
+  ],
+  "House Tarbeck": [],
+  "House Targaryen": [
+    "Aegon I Targaryen",
+    "Aerys II Targaryen",
+    "Rhaegar Targaryen",
+    "Elia Martell",
+    "Daenerys Targaryen",
+    "Viserys Targaryen",
+    "Aegon V Targaryen",
+    "Rhaella Targaryen",
+    "Jaehaerys II Targaryen",
+    "Rhaenys Targaryen",
+    "Aemon Targaryen (son of Maekar I)",
+    "Aemon Targaryen (son of Viserys II)",
+    "Aegon Targaryen (Young Griff)",
+    "Rhaego",
+    "Viserys I Targaryen",
+    "Rhaenyra Targaryen",
+    "Daemon Targaryen",
+    "Aegon III Targaryen",
+    "Aemond Targaryen",
+    "Jaehaerys I Targaryen",
+    "Visenya Targaryen",
+    "Maegor I Targaryen",
+    "Aegon II Targaryen",
+    "Aegon IV Targaryen",
+    "Aerion Targaryen",
+    "Daeron II Targaryen",
+    "Aenys I Targaryen",
+    "Willem Darry",
+    "Aemon Targaryen (Maester Aemon)"
+  ],
+  "House Tarly": [
+    "Randyll Tarly",
+    "Samwell Tarly",
+    "Dickon Tarly",
+    "Melessa Florent",
+    "Talla Tarly",
+    "Melessa Tarly"
+  ],
+  "House Tarth": [
+    "Brienne of Tarth",
+    "Selwyn Tarth"
+  ],
+  "House Tully": [
+    "Hoster Tully",
+    "Catelyn Stark",
+    "Lysa Arryn",
+    "Edmure Tully",
+    "Brynden Tully",
+    "Minisa Tully"
+  ],
+  "House Tyrell": [
+    "Mace Tyrell",
+    "Olenna Tyrell",
+    "Margaery Tyrell",
+    "Loras Tyrell",
+    "Willas Tyrell",
+    "Alerie Tyrell",
+    "Garlan Tyrell",
+    "Luthor Tyrell",
+    "Janna Tyrell",
+    "Gormon Tyrell",
+    "Leo Tyrell",
+    "Alerie Hightower"
+  ],
+  "House Umber": [
+    "Greatjon Umber",
+    "Smalljon Umber",
+    "Mors Umber",
+    "Hother Umber",
+    "Jon Umber (Greatjon)",
+    "Jon Umber (Smalljon)"
+  ],
+  "House Vance of Wayfarer's Rest": [
+    "Karyl Vance"
+  ],
+  "House Varner": [
+    "Steffon Varner"
+  ],
+  "House Velaryon": [
+    "Monford Velaryon",
+    "Monterys Velaryon"
+  ],
+  "House Vikary": [
+    "Lymond Vikary"
+  ],
+  "House Vyrwel": [
+    "Igon Vyrwel"
+  ],
+  "House Waynwood": [
+    "Anya Waynwood",
+    "Wallace Waynwood"
+  ],
+  "House Webber": [
+    "Rohanne Webber"
+  ],
+  "House Westerling": [
+    "Jeyne Westerling",
+    "Sybell Spicer",
+    "Gawen Westerling",
+    "Raynald Westerling",
+    "Rollam Westerling",
+    "Eleyna Westerling"
+  ],
+  "House Whent": [
+    "Shella Whent"
+  ],
+  "House Willum": [
+    "Josua Willum",
+    "Elyas Willum"
+  ],
+  "House Yarwyck": [
+    "Othell Yarwyck"
+  ],
+  "House Yronwood": [
+    "Anders Yronwood",
+    "Cletus Yronwood"
+  ],
+  "Iron Bank": [
+    "Tycho Nestoris"
+  ],
+  "King's Landing": [
+    "Bronn",
+    "Podrick Payne",
+    "Pycelle",
+    "Gendry",
+    "Ilyn Payne",
+    "Jeyne Poole",
+    "Dontos Hollard",
+    "Boros Blount",
+    "Meryn Trant",
+    "Mandon Moore",
+    "Preston Greenfield",
+    "Osmund Kettleblack",
+    "Janos Slynt",
+    "Qyburn"
+  ],
+  "Major players": [
+    "Eddard Stark",
+    "Catelyn Stark",
+    "Robb Stark",
+    "Sansa Stark",
+    "Arya Stark",
+    "Bran Stark",
+    "Rickon Stark",
+    "Jon Snow",
+    "Jaime Lannister",
+    "Cersei Lannister",
+    "Tyrion Lannister",
+    "Tywin Lannister",
+    "Robert Baratheon",
+    "Stannis Baratheon",
+    "Renly Baratheon",
+    "Joffrey Baratheon",
+    "Tommen Baratheon",
+    "Myrcella Baratheon",
+    "Daenerys Targaryen",
+    "Khal Drogo",
+    "Balon Greyjoy",
+    "Theon Greyjoy",
+    "Asha Greyjoy",
+    "Euron Greyjoy",
+    "Jon Arryn",
+    "Lysa Arryn",
+    "Robert Arryn",
+    "Hoster Tully",
+    "Edmure Tully",
+    "Roose Bolton",
+    "Ramsay Bolton",
+    "Mace Tyrell",
+    "Loras Tyrell",
+    "Margaery Tyrell",
+    "Olenna Tyrell",
+    "Doran Martell",
+    "Oberyn Martell",
+    "Melisandre",
+    "Davos Seaworth",
+    "Jorah Mormont",
+    "Alysanne Targaryen",
+    "Baelor I Targaryen",
+    "Daeron I Targaryen",
+    "Criston Cole",
+    "Hot Pie",
+    "Shae",
+    "Osney Kettleblack",
+    "Osfryd Kettleblack",
+    "Osha",
+    "Cley Cerwyn",
+    "Nestor Royce",
+    "Albar Royce",
+    "Sigorn",
+    "Meribald"
+  ],
+  "Misc - essos": [
+    "Shiera Seastar",
+    "Marwyn",
+    "The Waif"
+  ],
+  "Misc - the-reach": [
+    "Franklyn Flowers"
+  ],
+  "Misc - the-westerlands": [],
+  "Night's Watch": [
+    "Jeor Mormont",
+    "Qhorin Halfhand",
+    "Eddison Tollett",
+    "Grenn",
+    "Pypar",
+    "Samwell Tarly",
+    "Donal Noye",
+    "Yoren",
+    "Othell Yarwyck",
+    "Satin",
+    "Dirk"
+  ],
+  "Qarth": [
+    "Pyat Pree",
+    "Quaithe"
+  ],
+  "Slaver's Bay": [
+    "Reznak mo Reznak",
+    "Grazdan mo Eraz",
+    "Grazdan mo Ullhor",
+    "Brown Ben Plumm",
+    "Yurkhaz zo Yunzak",
+    "Morghaz zo Zherzyn",
+    "Faezhar zo Faez",
+    "Ghazdor zo Ahlaq",
+    "Belicho Staegone",
+    "Cleon",
+    "Mossador",
+    "Oznak zo Pahl",
+    "Kezmya",
+    "Skahaz mo Kandaq"
+  ],
+  "The Dothraki Sea": [
+    "Mago",
+    "Aggo",
+    "Jhogo",
+    "Quaro",
+    "Haggo",
+    "Pono",
+    "Ogo",
+    "Mirri Maz Duur",
+    "Khal Pono",
+    "Khal Motho",
+    "Khal Moro"
+  ],
+  "The Faith": [
+    "High Sparrow"
+  ],
+  "Vale mountain clans": [
+    "Shagga",
+    "Timett"
+  ],
+  "Volantis": [
+    "Benerro",
+    "Malaquo Maegyr",
+    "Nyessos Vhassar",
+    "Qavo Nogarys"
+  ],
+  "_other": [
+    "Petyr Baelish",
+    "Varys",
+    "Syrio Forel",
+    "Jaqen H'ghar",
+    "Alliser Thorne",
+    "Bowen Marsh",
+    "Janos Slynt",
+    "Craster",
+    "Daario Naharis",
+    "Jorah Mormont",
+    "Missandei",
+    "Grey Worm",
+    "Xaro Xhoan Daxos",
+    "Illyrio Mopatis",
+    "Doreah",
+    "Irri",
+    "Jhiqui",
+    "Rakharo",
+    "Qotho",
+    "Cohollo",
+    "Khal Drogo",
+    "Khal Jhaqo",
+    "Kraznys mo Nakloz",
+    "Galazza Galare",
+    "Hizdahr zo Loraq",
+    "Strong Belwas",
+    "Salladhor Saan",
+    "Tycho Nestoris",
+    "Yezzan zo Qaggaz",
+    "Skahaz mo Kandaq",
+    "Shae",
+    "Pycelle",
+    "Luwin",
+    "Aemon Targaryen (son of Maekar I)",
+    "Meryn Trant",
+    "Boros Blount",
+    "Mandon Moore",
+    "Preston Greenfield",
+    "Osmund Kettleblack",
+    "Osney Kettleblack",
+    "Grenn",
+    "Pypar",
+    "Edd Tollett",
+    "Satin",
+    "Yoren",
+    "Qhorin Halfhand",
+    "Mance Rayder",
+    "Tormund Giantsbane",
+    "Ygritte",
+    "Val",
+    "Styr",
+    "Orell",
+    "Rattleshirt",
+    "Gilly",
+    "Chett",
+    "Waif",
+    "Obara Sand",
+    "Nymeria Sand",
+    "Tyene Sand",
+    "Ellaria Sand",
+    "Areo Hotah",
+    "Hodor",
+    "Osha",
+    "Cortnay Penrose",
+    "Hallyne",
+    "Aegon II Targaryen",
+    "Visenya Targaryen",
+    "Aerion Targaryen",
+    "Maekar I Targaryen",
+    "Baelor I Targaryen",
+    "Daeron I Targaryen",
+    "Viserys II Targaryen",
+    "Aegon IV Targaryen",
+    "Jaehaerys I Targaryen",
+    "Alysanne Targaryen",
+    "Robert Strong",
+    "Qyburn",
+    "High Sparrow",
+    "Alysane Mormont",
+    "Wynafryd Manderly",
+    "Wylla Manderly",
+    "Marillion",
+    "Mya Stone",
+    "Beric Dondarrion",
+    "Thoros of Myr",
+    "Lem Lemoncloak",
+    "Anguy",
+    "Gendry",
+    "Hot Pie",
+    "Vargo Hoat",
+    "Amory Lorch",
+    "Polliver",
+    "Wun Wun",
+    "Weese",
+    "Edric Storm",
+    "Jeyne Westerling",
+    "Moon Boy",
+    "Lothor Brune",
+    "Shagga",
+    "Timett",
+    "Varamyr Sixskins",
+    "Weeper",
+    "Maester Cressen",
+    "Patchface",
+    "Sallor Saan",
+    "Dagmer",
+    "Lymond Goodbrook",
+    "Aemon Estermont"
+  ]
+}

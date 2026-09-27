@@ -98,6 +98,18 @@ and has one (Tokyo, Addis Ababa).
   Calgary Tower (10 parks, 6 museums, 10 sights, 4 cafés) and a 1.5 km radius
   query, unchanged from the Calgary-only archive: the same tiles give the same
   places.
+- **Westeros** (`westeros.zql`, `westeros-*.csv`): an unofficial fan graph of
+  A Song of Ice and Fire / Game of Thrones — characters, houses, family,
+  allegiances, seats, deaths, battles and weddings, with every fact traced to
+  its A Wiki of Ice and Fire page (CC BY-SA 3.0; the full credit and licence
+  note live in `samples/ATTRIBUTION.md`, linked from the map credit while the
+  sample is loaded). Locations sit on a 0–1000 grid (x west→east, y
+  north→south): the 67 anchor places are copied from the paused westeros-map
+  draft and everything else is placed relative to them, fitted per region from
+  hand-reads off fan maps — never traced from any official map or artwork.
+  Rebuild it with `node scripts/westeros-fetch.mjs && node
+  scripts/westeros-sample.mjs` (the fetch caches AWOIAF pages through the
+  Wayback Machine; already-cached pages are skipped, so reruns are cheap).
 
 OSM data is licensed under **ODbL 1.0**. The basemap is an ODbL Produced Work;
 `© OpenStreetMap contributors` links to <https://www.openstreetmap.org/copyright>

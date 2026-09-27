@@ -1,0 +1,161 @@
+{
+  "House Allyrion": { "region": "Dorne", "overlord": "House Martell" },
+  "House Ambrose": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Arryn": { "region": "The Vale", "great": true },
+  "House Ashford": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Banefort": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Baratheon": { "region": "The Stormlands", "great": true },
+  "House Baratheon of Dragonstone": {
+    "region": "The Crownlands",
+    "overlord": "House Baratheon"
+  },
+  "House Baratheon of King's Landing": {
+    "region": "The Crownlands",
+    "overlord": "House Baratheon"
+  },
+  "House Beesbury": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Blacktyde": {
+    "region": "The Iron Islands",
+    "overlord": "House Greyjoy"
+  },
+  "House Blackwood": { "region": "The Riverlands", "overlord": "House Tully" },
+  "House Bolton": { "region": "The North", "overlord": "House Stark" },
+  "House Botley": { "region": "The Iron Islands", "overlord": "House Greyjoy" },
+  "House Bracken": { "region": "The Riverlands", "overlord": "House Tully" },
+  "House Brax": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Bulwer": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Caswell": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Celtigar": {
+    "region": "The Crownlands",
+    "overlord": "House Targaryen"
+  },
+  "House Cerwyn": { "region": "The North", "overlord": "House Stark" },
+  "House Clegane": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Connington": {
+    "region": "The Stormlands",
+    "overlord": "House Baratheon"
+  },
+  "House Corbray": { "region": "The Vale", "overlord": "House Arryn" },
+  "House Crakehall": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Crane": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Cuy": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Darry": { "region": "The Riverlands", "overlord": "House Tully" },
+  "House Dayne": { "region": "Dorne", "overlord": "House Martell" },
+  "House Dustin": { "region": "The North", "overlord": "House Stark" },
+  "House Farman": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Farwynd": { "region": "The Iron Islands", "overlord": "House Greyjoy" },
+  "House Florent": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Footly": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Fossoway of Cider Hall": {
+    "region": "The Reach",
+    "overlord": "House Tyrell"
+  },
+  "House Fossoway of New Barrel": {
+    "region": "The Reach",
+    "overlord": "House Tyrell"
+  },
+  "House Fowler": { "region": "Dorne", "overlord": "House Martell" },
+  "House Frey": { "region": "The Riverlands", "overlord": "House Tully" },
+  "House Glover": { "region": "The North", "overlord": "House Stark" },
+  "House Goodbrother": {
+    "region": "The Iron Islands",
+    "overlord": "House Greyjoy"
+  },
+  "House Greyjoy": { "region": "The Iron Islands", "great": true },
+  "House Grimm": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Harlaw": { "region": "The Iron Islands", "overlord": "House Greyjoy" },
+  "House Hewett": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Hightower": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Hornwood": { "region": "The North", "overlord": "House Stark" },
+  "House Hunter": { "region": "The Vale", "overlord": "House Arryn" },
+  "House Karstark": { "region": "The North", "overlord": "House Stark" },
+  "House Lannister": { "region": "The Westerlands", "great": true },
+  "House Lefford": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Lorch": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Mallister": { "region": "The Riverlands", "overlord": "House Tully" },
+  "House Manderly": { "region": "The North", "overlord": "House Stark" },
+  "House Manwoody": { "region": "Dorne", "overlord": "House Martell" },
+  "House Marbrand": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Martell": { "region": "Dorne", "great": true },
+  "House Merryweather": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Mormont": { "region": "The North", "overlord": "House Stark" },
+  "House Mullendore": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Oakheart": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Osgrey": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Payne": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Peake": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Penrose": { "region": "The Stormlands", "overlord": "House Baratheon" },
+  "House Piper": { "region": "The Riverlands", "overlord": "House Tully" },
+  "House Plumm": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Prester": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Redfort": { "region": "The Vale", "overlord": "House Arryn" },
+  "House Redwyne": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Reed": { "region": "The North", "overlord": "House Stark" },
+  "House Reyne": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Rosby": { "region": "The Crownlands", "overlord": "House Targaryen" },
+  "House Rowan": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Royce": { "region": "The Vale", "overlord": "House Arryn" },
+  "House Ryswell": { "region": "The North", "overlord": "House Stark" },
+  "House Selmy": { "region": "The Stormlands", "overlord": "House Baratheon" },
+  "House Serry": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Spicer": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Stark": { "region": "The North", "great": true },
+  "House Stokeworth": {
+    "region": "The Crownlands",
+    "overlord": "House Targaryen"
+  },
+  "House Swann": { "region": "The Stormlands", "overlord": "House Baratheon" },
+  "House Swyft": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Tarbeck": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Targaryen": { "region": "The Crownlands", "great": true },
+  "House Tarly": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Tarth": { "region": "The Stormlands", "overlord": "House Baratheon" },
+  "House Tully": { "region": "The Riverlands", "great": true },
+  "House Tyrell": { "region": "The Reach", "great": true },
+  "House Umber": { "region": "The North", "overlord": "House Stark" },
+  "House Vance of Wayfarer's Rest": {
+    "region": "The Riverlands",
+    "overlord": "House Tully"
+  },
+  "House Varner": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Velaryon": {
+    "region": "The Crownlands",
+    "overlord": "House Targaryen"
+  },
+  "House Vikary": { "region": "The Westerlands", "overlord": "House Lannister" },
+  "House Vyrwel": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Waynwood": { "region": "The Vale", "overlord": "House Arryn" },
+  "House Webber": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Westerling": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Whent": { "region": "The Riverlands", "overlord": "House Tully" },
+  "House Willum": { "region": "The Reach", "overlord": "House Tyrell" },
+  "House Yarwyck": {
+    "region": "The Westerlands",
+    "overlord": "House Lannister"
+  },
+  "House Yronwood": { "region": "Dorne", "overlord": "House Martell" }
+}
