@@ -42,6 +42,8 @@ pub enum WalError {
     Bincode(#[from] bincode::Error),
     #[error("WAL corruption at byte {offset}: {reason}")]
     Corruption { offset: u64, reason: String },
+    #[error("write rejected: {0}")]
+    Rejected(String),
     #[error("WAL durability error: {0}")]
     Durability(String),
 }
@@ -99,6 +101,10 @@ pub enum Operation {
     InsertRelAt { rel: Relationship, at: i64 },
     EndRelAt { rel: Relationship, at: i64 },
     SetLifetime { id: NodeId, appears: Option<i64>, ends: Option<i64> },
+    /// APS 39 metadata in the same atomic statement as the facts. JSON bytes
+    /// keep the externally tagged wire contract independent of bincode.
+    Linked { bytes: Vec<u8> },
+    ReplaceLinkedGraph { file: String, bytes: Vec<u8> },
 }
 
 #[cfg(not(target_arch = "wasm32"))]

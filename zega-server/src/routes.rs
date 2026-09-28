@@ -8,6 +8,13 @@ use axum::{
 
 pub fn app(state: AppState) -> Router {
     Router::new()
+        .route("/sync/node/:id", get(crate::sync::node))
+        .route("/sync/check", post(crate::sync::check))
+        .route("/sync/mirrors", get(crate::sync::mirrors))
+        .route("/sync/subscribe", post(crate::sync::subscribe))
+        .route("/sync/link", post(crate::sync::link))
+        .route("/sync/repair", post(crate::sync::repair))
+        .route("/zega/sync/push", post(crate::sync::push))
         .route("/health", get(handlers::health))
         .route("/stats", get(handlers::stats))
         .route("/zql", post(handlers::zql))

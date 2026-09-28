@@ -13,11 +13,11 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use zega::{Zega, ZegaError};
 
-fn error(status: StatusCode, message: impl Into<String>) -> Response {
+pub(crate) fn error(status: StatusCode, message: impl Into<String>) -> Response {
     (status, Json(json!({"ok": false, "error": message.into()}))).into_response()
 }
 
-fn authorized(headers: &HeaderMap, state: &AppState) -> bool {
+pub(crate) fn authorized(headers: &HeaderMap, state: &AppState) -> bool {
     state
         .token_hash
         .as_ref()

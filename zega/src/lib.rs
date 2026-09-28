@@ -9,7 +9,6 @@ use crate::graph::Graph;
 pub use crate::value::Value;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::wal::restore;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::wal::Operation;
 use crate::wal::Wal;
 
@@ -252,7 +251,7 @@ impl Zega {
             // included: replay starts there, and reads only that one file.
             let last_import = ops
                 .iter()
-                .rposition(|op| matches!(op, Operation::ReplaceGraph { .. }));
+                .rposition(|op| matches!(op, Operation::ReplaceGraph { .. } | Operation::ReplaceLinkedGraph { .. }));
             if ops.is_empty() {
                 refuse_lost_log(&path)?;
             }
@@ -263,7 +262,7 @@ impl Zega {
                 apply_op_to_memory(&mut graph, op, &path)?;
             }
             let keep = last_import.and_then(|at| match &ops[at] {
-                Operation::ReplaceGraph { file } => Some(file.as_str()),
+                Operation::ReplaceGraph { file } | Operation::ReplaceLinkedGraph { file, .. } => Some(file.as_str()),
                 _ => None,
             });
             // Best effort: garbage that can't be deleted now is retried at
@@ -535,9 +534,18 @@ impl Zega {
     /// Swap in an imported graph once `entry` (if any) is durable in the WAL.
     fn install(&self, mut replacement: Graph, entry: Option<crate::wal::Operation>) -> Result<()> {
         let mut graph = self.lock_graph()?;
+        replacement.linked = crate::linked::reconcile(&graph, &replacement)?;
         if let Some(entry) = entry {
+            let entry = match entry {
+                Operation::ReplaceGraph { file } => Operation::ReplaceLinkedGraph {
+                    file, bytes: serde_json::to_vec(&replacement.linked).map_err(|e| ZegaError::Execution(e.to_string()))?,
+                },
+                other => other,
+            };
             self.wal.append(&entry)?;
         }
+        replacement.linked.hook = graph.linked.hook.clone();
+        if let Some(hook) = &replacement.linked.hook { hook(); }
         replacement.inherit_statistics(&graph);
         *graph = replacement;
         Ok(())
@@ -599,9 +607,13 @@ impl Drop for Zega {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path) -> Result<()> {
     match op {
+        Operation::Linked { bytes } => crate::linked::replay(graph, bytes)?,
+        Operation::ReplaceLinkedGraph { file, bytes } => {
+            apply_op_to_memory(graph, &Operation::ReplaceGraph { file: file.clone() }, data)?;
+            graph.linked = serde_json::from_slice(bytes).map_err(|e| ZegaError::Execution(e.to_string()))?;
+        }
         Operation::InsertRelAt { rel, at } => {
             graph.restore_relationship(rel.id, rel.kind.clone(), rel.from, rel.to, rel.props.clone());
             graph.history.get_mut().map_err(ZegaError::Execution)?.relationships.insert(rel.id,
@@ -693,8 +705,10 @@ fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path)
             }
         }
         Operation::ReplaceGraph { file } => {
-            let replacement = read_imported_graph(data, file)?;
-            *graph = replacement;
+            #[cfg(not(target_arch = "wasm32"))]
+            { let replacement = read_imported_graph(data, file)?; *graph = replacement; }
+            #[cfg(target_arch = "wasm32")]
+            { let _ = (data, file); return Err(ZegaError::Execution("disk replacement is unavailable in WASM".into())); }
         }
     }
     Ok(())

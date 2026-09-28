@@ -256,6 +256,7 @@ fn stored_value<'g>(nodes: &'g IdMap<NodeRecord>, shapes: &Shapes, id: NodeId, f
 }
 
 pub struct Graph {
+    pub(crate) linked: crate::linked::Store,
     pub(crate) history: crate::history::Store,
     names: Names,
     shapes: Shapes,
@@ -311,6 +312,7 @@ impl Graph {
 
     pub fn new() -> Self {
         Graph {
+            linked: Default::default(),
             history: Default::default(),
             names: Names::default(),
             shapes: Shapes::default(),
