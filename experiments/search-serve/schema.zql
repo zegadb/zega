@@ -1,0 +1,38 @@
+schema {
+  type Site {
+    host: String
+    pages: ON <- Page[]
+    officialFor: OFFICIAL_SITE_OF <- Entity[]
+  }
+
+  type Entity {
+    qid: String
+    label: String
+    aliases: String
+    kind: String
+    official_site: String
+    officialSiteOf: OFFICIAL_SITE_OF -> Site { path_prefix: String }
+    memberOf: MEMBER_OF -> Entity[]
+    members: MEMBER_OF <- Entity[]
+    sport: SPORT -> Entity[]
+    sportOf: SPORT <- Entity[]
+    mentionedBy: MENTIONS <- Page[]
+  }
+
+  type Page {
+    url: String
+    title: String
+    text: String
+    language: String
+    fetch_date: String
+    site: ON -> Site
+    mentions: MENTIONS -> Entity[]
+    linksTo: LINKS_TO -> Page[]
+  }
+}
+
+unique {
+  Site { host }
+  Entity { qid }
+  Page { url }
+}
