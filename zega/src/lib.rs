@@ -1,3 +1,4 @@
+pub mod linked;
 pub mod location;
 pub mod vector;
 mod vector_view;
