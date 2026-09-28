@@ -32,10 +32,7 @@ The headless `zega-server <config.json>` host binds to loopback for use behind a
 {
   "data": "./earth-data",
   "listen": "127.0.0.1:9342",
-  "linked": {
-    "graph": "earth",
-    "mailbox": "https://mailbox.example.invalid"
-  }
+  "linked": { "graph": "earth", "mailbox": "https://mailbox.example.invalid" }
 }
 ```
 
