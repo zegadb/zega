@@ -1,0 +1,416 @@
+[
+  {
+    "from": "Q192751",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q192751",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q194121",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q194121",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q131206",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q131206",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q194126",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q194126",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q201857",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q201857",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q209636",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q209636",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q206297",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q206297",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q207507",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q207507",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q208652",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q208652",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q194116",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q194116",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q205973",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q205973",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q204623",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q204623",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q203008",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q203008",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q206357",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q206357",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q188143",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q188143",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q207980",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q207980",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q192081",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q192081",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q194369",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q194369",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q188984",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q188984",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q203013",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q203013",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q192083",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q192083",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q193643",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q193643",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q206381",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q206381",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q59422166",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q59422166",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q207735",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q207735",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q201864",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q201864",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q203384",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q203384",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q125520712",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q125520712",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q192890",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q192890",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q24725640",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q24725640",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q204627",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q204627",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q472741",
+    "rel": "MEMBER_OF",
+    "to": "Q1215892",
+    "source": "P118"
+  },
+  {
+    "from": "Q472741",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q1215892",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q122234845",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q464995",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q190173",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  },
+  {
+    "from": "Q1622622",
+    "rel": "SPORT",
+    "to": "Q41466",
+    "source": "P641"
+  }
+]

@@ -1,0 +1,127 @@
+[
+  {
+    "q": "Edmonton Oilers",
+    "class": "official",
+    "expect": ["www.nhl.com/oilers/"]
+  },
+  {
+    "q": "Calgary Flames",
+    "class": "official",
+    "expect": ["www.nhl.com/flames/"]
+  },
+  {
+    "q": "Toronto Maple Leafs",
+    "class": "official",
+    "expect": ["www.nhl.com/mapleleafs/"]
+  },
+  {
+    "q": "Montreal Canadiens",
+    "class": "official",
+    "expect": ["www.nhl.com/canadiens/"]
+  },
+  {
+    "q": "Vancouver Canucks",
+    "class": "official",
+    "expect": ["www.nhl.com/canucks/"]
+  },
+  {
+    "q": "Boston Bruins",
+    "class": "official",
+    "expect": ["www.nhl.com/bruins/"]
+  },
+  {
+    "q": "National Hockey League",
+    "class": "official",
+    "expect": ["www.nhl.com/"]
+  },
+  {
+    "q": "oilers captain",
+    "class": "informational",
+    "expect": ["www.nhl.com/oilers/"]
+  },
+  {
+    "q": "nhl standings",
+    "class": "informational",
+    "expect": ["www.nhl.com/"]
+  },
+  {
+    "q": "nhl draft",
+    "class": "informational",
+    "expect": ["www.nhl.com/"]
+  },
+  {
+    "q": "flames roster",
+    "class": "informational",
+    "expect": ["www.nhl.com/flames/"]
+  },
+  {
+    "q": "maple leafs roster",
+    "class": "informational",
+    "expect": ["www.nhl.com/mapleleafs/"]
+  },
+  {
+    "q": "stanley cup playoffs",
+    "class": "informational",
+    "expect": ["www.nhl.com/"]
+  },
+  {
+    "q": "bruins tickets",
+    "class": "informational",
+    "expect": ["www.nhl.com/bruins/"]
+  },
+  {
+    "q": "pwhl tickets",
+    "class": "informational",
+    "expect": ["www.thepwhl.com/"]
+  },
+  {
+    "q": "ahl standings",
+    "class": "informational",
+    "expect": ["theahl.com/"]
+  },
+  {
+    "q": "iihf world championship",
+    "class": "informational",
+    "expect": ["www.iihf.com/"]
+  },
+  {
+    "q": "edmonton oiler",
+    "class": "typo-alias",
+    "expect": ["www.nhl.com/oilers/"]
+  },
+  {
+    "q": "habs",
+    "class": "typo-alias",
+    "expect": ["www.nhl.com/canadiens/"]
+  },
+  {
+    "q": "leafs",
+    "class": "typo-alias",
+    "expect": ["www.nhl.com/mapleleafs/"]
+  },
+  {
+    "q": "calgery flames",
+    "class": "typo-alias",
+    "expect": ["www.nhl.com/flames/"]
+  },
+  {
+    "q": "vancover canucks",
+    "class": "typo-alias",
+    "expect": ["www.nhl.com/canucks/"]
+  },
+  {
+    "q": "boston bruin",
+    "class": "typo-alias",
+    "expect": ["www.nhl.com/bruins/"]
+  },
+  {
+    "q": "caps",
+    "class": "typo-alias",
+    "expect": ["www.nhl.com/capitals/"]
+  },
+  {
+    "q": "avs",
+    "class": "typo-alias",
+    "expect": ["www.nhl.com/avalanche/"]
+  }
+]

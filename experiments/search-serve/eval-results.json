@@ -1,0 +1,3819 @@
+{
+  "load": {
+    "nodes": 323,
+    "edges": 1273,
+    "chunks": [
+      {
+        "file": ".tmp/search-serve/entities-000.json",
+        "rows": 38,
+        "bytes": 6964
+      },
+      {
+        "file": ".tmp/search-serve/sites-000.json",
+        "rows": 6,
+        "bytes": 154
+      },
+      {
+        "file": ".tmp/search-serve/pages-000.json",
+        "rows": 279,
+        "bytes": 413563
+      }
+    ],
+    "seconds": 25.221
+  },
+  "summary": {
+    "official": {
+      "n": 7,
+      "p@1": 1,
+      "p@3": 1
+    },
+    "informational": {
+      "n": 10,
+      "p@1": 1,
+      "p@3": 1
+    },
+    "typo-alias": {
+      "n": 8,
+      "p@1": 1,
+      "p@3": 1
+    }
+  },
+  "rows": [
+    {
+      "q": "Edmonton Oilers",
+      "class": "official",
+      "expect": ["www.nhl.com/oilers/"],
+      "top3": [
+        "https://www.nhl.com/oilers/errors/not-found",
+        "https://www.nhl.com/oilers/eocf/contact-us",
+        "https://www.nhl.com/oilers/eocf/email-signup"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/oilers/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/errors/not-found",
+            "title": "Official Edmonton Oilers Website | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/contact-us": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/contact-us",
+            "title": "Contact Us | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/email-signup": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/email-signup",
+            "title": "Email Sign Up | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/fans/sms-sign-up": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/fans/sms-sign-up",
+            "title": "Text Message Sign Up | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/community/fan-requests": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/community/fan-requests",
+            "title": "Fan Requests | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/info/oilersplus": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/info/oilersplus",
+            "title": "Oilers+ | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/",
+            "title": "Edmonton Oilers Community Foundation | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/info/oilersplus-faq": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/info/oilersplus-faq",
+            "title": "Oilers+ Frequently Asked Questions | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/news/flames": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/news/flames",
+            "title": "Flames To Host Oilers In Next Gen Showcase Game | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/ducks/info/playoffs": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/ducks/info/playoffs",
+            "title": "Ducks Playoff Central | Anaheim Ducks"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "Calgary Flames",
+      "class": "official",
+      "expect": ["www.nhl.com/flames/"],
+      "top3": [
+        "https://www.nhl.com/flames/fans/greta",
+        "https://www.nhl.com/flames/schedule",
+        "https://www.nhl.com/flames/app/in-arena"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/flames/fans/greta": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/greta",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/schedule": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/schedule",
+            "title": "Calgary Flames Schedule | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/app/in-arena": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/app/in-arena",
+            "title": "Official Calgary Flames Website | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/community/hub": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/community/hub",
+            "title": "Community | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/fans/club-red": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/club-red",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/news/flames": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/news/flames",
+            "title": "Flames To Host Oilers In Next Gen Showcase Game | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/team/owners": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/team/owners",
+            "title": "Official Calgary Flames Website | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/fans/cashless": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/cashless",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/sabres/team/shutouts": [
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "Toronto Maple Leafs",
+      "class": "official",
+      "expect": ["www.nhl.com/mapleleafs/"],
+      "top3": [
+        "https://www.nhl.com/mapleleafs/schedule/2025-01-02",
+        "https://www.nhl.com/mapleleafs/arena/fan-poll",
+        "https://www.nhl.com/mapleleafs/livestream/"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/mapleleafs/schedule/2025-01-02": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/schedule/2025-01-02",
+            "title": "Toronto Maple Leafs Schedule | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/arena/fan-poll": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/arena/fan-poll",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/livestream/": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/livestream/",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/tailgate/faq": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/tailgate/faq",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/errors/not-found",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/roster": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/roster",
+            "title": "Toronto Maple Leafs 2026 - 2027 Roster | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/stats/playoffs": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/stats/playoffs",
+            "title": "Toronto Maple Leafs Club Stats | 2025 - 2026 | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/tickets/confirmation": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/tickets/confirmation",
+            "title": "Tickets | Toronto Maple Leafs | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/giveaways": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/giveaways",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/jets/media/": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/jets/media/",
+            "title": "Official Winnipeg Jets Website | Winnipeg Jets"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "Montreal Canadiens",
+      "class": "official",
+      "expect": ["www.nhl.com/canadiens/"],
+      "top3": [
+        "https://www.nhl.com/canadiens/fans/uber-eats-promo",
+        "https://www.nhl.com/canadiens/community/pride",
+        "https://www.nhl.com/canadiens/errors/not-found"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/canadiens/fans/uber-eats-promo": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/uber-eats-promo",
+            "title": "20% off the hour before puck drop - Uber Eats | Montréal Canadiens"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/community/pride": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/community/pride",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/errors/not-found",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/7thplayer-login": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/7thplayer-login",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/7thplayer-share": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/7thplayer-share",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/game-day": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/game-day",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/wallpapers": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/wallpapers",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/monsieur-qr-en": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/monsieur-qr-en",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/jets/stats/playoffs": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/jets/stats/playoffs",
+            "title": "Winnipeg Jets Club Stats | 2025 - 2026 | Winnipeg Jets"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/sabres/team/shutouts": [
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "Vancouver Canucks",
+      "class": "official",
+      "expect": ["www.nhl.com/canucks/"],
+      "top3": [
+        "https://www.nhl.com/canucks/schedule",
+        "https://www.nhl.com/canucks/errors/not-found",
+        "https://www.nhl.com/canucks/team/training-staff"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/canucks/schedule": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/schedule",
+            "title": "Vancouver Canucks Schedule | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/errors/not-found",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/team/training-staff": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/team/training-staff",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/team/hockey-operations": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/team/hockey-operations",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/team/front-office": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/team/front-office",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/video/": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/video/",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/?": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/?",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/?ref=blog.mathspace.co": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/?ref=blog.mathspace.co",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/player/aatu-r%C3%A4ty-8482691": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "label match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canucks/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/player/aatu-r%C3%A4ty-8482691",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "Boston Bruins",
+      "class": "official",
+      "expect": ["www.nhl.com/bruins/"],
+      "top3": [
+        "https://www.nhl.com/bruins/schedule",
+        "https://www.nhl.com/bruins/schedule/2024-02-02",
+        "https://www.nhl.com/bruins/schedule/2025-10-21"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/bruins/schedule": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/schedule/2024-02-02": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule/2024-02-02",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/schedule/2025-10-21": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule/2025-10-21",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/errors/not-found",
+            "title": "Official Boston Bruins Website | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/giveaways": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/giveaways",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/community/pj-drive": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/community/pj-drive",
+            "title": "Community | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/community/eversource": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/community/eversource",
+            "title": "Community | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/weddings": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/weddings",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/caps-today/": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/caps-today/",
+            "title": "CapsToday | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/penguins/fans/68bobble": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/penguins/fans/68bobble",
+            "title": "Fans | Pittsburgh Penguins | Pittsburgh Penguins"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "National Hockey League",
+      "class": "official",
+      "expect": ["www.nhl.com/"],
+      "top3": [
+        "https://www.nhl.com/?",
+        "https://www.nhl.com/avalanche/news/",
+        "https://www.nhl.com/"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/?": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/?",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/news/": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/news/",
+            "title": "Official Colorado Avalanche Website | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/stars/multimedia/broadcast": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/stars/multimedia/broadcast",
+            "title": "Amazon Prime | Dallas Stars"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flyers/info/code-of-conduct": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flyers/info/code-of-conduct",
+            "title": "Official Philadelphia Flyers Website | Philadelphia Flyers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/?ref=blog.mathspace.co": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/?ref=blog.mathspace.co",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/community/?": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/community/?",
+            "title": "Community | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bluejackets/fans/etw-text-rules": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bluejackets/fans/etw-text-rules",
+            "title": "Fans | Columbus Blue Jackets | Columbus Blue Jackets"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/news/": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/news/",
+            "title": "Washington Capitals | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/app/nhl-app": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "label match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/app/nhl-app",
+            "title": "NHL App: Your Home For Hockey | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "oilers captain",
+      "class": "informational",
+      "expect": ["www.nhl.com/oilers/"],
+      "top3": [
+        "https://www.nhl.com/oilers/errors/not-found",
+        "https://www.nhl.com/oilers/info/oilersplus-faq",
+        "https://www.nhl.com/oilers/info/oilersplus"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/oilers/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/errors/not-found",
+            "title": "Official Edmonton Oilers Website | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/info/oilersplus-faq": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/info/oilersplus-faq",
+            "title": "Oilers+ Frequently Asked Questions | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/info/oilersplus": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/info/oilersplus",
+            "title": "Oilers+ | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/contact-us": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/contact-us",
+            "title": "Contact Us | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/email-signup": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/email-signup",
+            "title": "Email Sign Up | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/fans/sms-sign-up": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/fans/sms-sign-up",
+            "title": "Text Message Sign Up | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/community/fan-requests": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/community/fan-requests",
+            "title": "Fan Requests | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/",
+            "title": "Edmonton Oilers Community Foundation | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/ducks/info/playoffs": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/ducks/info/playoffs",
+            "title": "Ducks Playoff Central | Anaheim Ducks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/news/flames": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/news/flames",
+            "title": "Flames To Host Oilers In Next Gen Showcase Game | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "nhl standings",
+      "class": "informational",
+      "expect": ["www.nhl.com/"],
+      "top3": [
+        "https://www.nhl.com/senators/standings",
+        "https://www.nhl.com/redwings/standings",
+        "https://www.nhl.com/islanders/fans/draft"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/senators/standings": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/senators/standings",
+            "title": "Ottawa Senators Hockey Standings"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/redwings/standings": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/redwings/standings",
+            "title": "Detroit Red Wings Hockey Standings"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/islanders/fans/draft": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/islanders/fans/draft",
+            "title": "NYI Draft Hub | New York Islanders"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/app/nhl-app": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/app/nhl-app",
+            "title": "NHL App: Your Home For Hockey | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/senators/team/draft": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/senators/team/draft",
+            "title": "Official Ottawa Senators Website | Ottawa Senators"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/redwings/team/prospects": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/redwings/team/prospects",
+            "title": "Official Detroit Red Wings Website | Detroit Red Wings"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/esports/": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/esports/",
+            "title": "Caps Gaming | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/ducks/standings": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/ducks/standings",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/penguins/tickets/handbook": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/penguins/tickets/handbook",
+            "title": "Tickets | Pittsburgh Penguins | Pittsburgh Penguins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/rangers/standings/2016": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/rangers/standings/2016",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "nhl draft",
+      "class": "informational",
+      "expect": ["www.nhl.com/"],
+      "top3": [
+        "https://www.nhl.com/islanders/fans/draft",
+        "https://www.nhl.com/senators/team/draft",
+        "https://www.nhl.com/redwings/team/prospects"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/islanders/fans/draft": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/islanders/fans/draft",
+            "title": "NYI Draft Hub | New York Islanders"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/senators/team/draft": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/senators/team/draft",
+            "title": "Official Ottawa Senators Website | Ottawa Senators"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/redwings/team/prospects": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/redwings/team/prospects",
+            "title": "Official Detroit Red Wings Website | Detroit Red Wings"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/blackhawks/history/players": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/blackhawks/history/players",
+            "title": "Chicago Blackhawks | Chicago Blackhawks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/sharks/team/history": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/sharks/team/history",
+            "title": "San Jose Sharks History | Franchise Milestones & Records | San Jose Sharks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/jets/media/": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/jets/media/",
+            "title": "Official Winnipeg Jets Website | Winnipeg Jets"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/redwings/news/": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/redwings/news/",
+            "title": "Official Detroit Red Wings Website | Detroit Red Wings"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/kings/video/": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/kings/video/",
+            "title": "Official Los Angeles Kings Website | Los Angeles Kings"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/kings/team/media": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/kings/team/media",
+            "title": "Official Los Angeles Kings Website | Los Angeles Kings"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/news/": [
+          {
+            "type": "entity",
+            "qid": "Q1215892",
+            "label": "National Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/news/",
+            "title": "Washington Capitals | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "flames roster",
+      "class": "informational",
+      "expect": ["www.nhl.com/flames/"],
+      "top3": [
+        "https://www.nhl.com/flames/news/flames",
+        "https://www.nhl.com/flames/fans/greta",
+        "https://www.nhl.com/flames/schedule"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/flames/news/flames": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/news/flames",
+            "title": "Flames To Host Oilers In Next Gen Showcase Game | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/fans/greta": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/greta",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/schedule": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/schedule",
+            "title": "Calgary Flames Schedule | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/app/in-arena": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/app/in-arena",
+            "title": "Official Calgary Flames Website | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/fans/club-red": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/club-red",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/community/hub": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/community/hub",
+            "title": "Community | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/team/owners": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/team/owners",
+            "title": "Official Calgary Flames Website | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/fans/cashless": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/cashless",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/ducks/roster": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/penguins/roster/": [
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "maple leafs roster",
+      "class": "informational",
+      "expect": ["www.nhl.com/mapleleafs/"],
+      "top3": [
+        "https://www.nhl.com/mapleleafs/roster",
+        "https://www.nhl.com/mapleleafs/schedule/2025-01-02",
+        "https://www.nhl.com/mapleleafs/arena/fan-poll"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/mapleleafs/roster": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/roster",
+            "title": "Toronto Maple Leafs 2026 - 2027 Roster | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/schedule/2025-01-02": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/schedule/2025-01-02",
+            "title": "Toronto Maple Leafs Schedule | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/arena/fan-poll": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/arena/fan-poll",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/livestream/": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/livestream/",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/tailgate/faq": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/tailgate/faq",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/errors/not-found",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/stats/playoffs": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/stats/playoffs",
+            "title": "Toronto Maple Leafs Club Stats | 2025 - 2026 | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/tickets/confirmation": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/tickets/confirmation",
+            "title": "Tickets | Toronto Maple Leafs | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/giveaways": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/giveaways",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/jets/media/": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/jets/media/",
+            "title": "Official Winnipeg Jets Website | Winnipeg Jets"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "stanley cup playoffs",
+      "class": "informational",
+      "expect": ["www.nhl.com/"],
+      "top3": [
+        "https://www.nhl.com/panthers/press/barkov",
+        "https://www.nhl.com/panthers/press/eller",
+        "https://www.nhl.com/panthers/press/jones"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/panthers/press/barkov": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/panthers/press/eller": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/panthers/press/jones": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/panthers/press/gudas": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/panthers/info/catscup": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://theahl.com/ahl_videos/best-penalty-shots-2025-26": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://theahl.com/ahl_videos/admirals-vs-stars-dec-5-2018": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://theahl.com/ahl_videos/heat-vs-reign-nov-27-2019": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/hurricanes/arena/transportation": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://theahl.com/ahl_videos/her-2024-teddy-bear-toss": [
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "bruins tickets",
+      "class": "informational",
+      "expect": ["www.nhl.com/bruins/"],
+      "top3": [
+        "https://www.nhl.com/bruins/community/pj-drive",
+        "https://www.nhl.com/bruins/schedule",
+        "https://www.nhl.com/bruins/schedule/2024-02-02"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/bruins/community/pj-drive": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/community/pj-drive",
+            "title": "Community | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/schedule": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/schedule/2024-02-02": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule/2024-02-02",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/schedule/2025-10-21": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule/2025-10-21",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/errors/not-found",
+            "title": "Official Boston Bruins Website | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/giveaways": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/giveaways",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/community/eversource": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/community/eversource",
+            "title": "Community | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/weddings": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/weddings",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/penguins/fans/68bobble": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/penguins/fans/68bobble",
+            "title": "Fans | Pittsburgh Penguins | Pittsburgh Penguins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/caps-today/": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/caps-today/",
+            "title": "CapsToday | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "pwhl tickets",
+      "class": "informational",
+      "expect": ["www.thepwhl.com/"],
+      "top3": [
+        "https://www.thepwhl.com/en/frequently-asked-questions",
+        "https://www.thepwhl.com/en/news",
+        "https://www.thepwhl.com/en/media-credential-requests"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.thepwhl.com/en/frequently-asked-questions": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.thepwhl.com/en/frequently-asked-questions",
+            "title": "Frequently Asked Questions | PWHL - Professional Women's Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.thepwhl.com/en/news": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.thepwhl.com/en/news",
+            "title": "News | PWHL - Professional Women's Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.thepwhl.com/en/media-credential-requests": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.thepwhl.com/en/media-credential-requests",
+            "title": "Media Credential Requests | PWHL - Professional Women's Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.thepwhl.com/en/": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.thepwhl.com/en/",
+            "title": "Home | PWHL - Professional Women's Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.thepwhl.com/en/about": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.thepwhl.com/en/about",
+            "title": "Who We Are | PWHL - Professional Women's Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.thepwhl.com/en/2025-pwhl-draft": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.thepwhl.com/en/2025-pwhl-draft",
+            "title": "2025 PWHL Draft | PWHL - Professional Women's Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.thepwhl.com/en/23hrplaycan": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.thepwhl.com/en/23hrplaycan",
+            "title": "International Women's Day PWHL 23-Hour Play Canada | PWHL - Professional Women's Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.thepwhl.com/en/awards": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.thepwhl.com/en/awards",
+            "title": "PWHL Awards | PWHL - Professional Women's Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/sharks/fans/gaming": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/sharks/fans/gaming",
+            "title": "SJSharks Gaming |San Jose Sharks | San Jose Sharks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/redwings/news/": [
+          {
+            "type": "entity",
+            "qid": "Q122234845",
+            "label": "Professional Women's Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/redwings/news/",
+            "title": "Official Detroit Red Wings Website | Detroit Red Wings"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "ahl standings",
+      "class": "informational",
+      "expect": ["theahl.com/"],
+      "top3": [
+        "https://theahl.com/2024playoffprimer",
+        "https://www.nhl.com/utah/info/broadcast-team/",
+        "https://theahl.com/ahl_videos/best-penalty-shots-2025-26"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://theahl.com/2024playoffprimer": [
+          {
+            "type": "entity",
+            "qid": "Q464995",
+            "label": "American Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://theahl.com/2024playoffprimer",
+            "title": "2024 Calder Cup Playoff Primer | TheAHL.com | The American Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/utah/info/broadcast-team/": [
+          {
+            "type": "entity",
+            "qid": "Q464995",
+            "label": "American Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/utah/info/broadcast-team/",
+            "title": "Official Utah Mammoth Website | Utah Mammoth"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://theahl.com/ahl_videos/best-penalty-shots-2025-26": [
+          {
+            "type": "entity",
+            "qid": "Q464995",
+            "label": "American Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://theahl.com/ahl_videos/best-penalty-shots-2025-26",
+            "title": "Best penalty shots | 2025-26 | TheAHL.com | The American Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://theahl.com/ahl_videos/her-2024-teddy-bear-toss": [
+          {
+            "type": "entity",
+            "qid": "Q464995",
+            "label": "American Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://theahl.com/ahl_videos/her-2024-teddy-bear-toss",
+            "title": "[HER] 2024 Teddy Bear Toss | TheAHL.com | The American Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://theahl.com/ahl_videos/admirals-vs-stars-dec-5-2018": [
+          {
+            "type": "entity",
+            "qid": "Q464995",
+            "label": "American Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://theahl.com/ahl_videos/admirals-vs-stars-dec-5-2018",
+            "title": "Admirals vs. Stars | Dec. 5, 2018 | TheAHL.com | The American Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://theahl.com/ahl_videos/heat-vs-reign-nov-27-2019": [
+          {
+            "type": "entity",
+            "qid": "Q464995",
+            "label": "American Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://theahl.com/ahl_videos/heat-vs-reign-nov-27-2019",
+            "title": "Heat vs. Reign | Nov. 27, 2019 | TheAHL.com | The American Hockey League"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/jets/media/": [
+          {
+            "type": "entity",
+            "qid": "Q464995",
+            "label": "American Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/jets/media/",
+            "title": "Official Winnipeg Jets Website | Winnipeg Jets"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/panthers/press/eller": [
+          {
+            "type": "entity",
+            "qid": "Q464995",
+            "label": "American Hockey League",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/panthers/press/eller",
+            "title": "Lars Eller | Florida Panthers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/ducks/standings": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/senators/standings": [
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "iihf world championship",
+      "class": "informational",
+      "expect": ["www.iihf.com/"],
+      "top3": [
+        "https://www.iihf.com/en/news?country=1369",
+        "https://www.nhl.com/panthers/press/gudas",
+        "https://www.nhl.com/hurricanes/fans/olympics"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.iihf.com/en/news?country=1369": [
+          {
+            "type": "entity",
+            "qid": "Q190173",
+            "label": "International Ice Hockey Federation",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.iihf.com/en/news?country=1369",
+            "title": "IIHF - News"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/panthers/press/gudas": [
+          {
+            "type": "entity",
+            "qid": "Q190173",
+            "label": "International Ice Hockey Federation",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/panthers/press/gudas",
+            "title": "Radko Gudas | Florida Panthers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/hurricanes/fans/olympics": [
+          {
+            "type": "entity",
+            "qid": "Q190173",
+            "label": "International Ice Hockey Federation",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/hurricanes/fans/olympics",
+            "title": "Olympic Winter Games | Carolina Hurricanes"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/sabres/team/owner": [
+          {
+            "type": "entity",
+            "qid": "Q190173",
+            "label": "International Ice Hockey Federation",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/sabres/team/owner",
+            "title": "Official Buffalo Sabres Website | Buffalo Sabres"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/sharks/fans/gaming": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/esports/": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/hurricanes/fans/gameday": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/kraken/team/careers": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/kings/news/": [
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/stars/multimedia/broadcast": [
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "edmonton oiler",
+      "class": "typo-alias",
+      "expect": ["www.nhl.com/oilers/"],
+      "top3": [
+        "https://www.nhl.com/oilers/errors/not-found",
+        "https://www.nhl.com/oilers/eocf/contact-us",
+        "https://www.nhl.com/oilers/eocf/"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/oilers/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/errors/not-found",
+            "title": "Official Edmonton Oilers Website | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/contact-us": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/contact-us",
+            "title": "Contact Us | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/",
+            "title": "Edmonton Oilers Community Foundation | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/eocf/email-signup": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/eocf/email-signup",
+            "title": "Email Sign Up | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/fans/sms-sign-up": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/fans/sms-sign-up",
+            "title": "Text Message Sign Up | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/community/fan-requests": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/community/fan-requests",
+            "title": "Fan Requests | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/info/oilersplus": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/info/oilersplus",
+            "title": "Oilers+ | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/oilers/info/oilersplus-faq": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/oilers/info/oilersplus-faq",
+            "title": "Oilers+ Frequently Asked Questions | Edmonton Oilers"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/news/flames": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/news/flames",
+            "title": "Flames To Host Oilers In Next Gen Showcase Game | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/ducks/video/": [
+          {
+            "type": "entity",
+            "qid": "Q205973",
+            "label": "Edmonton Oilers",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/ducks/video/",
+            "title": "Official Anaheim Ducks Website | Anaheim Ducks"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "habs",
+      "class": "typo-alias",
+      "expect": ["www.nhl.com/canadiens/"],
+      "top3": [
+        "https://www.nhl.com/canadiens/fans/uber-eats-promo",
+        "https://www.nhl.com/canadiens/community/pride",
+        "https://www.nhl.com/canadiens/errors/not-found"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/canadiens/fans/uber-eats-promo": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/uber-eats-promo",
+            "title": "20% off the hour before puck drop - Uber Eats | Montréal Canadiens"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/community/pride": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/community/pride",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/errors/not-found",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/7thplayer-login": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/7thplayer-login",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/7thplayer-share": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/7thplayer-share",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/game-day": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/game-day",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/monsieur-qr-en": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/monsieur-qr-en",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canadiens/fans/wallpapers": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canadiens/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canadiens/fans/wallpapers",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/jets/stats/playoffs": [
+          {
+            "type": "entity",
+            "qid": "Q188143",
+            "label": "Montreal Canadiens",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/jets/stats/playoffs",
+            "title": "Winnipeg Jets Club Stats | 2025 - 2026 | Winnipeg Jets"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "leafs",
+      "class": "typo-alias",
+      "expect": ["www.nhl.com/mapleleafs/"],
+      "top3": [
+        "https://www.nhl.com/mapleleafs/schedule/2025-01-02",
+        "https://www.nhl.com/mapleleafs/arena/fan-poll",
+        "https://www.nhl.com/mapleleafs/livestream/"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/mapleleafs/schedule/2025-01-02": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/schedule/2025-01-02",
+            "title": "Toronto Maple Leafs Schedule | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/arena/fan-poll": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/arena/fan-poll",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/livestream/": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/livestream/",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/tailgate/faq": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/tailgate/faq",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/errors/not-found",
+            "title": "Official Toronto Maple Leafs Website | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/roster": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/roster",
+            "title": "Toronto Maple Leafs 2026 - 2027 Roster | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/stats/playoffs": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/stats/playoffs",
+            "title": "Toronto Maple Leafs Club Stats | 2025 - 2026 | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/mapleleafs/tickets/confirmation": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/mapleleafs/tickets/confirmation",
+            "title": "Tickets | Toronto Maple Leafs | Toronto Maple Leafs"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/giveaways": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/giveaways",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/jets/media/": [
+          {
+            "type": "entity",
+            "qid": "Q203384",
+            "label": "Toronto Maple Leafs",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/jets/media/",
+            "title": "Official Winnipeg Jets Website | Winnipeg Jets"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "calgery flames",
+      "class": "typo-alias",
+      "expect": ["www.nhl.com/flames/"],
+      "top3": [
+        "https://www.nhl.com/flames/fans/greta",
+        "https://www.nhl.com/flames/schedule",
+        "https://www.nhl.com/flames/app/in-arena"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/flames/fans/greta": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/greta",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/schedule": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/schedule",
+            "title": "Calgary Flames Schedule | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/app/in-arena": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/app/in-arena",
+            "title": "Official Calgary Flames Website | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/news/flames": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/news/flames",
+            "title": "Flames To Host Oilers In Next Gen Showcase Game | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/fans/club-red": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/club-red",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/community/hub": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/community/hub",
+            "title": "Community | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/team/owners": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/team/owners",
+            "title": "Official Calgary Flames Website | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/flames/fans/cashless": [
+          {
+            "type": "entity",
+            "qid": "Q194126",
+            "label": "Calgary Flames",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/flames/fans/cashless",
+            "title": "Fans | Calgary Flames | Calgary Flames"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "vancover canucks",
+      "class": "typo-alias",
+      "expect": ["www.nhl.com/canucks/"],
+      "top3": [
+        "https://www.nhl.com/canucks/schedule",
+        "https://www.nhl.com/canucks/errors/not-found",
+        "https://www.nhl.com/canucks/team/training-staff"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/canucks/schedule": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/schedule",
+            "title": "Vancouver Canucks Schedule | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/errors/not-found",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/team/training-staff": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/team/training-staff",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/team/hockey-operations": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/team/hockey-operations",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/team/front-office": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/team/front-office",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/video/": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/video/",
+            "title": "Official Vancouver Canucks Website | Vancouver Canucks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/player/aatu-r%C3%A4ty-8482691": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canucks/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/player/aatu-r%C3%A4ty-8482691",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/canucks/player/luke-schenn-8474568": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "official site", "prefix": "www.nhl.com/canucks/" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/canucks/player/luke-schenn-8474568",
+            "title": null
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/?": [
+          {
+            "type": "entity",
+            "qid": "Q192890",
+            "label": "Vancouver Canucks",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/?",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "boston bruin",
+      "class": "typo-alias",
+      "expect": ["www.nhl.com/bruins/"],
+      "top3": [
+        "https://www.nhl.com/bruins/schedule",
+        "https://www.nhl.com/bruins/schedule/2024-02-02",
+        "https://www.nhl.com/bruins/schedule/2025-10-21"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/bruins/schedule": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/schedule/2024-02-02": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule/2024-02-02",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/schedule/2025-10-21": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/schedule/2025-10-21",
+            "title": "Boston Bruins Schedule | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/errors/not-found",
+            "title": "Official Boston Bruins Website | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/giveaways": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/giveaways",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/community/pj-drive": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/community/pj-drive",
+            "title": "Community | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/fans/weddings": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/fans/weddings",
+            "title": "Fans | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/bruins/community/eversource": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/bruins/community/eversource",
+            "title": "Community | Boston Bruins | Boston Bruins"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/caps-today/": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/caps-today/",
+            "title": "CapsToday | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/penguins/fans/68bobble": [
+          {
+            "type": "entity",
+            "qid": "Q194121",
+            "label": "Boston Bruins",
+            "via": "typo-tolerant match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/penguins/fans/68bobble",
+            "title": "Fans | Pittsburgh Penguins | Pittsburgh Penguins"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "caps",
+      "class": "typo-alias",
+      "expect": ["www.nhl.com/capitals/"],
+      "top3": [
+        "https://www.nhl.com/capitals/news/",
+        "https://www.nhl.com/capitals/esports/",
+        "https://www.nhl.com/capitals/caps-in-school/"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/capitals/news/": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/news/",
+            "title": "Washington Capitals | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/esports/": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/esports/",
+            "title": "Caps Gaming | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/caps-in-school/": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/caps-in-school/",
+            "title": "Caps In School | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/fans/baby-caps": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/fans/baby-caps",
+            "title": "BabyCaps | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/community/?": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/community/?",
+            "title": "Community | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/caps-today/": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/caps-today/",
+            "title": "CapsToday | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/app/in-arena": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/app/in-arena",
+            "title": "Washington Capitals | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/capitals/arena/": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/capitals/arena/",
+            "title": "Capital One Arena | Washington Capitals"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/sharks/fans/gaming": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/sharks/fans/gaming",
+            "title": "SJSharks Gaming |San Jose Sharks | San Jose Sharks"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/": [
+          {
+            "type": "entity",
+            "qid": "Q204627",
+            "label": "Washington Capitals",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/",
+            "title": "Official Site of the National Hockey League | NHL.com"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    },
+    {
+      "q": "avs",
+      "class": "typo-alias",
+      "expect": ["www.nhl.com/avalanche/"],
+      "top3": [
+        "https://www.nhl.com/avalanche/",
+        "https://www.nhl.com/avalanche/errors/not-found",
+        "https://www.nhl.com/avalanche/fans/bernies-buddies"
+      ],
+      "p1": true,
+      "p3": true,
+      "transparency": {
+        "https://www.nhl.com/avalanche/": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/",
+            "title": "Official Colorado Avalanche Website | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/errors/not-found": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/errors/not-found",
+            "title": "Official Colorado Avalanche Website | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/fans/bernies-buddies": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/fans/bernies-buddies",
+            "title": "Fans | Colorado Avalanche | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/fans/wallpapers": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/fans/wallpapers",
+            "title": "Fans | Colorado Avalanche | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/news/": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/news/",
+            "title": "Official Colorado Avalanche Website | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/schedule/": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/schedule/",
+            "title": "Colorado Avalanche Schedule | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/schedule/2024-01-01": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/schedule/2024-01-01",
+            "title": "Colorado Avalanche Schedule | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/schedule/2024-02-01": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/schedule/2024-02-01",
+            "title": "Colorado Avalanche Schedule | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/avalanche/schedule/2025-12-01": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/avalanche/schedule/2025-12-01",
+            "title": "Colorado Avalanche Schedule | Colorado Avalanche"
+          },
+          { "step": "ranked by relevance" }
+        ],
+        "https://www.nhl.com/panthers/press/gudas": [
+          {
+            "type": "entity",
+            "qid": "Q206297",
+            "label": "Colorado Avalanche",
+            "via": "alias match"
+          },
+          { "edge": "mentions" },
+          {
+            "type": "page",
+            "url": "https://www.nhl.com/panthers/press/gudas",
+            "title": "Radko Gudas | Florida Panthers"
+          },
+          { "step": "ranked by relevance" }
+        ]
+      }
+    }
+  ]
+}
