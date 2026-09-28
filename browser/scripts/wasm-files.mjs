@@ -36,10 +36,12 @@ export function encodedRustflags(env, extra) {
 /**
  * Absolute build-machine paths found in a binary: home, volume and temp
  * directories, and any of the given local paths. Each is reported once.
+ * The prefix must start a path: remapped registry sources legitimately
+ * contain components like serde's `src/private/de.rs`.
  */
 export function hostPaths(bytes, localPaths = []) {
   const text = Buffer.from(bytes).toString('latin1');
-  const found = new Set(text.match(/\/(?:Users|Volumes|home|root|private|tmp)\/[\x21-\x7e]+|[A-Za-z]:\\[\x21-\x7e]+/g) ?? []);
+  const found = new Set(text.match(/(?<![A-Za-z0-9._~-])\/(?:Users|Volumes|home|root|private|tmp)\/[\x21-\x7e]+|[A-Za-z]:\\[\x21-\x7e]+/g) ?? []);
   for (const local of localPaths) if (local && text.includes(local)) found.add(local);
   return [...found];
 }
