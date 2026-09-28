@@ -25,7 +25,7 @@ env:
 jobs:
   resolve:
     # Light: ref/version bookkeeping, no compilation.
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: public-ci
     outputs:
       tag: ${{ steps.ref.outputs.tag }}
@@ -80,7 +80,7 @@ jobs:
   changes:
     if: github.event_name == 'pull_request'
     # Light: a file-list diff, no checkout, no compilation.
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: public-ci
     # dorny/paths-filter fetches the PR's changed files from the REST API on
     # a pull_request event (no checkout needed), which needs this scope.
@@ -130,7 +130,7 @@ jobs:
     # explicit check on `resolve` keeps this running whenever resolve itself
     # didn't fail.
     if: always() && needs.resolve.result == 'success'
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: public-ci
     outputs:
       run_native: ${{ steps.plan.outputs.run_native }}
@@ -144,13 +144,13 @@ jobs:
         run: |
           set -euo pipefail
           full='[
-            {"platform":"linux-x64","runner":"blacksmith-4vcpu-ubuntu-2404","sccache_bucket":"zega-sccache-linux-x64","extension":""},
-            {"platform":"darwin-arm64","runner":"blacksmith-6vcpu-macos-15","sccache_bucket":"zega-sccache-darwin-arm64","extension":""},
-            {"platform":"darwin-x64","runner":"blacksmith-6vcpu-macos-15","sccache_bucket":"zega-sccache-darwin-x64","extension":""},
-            {"platform":"windows-x64","runner":"blacksmith-4vcpu-windows-2025","sccache_bucket":"zega-sccache-windows-x64","extension":".exe"}
+            {"platform":"linux-x64","runner":"ubuntu-latest","sccache_bucket":"zega-sccache-linux-x64","extension":""},
+            {"platform":"darwin-arm64","runner":"macos-15","sccache_bucket":"zega-sccache-darwin-arm64","extension":""},
+            {"platform":"darwin-x64","runner":"macos-13","sccache_bucket":"zega-sccache-darwin-x64","extension":""},
+            {"platform":"windows-x64","runner":"windows-latest","sccache_bucket":"zega-sccache-windows-x64","extension":".exe"}
           ]'
           linux_only='[
-            {"platform":"linux-x64","runner":"blacksmith-4vcpu-ubuntu-2404","sccache_bucket":"zega-sccache-linux-x64","extension":""}
+            {"platform":"linux-x64","runner":"ubuntu-latest","sccache_bucket":"zega-sccache-linux-x64","extension":""}
           ]'
           if [ "$FULL_MATRIX" = true ]; then
             run_native=true; matrix="$full"
@@ -176,7 +176,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: blacksmith-4vcpu-ubuntu-2404
+          - runner: ubuntu-latest
             sccache_bucket: zega-sccache-linux-x64
     env:
       RUSTC_WRAPPER: sccache
@@ -312,7 +312,7 @@ jobs:
     name: Release required checks
     if: always()
     needs: [resolve, changes, plan, package, native]
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: public-ci
     steps:
       - name: No upstream failures
@@ -332,7 +332,7 @@ jobs:
   publish:
     if: needs.resolve.outputs.tag != '' && github.repository == 'zegadb/zega'
     needs: [resolve, package, native]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: release
     concurrency:
       group: zega-channel-writes
@@ -363,7 +363,7 @@ jobs:
     # Sami configures trust, then Ava removes this literal hard stop in a PR.
     if: ${{ false }}
     needs: publish
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: read

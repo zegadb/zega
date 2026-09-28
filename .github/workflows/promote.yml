@@ -22,7 +22,7 @@ permissions:
 jobs:
   integrity-proof:
     # Light: cargo metadata + unittest, no build.
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
@@ -45,7 +45,7 @@ jobs:
   promote:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
     needs: integrity-proof
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: write
@@ -80,7 +80,7 @@ jobs:
     # Sami configures trust, then Ava removes this literal hard stop in a PR.
     if: ${{ false }}
     needs: promote
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: read
@@ -100,7 +100,7 @@ jobs:
   crates:
     # Stable only: a crates.io version can never be replaced, so canaries never go there.
     needs: promote
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: read

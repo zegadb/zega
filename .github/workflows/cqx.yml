@@ -30,7 +30,7 @@ jobs:
   score:
     name: score
     # Light: a checkout and a scan, no compilation.
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: public-ci
     steps:
       # Deep enough to reach the base of the pull request without a second
