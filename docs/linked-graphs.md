@@ -10,13 +10,13 @@ schema {
 }
 
 mutation {
-  Bookmark(target: "zega://earth/Q2096") { target }
+  Bookmark(target: "zega://earth/Z2096") { target }
 }
 ```
 
 ## Identity and durability
 
-A node's string `id` property is its graph-wide external identity; earth supplies Wikidata QIDs. The engine rejects duplicate identities and attempts to change them. Nodes without a string `id` receive an opaque generated identity, persisted with the graph. Applications that reload independent datasets must supply explicit stable IDs.
+A node's string `id` property is its graph-wide external identity; earth allocates ZIDs (`Z` + a number, never reused or renumbered), and source identifiers such as Wikidata QIDs are kept as external-id properties on the entity, not as identity. The engine rejects duplicate identities and attempts to change them. Nodes without a string `id` receive an opaque generated identity, persisted with the graph. Applications that reload independent datasets must supply explicit stable IDs.
 
 External identity is independent of the engine's numeric node slot. A sync host activates source tracking with `Zega::prepare_linked`; fetching a sync node or registering a subscription activates it too. Ordinary, unlinked import/export keeps its existing byte-for-byte behavior. Source `.graph` reloads reconcile facts by external ID, retain leases and history, and advance versions instead of adopting the incoming file's versions. A source reload cannot change the type of an existing external ID. Deleted IDs retain tombstone versions. Replacing a graph containing mirrors is rejected; restore it by reopening its data directory, or import its exported bundle into an empty database.
 
@@ -59,7 +59,7 @@ A subscriber configuration identifies the source and its own reachable push endp
 
 The mailbox URL is optional. A mailbox subscriber identity has one source: the shared key format has no source component, so separate sources require separate mailbox identities. These endpoints cover public source graphs; private-source authentication is outside APS 39. The host does not follow redirects or accept URL credentials in configured URLs.
 
-- `POST /sync/link` with `{"reference":"zega://earth/Q2096"}` explicitly fetches `GET /sync/node/Q2096?hops=1`, installs the snapshot, and leases its subscription. The engine API is `Zega::link(reference, snapshot)`; the server owns HTTP.
+- `POST /sync/link` with `{"reference":"zega://earth/Z2096"}` explicitly fetches `GET /sync/node/Z2096?hops=1`, installs the snapshot, and leases its subscription. The engine API is `Zega::link(reference, snapshot)`; the server owns HTTP.
 - `GET /sync/node/:id?hops=1` returns `NodeSnapshot`: `id`, `version`, `labels`, `fields`, optional native value `types` (preserving points/vectors instead of degrading them to maps/lists), outgoing `rels`, target `stubs`, and `source_gone`. Stubs carry identity and labels, not recursively fetched facts.
 - `POST /sync/subscribe`, `POST /sync/check`, and `POST /zega/sync/push` use the shared contract unchanged. Check and subscription batches are limited to 1,000 IDs. Leases are 1 second through 30 days.
 - `POST /sync/repair` explicitly wakes the subscriber: renew, drain, check versions, and refetch stale IDs. Maintenance repeats daily, independently of queries.
@@ -83,7 +83,7 @@ cargo test --locked -p zega-server --test linked_proof -- --test-threads=1 --noc
 python3 scripts/prove-linked-graphs.py
 ```
 
-The harness launches separate EARTH and FAN OS child processes hosting the production server routes and sync runtime. Its child entry point injects a public test fixture key; it never reads or sets deployment secrets. The fixture reuses the 38 landed hockey entities in `experiments/search-intake/entities.json` and adds 12 hand-written hockey-city QIDs. FAN links 20 nodes and adds its own edge. The fake Worker enforces the contract's source and mailbox authentication, sorted keys, pagination, idempotent delete, and 30-day expiry.
+The harness launches separate EARTH and FAN OS child processes hosting the production server routes and sync runtime. Its child entry point injects a public test fixture key; it never reads or sets deployment secrets. The fixture reuses the 38 landed hockey entities in `experiments/search-intake/entities.json` and adds 12 hand-written hockey cities. Every entity gets a ZID (`Z1`–`Z50`, allocated by earth in fixture order) as its identity, with its Wikidata QID kept as a `wikidata` external-id property. FAN links 20 nodes and adds its own edge. The fake Worker enforces the contract's source and mailbox authentication, sorted keys, pagination, idempotent delete, and 30-day expiry.
 
 Scenarios a–g are individual automated tests. For b–e, the harness counts the actual bytes read in both directions through TCP proxies between source, subscriber, and mailbox. These are HTTP stream bytes, including HTTP headers and compressed bodies, excluding TCP/IP framing and local administrative writes/assertion queries. The c assertion forbids snapshot refetch during recovery, so a broken mailbox replay cannot pass through the repair path. The e assertion checks one HTTP diff, one node change, and only the final changed field.
 

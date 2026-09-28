@@ -31,7 +31,7 @@ use zega_server::{
     sync::{Config, Runtime},
     AppState,
 };
-const SCHEMA:&str="type Entity { id: String name: String score: Int related -> Entity[] } unique { Entity { id } }";
+const SCHEMA:&str="type Entity { id: String name: String wikidata?: String score: Int related -> Entity[] } unique { Entity { id } }";
 const PUBLIC_FIXTURE_KEY: &str = "public-proof-fixture-not-a-deployment-secret";
 #[derive(Serialize, Deserialize)]
 struct Host {
@@ -404,8 +404,10 @@ impl Rig {
         ))
         .unwrap();
         // The landed intake has 38 hockey entities. Complete the requested
-        // 50-node slice with hand-written city entities using stable QIDs.
-        for (qid, label) in [
+        // 50-node slice with hand-written city entities. Identity is a ZID
+        // allocated by earth in fixture order; the Wikidata QID is kept as an
+        // external-id property, never as identity (APS 39 §1).
+        let cities = [
             ("Q2096", "Edmonton"),
             ("Q36312", "Calgary"),
             ("Q340", "Montreal"),
@@ -418,20 +420,23 @@ impl Rig {
             ("Q100", "Boston"),
             ("Q8652", "Miami"),
             ("Q12439", "Detroit"),
-        ] {
+        ];
+        for (qid, label) in &cities {
             fixture.push(json!({"qid":qid,"label":label}));
         }
         assert_eq!(fixture.len(), 50);
-        for row in fixture.iter().take(50) {
-            let id = row["qid"].as_str().unwrap().to_owned();
+        for (n, row) in fixture.iter().take(50).enumerate() {
+            let id = format!("Z{}", n + 1);
+            let qid = row["qid"].as_str().unwrap();
             let name = row["label"].as_str().unwrap();
             earth
                 .run_lang(
                     SCHEMA,
                     &format!(
-                        "mutation {{ Entity(id: {} && name: {} && score: 0) {{ id }} }}",
+                        "mutation {{ Entity(id: {} && name: {} && wikidata: {} && score: 0) {{ id }} }}",
                         json!(id),
-                        json!(name)
+                        json!(name),
+                        json!(qid)
                     ),
                 )
                 .unwrap();
@@ -627,7 +632,7 @@ async fn a_offline_query_has_zero_network_calls() {
         rows.as_array()
             .unwrap()
             .iter()
-            .filter(|v| v["id"].as_str().is_some_and(|id| id.starts_with('Q')))
+            .filter(|v| v["id"].as_str().is_some_and(|id| id.starts_with('Z')))
             .count(),
         20
     );

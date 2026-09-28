@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn references_preserve_external_identity() {
         for text in [
-            "zega://earth/Q2096",
+            "zega://earth/Z2096",
             "zega://fan/00042",
             "zega://graph/a%20b",
         ] {
@@ -192,14 +192,14 @@ mod tests {
             assert_eq!(serde_json::to_value(&reference).unwrap(), json!(text));
         }
         for text in [
-            "earth/Q2096",
-            "https://earth/Q2096",
-            "zega:///Q2096",
+            "earth/Z2096",
+            "https://earth/Z2096",
+            "zega:///Z2096",
             "zega://earth/",
-            "zega://earth/Q1/Q2",
-            "zega://earth/Q1?q=1",
-            "zega://earth/Q1#x",
-            "zega://earth/Q1\n",
+            "zega://earth/Z1/Z2",
+            "zega://earth/Z1?q=1",
+            "zega://earth/Z1#x",
+            "zega://earth/Z1\n",
         ] {
             assert!(text.parse::<Reference>().is_err(), "{text:?}");
             assert!(serde_json::from_value::<Reference>(json!(text)).is_err());
@@ -210,10 +210,10 @@ mod tests {
     fn worker_contract_round_trip_preserves_versions_and_field_diffs() {
         let wire = json!({"source":"earth", "graph_version":u64::MAX,
         "changes":[
-            {"id":"Q2096", "version":42, "kind":"node", "op":"upsert",
+            {"id":"Z2096", "version":42, "kind":"node", "op":"upsert",
              "fields":{"name":"Edmonton"},
-             "rels":{"add":[{"type":"locatedIn","to":"Q1951"}],"remove":[]}},
-            {"id":"Q9999","version":7,"kind":"node","op":"delete"}
+             "rels":{"add":[{"type":"locatedIn","to":"Z1951"}],"remove":[]}},
+            {"id":"Z9999","version":7,"kind":"node","op":"delete"}
         ]});
         let diff: Diff = serde_json::from_value(wire.clone()).unwrap();
         assert_eq!(diff.graph_version, u64::MAX);
@@ -223,10 +223,10 @@ mod tests {
     #[test]
     fn check_batch_has_an_inclusive_thousand_item_limit() {
         let mut request = CheckRequest {
-            items: vec![("Q1".into(), 1); 1000],
+            items: vec![("Z1".into(), 1); 1000],
         };
         assert!(request.validate().is_ok());
-        request.items.push(("Q2".into(), 2));
+        request.items.push(("Z2".into(), 2));
         assert!(request.validate().is_err());
     }
 }
@@ -400,7 +400,8 @@ pub(crate) fn record(
             op
         {
             // An explicitly supplied string id is the graph's stable external
-            // identity (earth uses QIDs). Otherwise allocate an opaque key.
+            // identity (earth uses ZIDs; QIDs are external-id properties).
+            // Otherwise allocate an opaque key.
             let external = props
                 .get("id")
                 .and_then(Value::as_string)
@@ -1230,14 +1231,14 @@ mod storage_tests {
         let path = dir.path().to_str().unwrap();
         let db = Zega::open(path).snapshot_every(0).build().unwrap();
         let schema = "type Thing { id: String n: Int }";
-        db.run_lang(schema, r#"mutation { Thing(id: "Q1" && n: 1) { id } }"#)
+        db.run_lang(schema, r#"mutation { Thing(id: "Z1" && n: 1) { id } }"#)
             .unwrap();
-        db.run_lang(schema, r#"mutation { Thing(id: "Q1") set n: 2 { n } }"#)
+        db.run_lang(schema, r#"mutation { Thing(id: "Z1") set n: 2 { n } }"#)
             .unwrap();
         db.subscribe(&SubscribeRequest {
             subscriber: "expired".into(),
             endpoint: None,
-            ids: vec!["Q1".into()],
+            ids: vec!["Z1".into()],
             lease_secs: 1,
         })
         .unwrap();
@@ -1246,7 +1247,7 @@ mod storage_tests {
             let mut graph = db.lock_graph().unwrap();
             graph.linked.history[0].committed_at = now_secs() - MAILBOX_TTL.as_secs() - 1;
             graph.linked.history[1].committed_at = now_secs() - MAILBOX_TTL.as_secs() + 86400;
-            std::sync::Arc::make_mut(graph.linked.leases.get_mut("Q1").unwrap())
+            std::sync::Arc::make_mut(graph.linked.leases.get_mut("Z1").unwrap())
                 .get_mut("expired")
                 .unwrap()
                 .expires_at = now_secs() - 1;
@@ -1256,14 +1257,14 @@ mod storage_tests {
         let db = Zega::open(path).snapshot_every(0).build().unwrap();
         assert_eq!(db.graph_version().unwrap(), version);
         assert_eq!(db.changes_since(0).unwrap().len(), 1);
-        assert!(db.subscribers(&["Q1".into()]).unwrap()["Q1"].is_empty());
+        assert!(db.subscribers(&["Z1".into()]).unwrap()["Z1"].is_empty());
         assert_eq!(
             db.sync_check(&CheckRequest {
-                items: vec![("Q1".into(), 1)]
+                items: vec![("Z1".into(), 1)]
             })
             .unwrap()
             .stale,
-            vec!["Q1"]
+            vec!["Z1"]
         );
     }
 }

@@ -1,13 +1,13 @@
 # Linked graphs: wire contract v1 (shared by the engine lane and the mailbox Worker lane)
 
-IDs: `zega://<graph>/<id>`. earth ids are Wikidata QIDs (for example Q2096). Versions are u64 from the APS 24 write log, and increase per node.
+IDs: `zega://<graph>/<id>`. earth ids are ZIDs (Z + a number, allocated by earth, never reused); Wikidata QIDs are external-id properties, not identity. Versions are u64 from the APS 24 write log, and increase per node.
 
 ## Diff (JSON; compression is applied by the transport)
 { "source": "earth", "graph_version": 1234,
-  "changes": [ { "id": "Q2096", "version": 42, "kind": "node", "op": "upsert",
+  "changes": [ { "id": "Z2096", "version": 42, "kind": "node", "op": "upsert",
                  "fields": { "name": "Edmonton" },
-                 "rels": { "add": [ { "type": "locatedIn", "to": "Q1951" } ], "remove": [] } },
-               { "id": "Q9999", "version": 7, "kind": "node", "op": "delete" } ] }
+                 "rels": { "add": [ { "type": "locatedIn", "to": "Z1951" } ], "remove": [] } },
+               { "id": "Z9999", "version": 7, "kind": "node", "op": "delete" } ] }
 - Changed fields only. The subscriber applies a change only if its version is newer than the mirror's (idempotent).
 
 ## Source endpoints (zega-server)
