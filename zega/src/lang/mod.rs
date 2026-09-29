@@ -892,9 +892,12 @@ fn unify_edge_props(types: &mut [TypeDef]) -> Result<()> {
 
 pub(crate) const URL_HELP: &str = "write an absolute http:// or https:// URL with a host and no userinfo, e.g. `https://example.com/image.png`";
 
-/// A string checked against a unit on every write: `String<url>`, `String<iso2>`.
+pub(crate) const BLAKE3_HELP: &str = "write the file's blake3 hash as 64 lowercase hex characters, e.g. `af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262`";
+
+/// A string checked against a unit on every write: `String<url>`, `String<iso2>`,
+/// `String<blake3>`.
 pub(crate) fn is_unit_string(ty: &str) -> bool {
-    matches!(ty, "String<url>" | "String<iso2>")
+    matches!(ty, "String<url>" | "String<iso2>" | "String<blake3>")
 }
 
 /// `String` or a unit-typed string; both index and filter as text.
@@ -905,6 +908,8 @@ pub(crate) fn is_string(ty: &str) -> bool {
 pub(crate) fn unit_string_help(ty: &str) -> &'static str {
     if ty == "String<iso2>" {
         globe::ISO2_HELP
+    } else if ty == "String<blake3>" {
+        BLAKE3_HELP
     } else {
         URL_HELP
     }
@@ -914,8 +919,15 @@ pub(crate) fn valid_unit_string(ty: &str, value: &str) -> bool {
     match ty {
         "String<url>" => valid_url(value),
         "String<iso2>" => globe::valid_iso2(value),
+        "String<blake3>" => valid_blake3(value),
         _ => true,
     }
+}
+
+/// `String<blake3>`: the blake3 hash of a file's bytes, 64 lowercase hex
+/// characters. Names an asset in a `.zga` bundle (APS 34, docs/files.md).
+pub(crate) fn valid_blake3(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 pub(crate) fn valid_url(value: &str) -> bool {
@@ -959,7 +971,7 @@ fn json_matches(ty: &str, value: &Json) -> bool {
     match ty {
         "Reference" => value.as_str().is_some_and(|s| s.parse::<crate::linked::Reference>().is_ok()),
         "String" => value.is_string(),
-        "String<url>" | "String<iso2>" => value.as_str().is_some_and(|text| valid_unit_string(ty, text)),
+        "String<url>" | "String<iso2>" | "String<blake3>" => value.as_str().is_some_and(|text| valid_unit_string(ty, text)),
         "Int" => value.as_i64().is_some(),
         "Float" => value.is_number(),
         "Bool" => value.is_boolean(),
@@ -1926,10 +1938,10 @@ impl<'a> Parser<'a> {
         }
         if ty == "String" && !self.starts_distance_unit() {
             let (name, span) = self.ident()?;
-            if !matches!(name.as_str(), "url" | "iso2") {
+            if !matches!(name.as_str(), "url" | "iso2" | "blake3") {
                 return Err(self
                     .err_at(span, format!("unknown string unit {name}"))
-                    .with_help("a String unit is `url` or `iso2`, as in `String<iso2>`"));
+                    .with_help("a String unit is `url`, `iso2` or `blake3`, as in `String<iso2>`"));
             }
             self.expect(">")?;
             *ty = format!("String<{name}>");

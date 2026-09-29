@@ -1221,7 +1221,7 @@ fn edge_value_matches(ty: &str, value: &Value) -> bool {
     match ty {
         "Reference" => value.as_string().is_some_and(|s| s.parse::<crate::linked::Reference>().is_ok()),
         "String" => matches!(value, Value::String(_)),
-        "String<url>" | "String<iso2>" => {
+        "String<url>" | "String<iso2>" | "String<blake3>" => {
             matches!(value, Value::String(text) if crate::lang::valid_unit_string(ty, text))
         }
         "Int" => matches!(value, Value::Int(_)),

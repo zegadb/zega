@@ -21,6 +21,8 @@ mod history;
 #[cfg(test)]
 mod history_tests;
 pub mod graph_file;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod bundle;
 mod idset;
 mod index;
 mod journal;
