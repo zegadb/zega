@@ -127,11 +127,11 @@ pub(super) fn check_attributes(
             "image" => {
                 let AttributeValue::Field(field) = value else {
                     return Err(Error::at(*value_span, "@image needs a field reference")
-                        .with_help("write `@image: &scan` and declare `scan: String<url>`"));
+                        .with_help("write `@image: &scan` and declare `scan: String<url>`, `String<file>` or `String<blake3>`"));
                 };
-                if !ty.fields.iter().any(|f| matches!(f, Field::Prop { name, ty, .. } if name == field && ty == "String<url>")) {
-                    return Err(Error::at(*value_span, format!("@image needs {}.{field} to be String<url>", ty.name))
-                        .with_help(format!("declare `{field}: String<url>` on {}", ty.name)));
+                if !ty.fields.iter().any(|f| matches!(f, Field::Prop { name, ty, .. } if name == field && (ty == "String<url>" || ty == "String<file>" || ty == "String<blake3>"))) {
+                    return Err(Error::at(*value_span, format!("@image needs {}.{field} to be String<url>, String<file> or String<blake3>", ty.name))
+                        .with_help(format!("declare `{field}: String<url>`, `String<file>` or `String<blake3>` on {}", ty.name)));
                 }
                 config.image = Some(field.clone());
             }

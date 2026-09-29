@@ -25,3 +25,4 @@ sha2 = { workspace = true }
 serde_json = { workspace = true }
 tempfile = "3"
 ureq = { version = "~3.4.2", default-features = false, features = ["json"] }
+url = "2.5"

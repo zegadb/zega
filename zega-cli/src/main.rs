@@ -107,6 +107,11 @@ enum Command {
         #[arg(long, default_value = "./zega-data")]
         data: PathBuf,
     },
+    /// Work with .zga bundles: a graph with its files (docs/files.md).
+    Bundle {
+        #[command(subcommand)]
+        command: BundleCommand,
+    },
     /// Serve the embedded explorer against a local database. Prints a URL; opens nothing.
     Explorer {
         #[arg(long, default_value_t = 9343)]
@@ -147,8 +152,115 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Command::Import { file, data, replace } => report("import", import(&file, &data, replace)),
         Command::SchemaDiff { old, new, data } => schema_diff(&old, &new, &data),
+        Command::Bundle { command } => report("bundle", bundle(command)),
         command => serve_command(Cli { command }),
     }
+}
+
+#[derive(Subcommand)]
+enum BundleCommand {
+    /// Create an empty bundle: a directory with graph.graph and assets/.
+    New {
+        /// The bundle directory to create. It must not exist yet.
+        dir: PathBuf,
+    },
+    /// Add a file to the bundle's assets and print its blake3 hash.
+    Add {
+        /// The bundle directory.
+        dir: PathBuf,
+        /// The file to add. Its bytes are stored under their blake3 hash.
+        file: PathBuf,
+    },
+    /// Check a bundle's hashes, references and layout.
+    Verify {
+        /// The bundle directory.
+        dir: PathBuf,
+    },
+    /// Pack a bundle to a deterministic .zgz (default: <dir>.zgz).
+    Pack {
+        /// The bundle directory.
+        dir: PathBuf,
+        /// The .zgz file to write.
+        out: Option<PathBuf>,
+        /// Copy the bytes behind local file:// paths into assets/ first, so
+        /// the .zgz carries them. Without it, a reference whose bytes exist
+        /// only at a local path refuses to pack. A .zgz never ships the
+        /// paths themselves.
+        #[arg(long)]
+        include_local: bool,
+    },
+    /// Unpack a .zgz into a new directory and verify it.
+    Unpack {
+        /// The .zgz file to read.
+        file: PathBuf,
+        /// The bundle directory to create. It must not exist yet.
+        dir: PathBuf,
+        /// Cap on the .zgz's total decompressed bytes (default 32 GiB).
+        #[arg(long)]
+        max_total_bytes: Option<u64>,
+        /// Cap on one entry's decompressed bytes (default 16 GiB).
+        #[arg(long)]
+        max_entry_bytes: Option<u64>,
+        /// Cap on the number of entries, files plus directories (default 1000000).
+        #[arg(long)]
+        max_entries: Option<u64>,
+    },
+}
+
+fn bundle(command: BundleCommand) -> Result<(), Box<dyn std::error::Error>> {
+    match command {
+        BundleCommand::New { dir } => {
+            zega::bundle::Bundle::create(&dir)?;
+            eprintln!("created empty bundle {}", dir.display());
+        }
+        BundleCommand::Add { dir, file } => {
+            let bundle = zega::bundle::Bundle::open(&dir)?;
+            let hash = bundle.put_asset(&file)?;
+            println!("{hash}");
+        }
+        BundleCommand::Verify { dir } => {
+            let report = zega::bundle::Bundle::open(&dir)?.verify()?;
+            eprintln!(
+                "{} verified: {} assets ({} bytes), {} remote entries, {} references ({} at local paths)",
+                dir.display(),
+                report.assets,
+                report.bytes,
+                report.remote,
+                report.references,
+                report.local
+            );
+            for stale in &report.stale {
+                eprintln!("stale: {stale} no longer hashes to its reference — the file changed; re-index it");
+            }
+        }
+        BundleCommand::Pack { dir, out, include_local } => {
+            let bundle = zega::bundle::Bundle::open(&dir)?;
+            let out = out.unwrap_or_else(|| {
+                let mut name = dir.as_os_str().to_owned();
+                name.push(".zgz");
+                PathBuf::from(name)
+            });
+            let mut file = std::fs::File::create(&out)?;
+            bundle.pack_with(&mut file, include_local)?;
+            file.sync_all()?;
+            eprintln!("packed {} to {}", dir.display(), out.display());
+        }
+        BundleCommand::Unpack { file, dir, max_total_bytes, max_entry_bytes, max_entries } => {
+            let mut limits = zega::bundle::UnpackLimits::default();
+            if let Some(max) = max_total_bytes {
+                limits.max_total_bytes = max;
+            }
+            if let Some(max) = max_entry_bytes {
+                limits.max_entry_bytes = max;
+            }
+            if let Some(max) = max_entries {
+                limits.max_entries = max;
+            }
+            zega::bundle::Bundle::unpack_with(std::fs::File::open(&file)?, &dir, &limits)?;
+            eprintln!("unpacked and verified {} in {}", file.display(), dir.display());
+        }
+    }
+    Ok(())
 }
 
 fn schema_diff(old: &Path, new: &Path, data: &Path) -> ! {
@@ -334,8 +446,9 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Command::Fmt { .. }
         | Command::Export { .. }
         | Command::Import { .. }
-        | Command::SchemaDiff { .. } => {
-            unreachable!("fmt, export, import and schema-diff run without a server runtime")
+        | Command::SchemaDiff { .. }
+        | Command::Bundle { .. } => {
+            unreachable!("fmt, export, import, schema-diff and bundle run without a server runtime")
         }
         Command::Start {
             data,

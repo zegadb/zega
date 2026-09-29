@@ -313,15 +313,19 @@ fn node_display_size_errors() {
 }
 
 #[test]
-fn node_display_image_requires_url_field() {
+fn node_display_image_requires_url_file_or_blake3_field() {
     for field in ["scan", "photo", "missing", "related"] {
         attribute_error(
             &format!("@image: &{field}"),
             &format!("&{field}"),
-            &format!("@image needs Log.{field} to be String<url>"),
-            &format!("declare `{field}: String<url>` on Log"),
+            &format!("@image needs Log.{field} to be String<url>, String<file> or String<blake3>"),
+            &format!("declare `{field}: String<url>`, `String<file>` or `String<blake3>` on Log"),
         );
     }
+    // String<blake3> and String<file> fields are accepted, like a String<url>
+    // one (APS 34 and its amendment).
+    parse_schema("type Log { hash: String<blake3> } display { graph { Log(@image: &hash) } }").unwrap();
+    parse_schema("type Log { path: String<file> } display { graph { Log(@image: &path) } }").unwrap();
 }
 
 #[test]
@@ -331,7 +335,7 @@ fn node_display_image_reference_errors() {
             &format!("@image: {value}"),
             value,
             "@image needs a field reference",
-            "write `@image: &scan` and declare `scan: String<url>`",
+            "write `@image: &scan` and declare `scan: String<url>`, `String<file>` or `String<blake3>`",
         );
     }
 }

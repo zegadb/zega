@@ -38,6 +38,13 @@ hashbrown = { version = "0.17", default-features = false }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ureq = { version = "~3.4.2", optional = true, default-features = false, features = ["rustls"] }
+# `.zga` bundles (APS 34, docs/files.md): blake3 content-addressing, and the
+# deterministic `.zgz` tar.gz. flate2 is already in the dependency tree
+# (zega-server); tar is the small maintained tar reader/writer — there is no
+# tar crate already in the tree to reuse.
+blake3 = "1"
+tar = "0.4"
+flate2 = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3"
