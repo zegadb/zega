@@ -195,6 +195,15 @@ enum BundleCommand {
         file: PathBuf,
         /// The bundle directory to create. It must not exist yet.
         dir: PathBuf,
+        /// Cap on the .zgz's total decompressed bytes (default 32 GiB).
+        #[arg(long)]
+        max_total_bytes: Option<u64>,
+        /// Cap on one entry's decompressed bytes (default 16 GiB).
+        #[arg(long)]
+        max_entry_bytes: Option<u64>,
+        /// Cap on the number of entries, files plus directories (default 1000000).
+        #[arg(long)]
+        max_entries: Option<u64>,
     },
 }
 
@@ -236,8 +245,18 @@ fn bundle(command: BundleCommand) -> Result<(), Box<dyn std::error::Error>> {
             file.sync_all()?;
             eprintln!("packed {} to {}", dir.display(), out.display());
         }
-        BundleCommand::Unpack { file, dir } => {
-            zega::bundle::Bundle::unpack(std::fs::File::open(&file)?, &dir)?;
+        BundleCommand::Unpack { file, dir, max_total_bytes, max_entry_bytes, max_entries } => {
+            let mut limits = zega::bundle::UnpackLimits::default();
+            if let Some(max) = max_total_bytes {
+                limits.max_total_bytes = max;
+            }
+            if let Some(max) = max_entry_bytes {
+                limits.max_entry_bytes = max;
+            }
+            if let Some(max) = max_entries {
+                limits.max_entries = max;
+            }
+            zega::bundle::Bundle::unpack_with(std::fs::File::open(&file)?, &dir, &limits)?;
             eprintln!("unpacked and verified {} in {}", file.display(), dir.display());
         }
     }

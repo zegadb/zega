@@ -26,7 +26,10 @@
 //!   `include_local` the bytes behind them are copied into `assets/` first.
 //!   Serve it as a file, never with `Content-Encoding: gzip`.
 //! - [`Bundle::unpack`] refuses path traversal, absolute paths, symlinks and
-//!   device files, and runs [`Bundle::verify`] before it reports success.
+//!   device files, caps the decompressed size against bombs ([`UnpackLimits`]),
+//!   strips the single `X.zga/` wrapper directory a platform
+//!   `tar -czf X.zgz X.zga` adds, and runs [`Bundle::verify`] before it
+//!   reports success.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
@@ -45,6 +48,41 @@ pub const ASSETS_DIR: &str = "assets";
 /// The optional manifest of remote asset locations.
 pub const MANIFEST_FILE: &str = "zega.json";
 
+/// The default cap on a `.zgz`'s total decompressed bytes (docs/files.md).
+pub const MAX_UNPACK_TOTAL_BYTES: u64 = 32 << 30;
+/// The default cap on one entry's decompressed bytes.
+pub const MAX_UNPACK_ENTRY_BYTES: u64 = 16 << 30;
+/// The default cap on a `.zgz`'s entry count (files plus directories).
+pub const MAX_UNPACK_ENTRIES: u64 = 1_000_000;
+
+/// The caps [`Bundle::unpack`] enforces on a `.zgz`'s decompressed contents,
+/// so a small hostile archive cannot expand until the disk fills (a size
+/// bomb passes the post-unpack verify whenever the bytes match their names,
+/// so the bytes must be refused as they are written). The defaults are
+/// finite but generous — a bundle can hold a photo or video library. A
+/// genuinely bigger bundle raises them explicitly through
+/// [`Bundle::unpack_with`] or `zega bundle unpack`'s `--max-*` flags; there
+/// is deliberately no environment override.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UnpackLimits {
+    /// Total decompressed bytes across every entry.
+    pub max_total_bytes: u64,
+    /// Decompressed bytes of any single entry.
+    pub max_entry_bytes: u64,
+    /// Files plus directories.
+    pub max_entries: u64,
+}
+
+impl Default for UnpackLimits {
+    fn default() -> Self {
+        UnpackLimits {
+            max_total_bytes: MAX_UNPACK_TOTAL_BYTES,
+            max_entry_bytes: MAX_UNPACK_ENTRY_BYTES,
+            max_entries: MAX_UNPACK_ENTRIES,
+        }
+    }
+}
+
 static UPLOAD_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Why a bundle operation failed.
@@ -52,8 +90,8 @@ static UPLOAD_COUNTER: AtomicU64 = AtomicU64::new(0);
 pub enum Error {
     #[error("{0} already exists; a bundle is created in a new directory")]
     AlreadyExists(PathBuf),
-    #[error("{0} is not a .zga bundle: it has no graph.graph and assets/ directory")]
-    NotBundle(PathBuf),
+    #[error("{path} is not a .zga bundle: found {found}; a bundle holds graph.graph and assets/ — in a .zgz these may sit under one top-level directory ending in .zga")]
+    NotBundle { path: PathBuf, found: String },
     #[error("invalid .zga bundle: {0}")]
     Layout(String),
     #[error("corrupt asset: {name} hashes to {actual}; the file's bytes do not match its name")]
@@ -66,6 +104,8 @@ pub enum Error {
     Manifest(String),
     #[error("unsafe .zgz entry refused: {0}")]
     Unsafe(String),
+    #[error(".zgz expands past the unpack limit: {0}; a genuinely bigger bundle raises the limit explicitly (Bundle::unpack_with, or zega bundle unpack's --max-* flags)")]
+    TooLarge(String),
     #[error(".graph error: {0}")]
     Graph(#[from] graph_file::Error),
     #[error("bundle i/o error: {0}")]
@@ -97,7 +137,10 @@ pub struct VerifyReport {
 pub enum Resolution {
     /// A readable local file whose bytes hash to the value.
     Local(PathBuf),
-    /// The bundle's asset, `assets/<hash>`.
+    /// The bundle's asset, `assets/<hash>`. The name is the hash, but the
+    /// bytes are not re-hashed here: a caller serving them must read them
+    /// through [`Bundle::read_asset`] (which re-hashes) or have run
+    /// [`Bundle::verify`] first.
     Asset(PathBuf),
     /// The remote URL in `assets/zega.json`.
     Remote(String),
@@ -139,7 +182,7 @@ impl Bundle {
     pub fn open(path: &Path) -> Result<Bundle, Error> {
         let bundle = Bundle { root: path.to_path_buf() };
         if !path.join(GRAPH_FILE).is_file() || !path.join(ASSETS_DIR).is_dir() {
-            return Err(Error::NotBundle(path.to_path_buf()));
+            return Err(not_bundle(path));
         }
         Ok(bundle)
     }
@@ -203,8 +246,8 @@ impl Bundle {
         }
         if let Some(value) = path {
             let local = file_url_path(value)?;
-            if let Ok(bytes) = fs::read(&local) {
-                if blake3::hash(&bytes).to_hex().as_str() == hash {
+            if let Ok(actual) = hash_path(&local) {
+                if actual == hash {
                     return Ok(Resolution::Local(local));
                 }
                 // The file changed on disk. An asset or remote still serves
@@ -273,12 +316,13 @@ impl Bundle {
                     "{ASSETS_DIR}/{name} is not an asset: asset names are 64 lowercase hex characters"
                 )));
             }
-            let (actual, bytes) = hash_reader(&mut fs::File::open(entry.path())?)?;
+            let path = entry.path();
+            let actual = hash_path(&path)?;
             if actual != name {
                 return Err(Error::HashMismatch { name, actual });
             }
             report.assets += 1;
-            report.bytes += bytes.len() as u64;
+            report.bytes += entry.metadata()?.len();
         }
         self.check_references(scanned, &remote, &mut report)?;
         Ok(report)
@@ -439,8 +483,7 @@ impl Bundle {
             if !subject.hashes.is_empty() {
                 for (_, url) in &subject.paths {
                     let path = file_url_path(url)?;
-                    let Ok(bytes) = fs::read(&path) else { continue };
-                    let actual = blake3::hash(&bytes).to_hex().to_string();
+                    let Ok(actual) = hash_path(&path) else { continue };
                     match subject.hashes.iter().position(|(_, hash)| hash == &actual) {
                         Some(at) => local[at] = true,
                         None if !report.stale.contains(url) => report.stale.push(url.clone()),
@@ -477,12 +520,21 @@ impl Bundle {
     /// [`Bundle::pack`] with `include_local`: copy the bytes behind each
     /// local `String<file>` path into `assets/` before packing, so the `.zgz`
     /// carries them. Either way the packed graph holds no `file://` value.
+    ///
+    /// The bundle is verified before `include_local` copies anything, so a
+    /// bundle that fails verify is refused unchanged on disk; the copy is
+    /// verified again after.
     pub fn pack_with(&self, out: impl Write, include_local: bool) -> Result<(), Error> {
         let scanned = self.scan()?;
-        if include_local {
-            self.copy_local_assets(&scanned)?;
-        }
         self.verify_scanned(&scanned)?;
+        let scanned = if include_local {
+            self.copy_local_assets(&scanned)?;
+            let scanned = self.scan()?;
+            self.verify_scanned(&scanned)?;
+            scanned
+        } else {
+            scanned
+        };
         // Verify passed, so every reference is present somewhere — but a
         // local path does not ship. Refuse a reference only a path satisfies.
         let remote = self.remote_manifest()?;
@@ -539,9 +591,9 @@ impl Bundle {
                     continue;
                 }
                 for (_, url) in &subject.paths {
-                    let Ok(bytes) = fs::read(file_url_path(url)?) else { continue };
-                    if blake3::hash(&bytes).to_hex().as_str() == hash {
-                        self.put_reader(&mut bytes.as_slice())?;
+                    let path = file_url_path(url)?;
+                    if hash_path(&path).ok().as_deref() == Some(hash.as_str()) {
+                        self.put_reader(&mut fs::File::open(path)?)?;
                         break;
                     }
                 }
@@ -567,23 +619,78 @@ impl Bundle {
 
     /// Unpack a `.zgz` into `dir`, which must not exist, and verify the
     /// bundle before reporting success. Entries that traverse (`..`), are
-    /// absolute, or are symlinks, links or device files are refused; on any
-    /// failure the partial directory is removed.
+    /// absolute, or are symlinks, links or device files are refused; the
+    /// decompressed contents are capped by [`UnpackLimits`] (a small archive
+    /// that expands past the cap is refused before the write passes it); a
+    /// single top-level `X.zga/` wrapper directory — what the APS 34 wire
+    /// command `tar -czf X.zgz X.zga` produces — is stripped. On any failure
+    /// the partial directory is removed.
     pub fn unpack(input: impl Read, dir: &Path) -> Result<Bundle, Error> {
+        Self::unpack_with(input, dir, &UnpackLimits::default())
+    }
+
+    /// [`Bundle::unpack`] with explicit [`UnpackLimits`] for a genuinely
+    /// bigger bundle.
+    pub fn unpack_with(input: impl Read, dir: &Path, limits: &UnpackLimits) -> Result<Bundle, Error> {
         if dir.exists() {
             return Err(Error::AlreadyExists(dir.to_path_buf()));
         }
         fs::create_dir_all(dir)?;
-        let result = unpack_entries(input, dir).and_then(|()| {
-            let bundle = Bundle::open(dir)?;
-            bundle.verify()?;
-            Ok(bundle)
-        });
+        let result = unpack_entries(input, dir, limits)
+            .and_then(|()| unwrap_wrapper(dir))
+            .and_then(|()| {
+                let bundle = Bundle::open(dir)?;
+                bundle.verify()?;
+                Ok(bundle)
+            });
         if result.is_err() {
             let _ = fs::remove_dir_all(dir);
         }
         result
     }
+}
+
+/// A `.zgz` made by the platform's own tar, the APS 34 wire command
+/// `tar -czf X.zgz X.zga`, wraps every entry in one top-level directory
+/// ending in `.zga`. Strip that wrapper: move its contents up to `dir`.
+/// Anything else is left as is for [`Bundle::open`] to judge.
+fn unwrap_wrapper(dir: &Path) -> Result<(), Error> {
+    let entries: Vec<fs::DirEntry> = fs::read_dir(dir)?.collect::<Result<_, io::Error>>()?;
+    if entries.len() != 1 {
+        return Ok(());
+    }
+    let name = entries[0].file_name().to_string_lossy().into_owned();
+    if !entries[0].file_type()?.is_dir() || !name.ends_with(".zga") {
+        return Ok(());
+    }
+    let wrapper = entries[0].path();
+    for child in fs::read_dir(&wrapper)? {
+        let child = child?;
+        fs::rename(child.path(), dir.join(child.file_name()))?;
+    }
+    fs::remove_dir(&wrapper)?;
+    Ok(())
+}
+
+/// The [`Error::NotBundle`] for `path`, naming the top-level entries found.
+fn not_bundle(path: &Path) -> Error {
+    let mut found: Vec<String> = fs::read_dir(path)
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .map(|entry| {
+                    let mut name = entry.file_name().to_string_lossy().into_owned();
+                    if entry.path().is_dir() {
+                        name.push('/');
+                    }
+                    name
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    found.sort();
+    let found = if found.is_empty() { "nothing".to_string() } else { found.join(", ") };
+    Error::NotBundle { path: path.to_path_buf(), found }
 }
 
 struct Entry {
@@ -728,19 +835,59 @@ fn hash_reader(input: &mut impl Read) -> Result<(String, Vec<u8>), Error> {
     Ok((blake3::hash(&bytes).to_hex().to_string(), bytes))
 }
 
-fn unpack_entries(input: impl Read, dir: &Path) -> Result<(), Error> {
+/// A file's blake3 hash, streamed — verify, resolve and include_local hash
+/// multi-GB files without holding them in memory.
+fn hash_path(path: &Path) -> Result<String, Error> {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update_reader(&mut fs::File::open(path)?)?;
+    Ok(hasher.finalize().to_hex().to_string())
+}
+
+fn unpack_entries(input: impl Read, dir: &Path, limits: &UnpackLimits) -> Result<(), Error> {
     let gz = flate2::read::GzDecoder::new(input);
     let mut archive = tar::Archive::new(gz);
     let mut seen = HashSet::new();
+    let mut entries = 0u64;
+    let mut total = 0u64;
     for entry in archive.entries()? {
+        entries += 1;
+        if entries > limits.max_entries {
+            return Err(Error::TooLarge(format!(
+                "more than {} entries (files and directories)",
+                limits.max_entries
+            )));
+        }
         let mut entry = entry?;
         let path = entry.path()?;
         let safe = safe_path(&path).ok_or_else(|| Error::Unsafe(format!("{} is not a safe path", path.display())))?;
+        // macOS tar adds an AppleDouble `._*` companion for every entry's
+        // metadata. It is never bundle content; skip it, don't write it.
+        if safe.file_name().is_some_and(|name| name.to_string_lossy().starts_with("._")) {
+            continue;
+        }
         match entry.header().entry_type() {
             tar::EntryType::Directory => {
                 fs::create_dir_all(dir.join(&safe))?;
             }
             tar::EntryType::Regular => {
+                // Refuse before the write passes the cap: the header's size
+                // is checked against both limits up front…
+                let size = entry.header().size()?;
+                if size > limits.max_entry_bytes {
+                    return Err(Error::TooLarge(format!(
+                        "{} is {} bytes, past the per-entry limit of {} bytes",
+                        safe.display(),
+                        size,
+                        limits.max_entry_bytes
+                    )));
+                }
+                if total + size > limits.max_total_bytes {
+                    return Err(Error::TooLarge(format!(
+                        "{} takes the archive past the total limit of {} decompressed bytes",
+                        safe.display(),
+                        limits.max_total_bytes
+                    )));
+                }
                 let target = dir.join(&safe);
                 if let Some(parent) = target.parent() {
                     fs::create_dir_all(parent)?;
@@ -751,7 +898,9 @@ fn unpack_entries(input: impl Read, dir: &Path) -> Result<(), Error> {
                     return Err(Error::Unsafe(format!("{} appears twice in the archive", safe.display())));
                 }
                 let mut out = fs::OpenOptions::new().write(true).create_new(true).open(target)?;
-                io::copy(&mut entry, &mut out)?;
+                // …and the copy is capped anyway, so a lying header cannot
+                // write past the per-entry limit either.
+                total += copy_capped(&mut entry, &mut out, limits.max_entry_bytes)?;
             }
             other => {
                 return Err(Error::Unsafe(format!(
@@ -762,6 +911,25 @@ fn unpack_entries(input: impl Read, dir: &Path) -> Result<(), Error> {
         }
     }
     Ok(())
+}
+
+/// `io::copy` that refuses to write more than `max` bytes: the backstop to
+/// the header checks in `unpack_entries`.
+fn copy_capped(input: &mut impl Read, out: &mut impl Write, max: u64) -> Result<u64, Error> {
+    let mut written = 0u64;
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let read = input.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        if written + read as u64 > max {
+            return Err(Error::TooLarge(format!("an entry expands past the per-entry limit of {max} bytes")));
+        }
+        out.write_all(&buffer[..read])?;
+        written += read as u64;
+    }
+    Ok(written)
 }
 
 /// A path is safe when it is relative and every component is a normal name:

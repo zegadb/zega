@@ -157,9 +157,23 @@ Either way the archive contains no `file://` value.
 Unpack is safe by construction: it refuses path traversal (`..`), absolute
 paths, symlinks, links and device files, writes into a fresh directory, and
 runs `verify` before it reports success — a partial or invalid bundle is
-removed.
+removed. It also caps what an archive expands to, so a small hostile `.zgz`
+cannot fill the disk: at most **32 GiB decompressed in total**, **16 GiB in
+any one entry**, and **1,000,000 entries** — refused before the write passes
+the cap. A genuinely bigger bundle raises the caps explicitly:
+`Bundle::unpack_with(input, dir, &limits)` or
+`zega bundle unpack --max-total-bytes/--max-entry-bytes/--max-entries`.
+There is no environment override.
 
-Serve a `.zgz` over HTTP as a file (`application/gzip`), never with
+A `.zgz` made without zega — `tar -czf photos.zgz photos.zga`, the APS 34
+wire command — wraps every entry in one `photos.zga/` directory. Unpack
+strips exactly that: one top-level directory whose name ends in `.zga`.
+Anything else keeps the not-a-bundle error, naming the entries it found.
+The AppleDouble `._*` metadata companions macOS tar adds are skipped, never
+written.
+
+Serve a `.zgz` over HTTP as a file (`Content-Type:
+application/vnd.zega.zgz`, `Content-Disposition: attachment`), never with
 `Content-Encoding: gzip`: the receiver saves the exact bytes.
 
 ## CLI
@@ -171,6 +185,7 @@ zega bundle verify photos.zga
 zega bundle pack photos.zga [photos.zgz]    # default: <dir>.zgz
 zega bundle pack photos.zga --include-local # copy local file:// bytes into assets/ first
 zega bundle unpack photos.zgz photos.zga
+zega bundle unpack photos.zgz photos.zga --max-total-bytes 68719476736  # raise a cap for a big bundle
 ```
 
 `add` only stores the bytes; the graph still needs a `File` node whose `hash`
@@ -191,5 +206,5 @@ mutation, then `zega export --schema files.zql photos.zga/graph.graph`, then
 | `bundle.resolve(hash, path)` | local path → asset → remote; a hash mismatch is `Stale`, never resolved |
 | `bundle.verify()` | layout, hashes and references (local paths count); returns counts and stale paths |
 | `bundle.pack(out)` / `bundle.pack_with(out, include_local)` | verified, deterministic `.zgz` to any `Write`; never ships a local path — `include_local` copies the bytes into `assets/` first |
-| `Bundle::unpack(input, dir)` | safe unpack into a fresh directory, verified |
+| `Bundle::unpack(input, dir)` / `Bundle::unpack_with(input, dir, &limits)` | safe unpack into a fresh directory, verified; decompressed size and entry count capped (`UnpackLimits` defaults: 32 GiB total, 16 GiB per entry, 1M entries), a single `X.zga/` tar wrapper stripped |
 | `manifest_json(&remote)` | the one `assets/zega.json` shape verify accepts |

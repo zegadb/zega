@@ -69,6 +69,36 @@ fn invalid_blake3_writes_and_updates_are_atomic() {
 }
 
 #[test]
+fn invalid_file_writes_and_updates_are_atomic() {
+    let schema = "type Doc { name: String path: String<file> }";
+    let db = Zega::in_memory().build().unwrap();
+    db.run_lang(schema, r#"mutation { Doc(name: "a" && path: "file:///Users/ava/Photos/scan.png") }"#).unwrap();
+    let before = db.graph_json().unwrap();
+    let bad: Vec<String> = vec![
+        // A relative path, a host, a space, a dot segment (not the
+        // normalised form), a remote URL, and non-strings.
+        "\"photos/scan.png\"".into(),
+        "\"file://photos/scan.png\"".into(),
+        "\"file:///Users/ava/My Photos/scan.png\"".into(),
+        "\"file:///Users/ava/./scan.png\"".into(),
+        "\"https://example.com/scan.png\"".into(),
+        "42".into(),
+        "true".into(),
+        "null".into(),
+    ];
+    for value in bad {
+        for source in [
+            format!("mutation {{ Doc(name: \"b\" && path: {value}) }}"),
+            format!("mutation {{ Doc(name: \"a\") set path: {value} {{ path }} }}"),
+        ] {
+            let error = db.run_lang(schema, &source).unwrap_err().to_string();
+            assert!(error.contains("Doc.path must be String<file>"), "{error}");
+            assert_eq!(db.graph_json().unwrap(), before);
+        }
+    }
+}
+
+#[test]
 fn blake3_import_validation_rejects_entire_batch() {
     let db = Zega::in_memory().build().unwrap();
     for (format, rows) in [

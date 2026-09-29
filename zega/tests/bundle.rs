@@ -2,8 +2,8 @@
 //! Every test here fails if its piece of the feature is removed.
 use std::fs;
 use std::io::{Read, Write};
-use std::path::Path;
-use zega::bundle::{Bundle, Resolution, GRAPH_FILE};
+use std::path::{Path, PathBuf};
+use zega::bundle::{Bundle, Resolution, UnpackLimits, GRAPH_FILE};
 use zega::graph_file::ExportOptions;
 use zega::Zega;
 
@@ -376,4 +376,159 @@ fn include_local_copies_the_bytes_into_assets() {
     bundle.verify().unwrap();
     assert_eq!(bundle.resolve(&hash, Some(&url)).unwrap(), Resolution::Local(source));
     assert!(!contains_file_url(&ungzip(&zgz)), "a .zgz never ships a local path");
+}
+
+/// A bundle with one `size`-byte zero-filled asset and a graph referencing
+/// it, packed to a .zgz. Zeros compress to almost nothing, so the archive is
+/// tiny next to what it expands to.
+fn packed_zeros(temp: &Path, size: usize) -> (PathBuf, Vec<u8>, String) {
+    let dir = temp.join("zeros.zga");
+    let bundle = Bundle::create(&dir).unwrap();
+    let bytes = vec![0u8; size];
+    let hash = bundle.put_reader(&mut &bytes[..]).unwrap();
+    write_graph(&dir, &[("zeros.bin", &hash)]);
+    let mut zgz = Vec::new();
+    bundle.pack(&mut zgz).unwrap();
+    (dir, zgz, hash)
+}
+
+#[test]
+fn unpack_refuses_a_size_bomb_and_leaves_nothing() {
+    let temp = tempfile::tempdir().unwrap();
+    let (_, zgz, _) = packed_zeros(temp.path(), 256 * 1024);
+    assert!(zgz.len() < 8 * 1024, "the bomb is tiny: {} bytes", zgz.len());
+    let limits = |total: u64, entry: u64, entries: u64| UnpackLimits {
+        max_total_bytes: total,
+        max_entry_bytes: entry,
+        max_entries: entries,
+    };
+    for (i, (caps, message)) in [
+        // Total decompressed bytes, then one entry's bytes, then the count.
+        (limits(64 * 1024, u64::MAX, u64::MAX), "past the total limit"),
+        (limits(u64::MAX, 64 * 1024, u64::MAX), "past the per-entry limit"),
+        (limits(u64::MAX, u64::MAX, 1), "more than 1 entries"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let target = temp.path().join(format!("bomb-{i}.zga"));
+        let error = Bundle::unpack_with(&zgz[..], &target, caps).unwrap_err().to_string();
+        assert!(error.contains(".zgz expands past the unpack limit"), "{error}");
+        assert!(error.contains(message), "{error}");
+        // Refused, and the partial output is gone.
+        assert!(!target.exists(), "{error}");
+    }
+    // The caps are the only refusal: raised explicitly, the same bytes unpack.
+    let target = temp.path().join("raised.zga");
+    let restored = Bundle::unpack_with(&zgz[..], &target, &limits(512 * 1024, 512 * 1024, 100)).unwrap();
+    restored.verify().unwrap();
+}
+
+#[test]
+fn unpack_strips_a_tar_czf_wrapper_directory() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path().join("photos.zga");
+    let (bundle, assets) = sample_bundle(&dir);
+    let mut zgz = Vec::new();
+    bundle.pack(&mut zgz).unwrap();
+    // Repacked the way the APS 34 wire command `tar -czf X.zgz X.zga` does
+    // it: one wrapper directory entry, then every entry beneath it.
+    let wrapped = tar_wrapped(&zgz, "photos.zga");
+    let restored_dir = temp.path().join("restored.zga");
+    let restored = Bundle::unpack(&wrapped[..], &restored_dir).unwrap();
+    // The wrapper is gone: the bundle sits at the top, byte for byte.
+    assert!(!restored_dir.join("photos.zga").exists());
+    assert_eq!(fs::read(dir.join(GRAPH_FILE)).unwrap(), fs::read(restored_dir.join(GRAPH_FILE)).unwrap());
+    for (bytes, hash) in &assets {
+        assert_eq!(&restored.read_asset(hash).unwrap(), bytes);
+    }
+    restored.verify().unwrap();
+}
+
+#[test]
+fn unpack_of_a_foreign_archive_names_what_was_found() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path().join("good.zga");
+    let (bundle, _) = sample_bundle(&dir);
+    let mut zgz = Vec::new();
+    bundle.pack(&mut zgz).unwrap();
+    // A wrapper that does not end in .zga, and no wrapper at all: today's
+    // error, but it names the entries it found.
+    for (i, (archive, found)) in [
+        (tar_wrapped(&zgz, "photos"), "photos/"),
+        (one_file_archive("readme.txt"), "readme.txt"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let target = temp.path().join(format!("foreign-{i}.zga"));
+        let error = Bundle::unpack(&archive[..], &target).unwrap_err().to_string();
+        assert!(error.contains("is not a .zga bundle"), "{error}");
+        assert!(error.contains(found), "{error}");
+        assert!(!target.exists(), "{error}");
+    }
+}
+
+/// `archive` rewritten as `tar -czf X.zgz X.zga` would write it: a `dir/`
+/// entry, then every original entry under `dir/`. macOS tar also adds
+/// AppleDouble `._*` metadata companions, so one of each is included.
+fn tar_wrapped(zgz: &[u8], dir: &str) -> Vec<u8> {
+    let mut plain = Vec::new();
+    flate2::read::GzDecoder::new(zgz).read_to_end(&mut plain).unwrap();
+    let mut tar = tar::Builder::new(Vec::new());
+    let mut wrapper = tar::Header::new_gnu();
+    wrapper.set_entry_type(tar::EntryType::Directory);
+    wrapper.set_mode(0o755);
+    wrapper.set_size(0);
+    wrapper.set_cksum();
+    tar.append_data(&mut wrapper, format!("{dir}/"), std::io::empty()).unwrap();
+    apple_double(&mut tar, format!("._{dir}"));
+    let mut archive = tar::Archive::new(&plain[..]);
+    for entry in archive.entries().unwrap() {
+        let mut entry = entry.unwrap();
+        let mut header = entry.header().clone();
+        let name = entry.path().unwrap().display().to_string().trim_end_matches('/').to_string();
+        if header.entry_type() == tar::EntryType::Directory {
+            tar.append_data(&mut header, format!("{dir}/{name}/"), std::io::empty()).unwrap();
+        } else {
+            let companion = match name.rsplit_once('/') {
+                Some((parent, base)) => format!("{dir}/{parent}/._{base}"),
+                None => format!("{dir}/._{name}"),
+            };
+            apple_double(&mut tar, companion);
+            let mut bytes = Vec::new();
+            entry.read_to_end(&mut bytes).unwrap();
+            tar.append_data(&mut header, format!("{dir}/{name}"), &bytes[..]).unwrap();
+        }
+    }
+    gzip_tar(tar)
+}
+
+/// A macOS AppleDouble metadata entry, as `tar -czf` writes it.
+fn apple_double(tar: &mut tar::Builder<Vec<u8>>, name: String) {
+    let mut header = tar::Header::new_gnu();
+    header.set_entry_type(tar::EntryType::Regular);
+    header.set_mode(0o644);
+    header.set_size(3);
+    header.set_cksum();
+    tar.append_data(&mut header, name, &b"._x"[..]).unwrap();
+}
+
+/// A .zgz holding one small file and nothing a bundle has.
+fn one_file_archive(name: &str) -> Vec<u8> {
+    let mut tar = tar::Builder::new(Vec::new());
+    let mut header = tar::Header::new_gnu();
+    header.set_entry_type(tar::EntryType::Regular);
+    header.set_mode(0o644);
+    header.set_size(5);
+    header.set_cksum();
+    tar.append_data(&mut header, name, &b"hello"[..]).unwrap();
+    gzip_tar(tar)
+}
+
+fn gzip_tar(tar: tar::Builder<Vec<u8>>) -> Vec<u8> {
+    let plain = tar.into_inner().unwrap();
+    let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    gz.write_all(&plain).unwrap();
+    gz.finish().unwrap()
 }
