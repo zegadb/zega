@@ -11,9 +11,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 subtle = "2.6"
+reqwest = { version = "0.12", features = ["json", "gzip"] }
+hmac = "0.12"
+base64 = "0.22"
+flate2 = "1"
 tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 zega = { workspace = true }
 
 [dev-dependencies]
-reqwest = { version = "0.12", features = ["json"] }
 tempfile = "3"

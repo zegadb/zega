@@ -2,6 +2,7 @@ pub mod auth;
 pub mod handlers;
 pub mod routes;
 pub mod server;
+pub mod sync;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -34,6 +35,7 @@ pub const DEFAULT_TRANSFER_SLOTS: usize = 16;
 #[derive(Clone)]
 pub struct AppState {
     pub zega: Arc<Mutex<Zega>>,
+    pub sync: Option<Arc<sync::Runtime>>,
     pub token_hash: Option<[u8; 32]>,
     pub max_import_bytes: u64,
     pub transfer_idle_timeout: Duration,
@@ -44,6 +46,7 @@ impl AppState {
     pub fn new(zega: Zega, token: Option<&str>) -> Self {
         Self {
             zega: Arc::new(Mutex::new(zega)),
+            sync: None,
             token_hash: token.map(auth::hash_token),
             max_import_bytes: DEFAULT_MAX_IMPORT_BYTES,
             transfer_idle_timeout: DEFAULT_TRANSFER_IDLE_TIMEOUT,

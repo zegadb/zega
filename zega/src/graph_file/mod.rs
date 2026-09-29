@@ -59,6 +59,7 @@ pub enum Section {
     Nodes,
     Relationships,
     History,
+    Linked,
     Done,
 }
 
@@ -71,6 +72,7 @@ impl Section {
             Section::Nodes => b"NODE",
             Section::Relationships => b"RELS",
             Section::History => b"HIST",
+            Section::Linked => b"SYNC",
             Section::Done => b"DONE",
         }
     }
@@ -83,6 +85,7 @@ impl Section {
             Section::Nodes => "nodes",
             Section::Relationships => "relationships",
             Section::History => "history",
+            Section::Linked => "linked",
             Section::Done => "done",
         }
     }
@@ -578,6 +581,10 @@ fn encode_sections(
     if let Some(bytes) = graph.history.bytes().map_err(io::Error::other)? {
         emit(Section::History, &|sink| Ok(sink.put(&bytes)?))?;
     }
+    if graph.linked.active() {
+        let bytes = serde_json::to_vec(&serde_json::to_value(&graph.linked).map_err(io::Error::other)?).map_err(io::Error::other)?;
+        emit(Section::Linked, &|sink| Ok(sink.put(&bytes)?))?;
+    }
     Ok((node_count, rel_count))
 }
 
@@ -713,6 +720,10 @@ struct In<R: Read> {
 impl<R: Read> In<R> {
     fn peek_tag(&mut self) -> Result<[u8; 4], Error> {
         let mut tag = [0; 4];
+        if self.pending.len() >= 4 {
+            for (out, byte) in tag.iter_mut().zip(self.pending.iter()) { *out = *byte; }
+            return Ok(tag);
+        }
         let mut got = 0;
         while got < tag.len() {
             match self.inner.read(&mut tag[got..]) {
@@ -1281,6 +1292,18 @@ pub(crate) fn read<R: Read>(input: R) -> Result<(Graph, ImportSummary), Error> {
             Ok(bytes)
         })?;
         graph.history = crate::history::Store::lazy(bytes);
+    }
+    if input.peek_tag()? == *b"SYNC" {
+        graph.linked = read_section(&mut input, Section::Linked, |s| {
+            let mut bytes = Vec::new();
+            let mut chunk = [0; 8192];
+            while s.remaining > 0 {
+                let n = s.remaining.min(chunk.len() as u64) as usize;
+                s.take(&mut chunk[..n])?;
+                bytes.extend_from_slice(&chunk[..n]);
+            }
+            serde_json::from_slice(&bytes).map_err(|e| s.invalid(e.to_string()))
+        })?;
     }
     let digest: [u8; 32] = input
         .content

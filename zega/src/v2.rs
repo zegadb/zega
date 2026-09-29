@@ -1219,6 +1219,7 @@ fn require_edge_props(
 
 fn edge_value_matches(ty: &str, value: &Value) -> bool {
     match ty {
+        "Reference" => value.as_string().is_some_and(|s| s.parse::<crate::linked::Reference>().is_ok()),
         "String" => matches!(value, Value::String(_)),
         "String<url>" | "String<iso2>" => {
             matches!(value, Value::String(text) if crate::lang::valid_unit_string(ty, text))
@@ -2576,7 +2577,7 @@ fn node_json(node: NodeRef<'_>) -> Json {
     Json::Object(object)
 }
 
-fn value_to_json(value: &Value) -> Json {
+pub(crate) fn value_to_json(value: &Value) -> Json {
     match value {
         Value::String(value) => Json::String(value.to_string()),
         Value::Int(value) => json!(value),
@@ -2605,6 +2606,10 @@ fn json_to_prop(schema: &Schema, sel: &Selection, field: &str, value: &Json) -> 
     if !value.is_null() {
         if let Ok(crate::lang::Field::Prop { ty, .. }) = schema.prop(&sel.type_name, field) {
             let ty = crate::history::plain_type(ty);
+            if ty == "Reference" {
+                let reference = value.as_str().ok_or_else(|| LangError::bare("Reference needs a zega://graph/id string"))?.parse::<crate::linked::Reference>().map_err(|e| LangError::bare(e.to_string()))?;
+                return Ok(Value::from(reference.to_string()));
+            }
             if ty.ends_with("[]") {
                 let values = value
                     .as_array()

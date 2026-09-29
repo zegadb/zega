@@ -139,12 +139,15 @@ impl Store {
 
     fn checkpoint_into(&self, mut file: std::fs::File, staging: &Path) -> Result<Checkpoint> {
         let (from, unfinished, paused) = {
-            let graph = self
+            let mut graph = self
                 .graph
                 .lock()
                 .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
             let started = std::time::Instant::now();
             let from = self.wal.end()?;
+            let cutoff = crate::linked::now_secs().saturating_sub(crate::linked::MAILBOX_TTL.as_secs());
+            graph.linked.history.retain(|record| record.committed_at >= cutoff);
+            for leases in graph.linked.leases.values_mut() { Arc::make_mut(leases).retain(|_, lease| lease.expires_at > crate::linked::now_secs()); }
             let mut out = Spill {
                 memory: Some(std::io::Cursor::new(Vec::new())),
                 file: &mut file,

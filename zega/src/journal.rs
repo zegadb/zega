@@ -47,6 +47,7 @@ pub(crate) struct Journal {
     lifetimes: Vec<(String, Option<String>, Option<String>)>,
     at: i64,
     history_error: Option<String>,
+    write_error: Option<String>,
 }
 
 /// Run one statement's writes against `graph` and make them durable as a
@@ -66,8 +67,13 @@ pub(crate) fn atomically<T, E: From<WalError>>(
         lifetimes: Vec::new(),
         at: crate::history::now(),
         history_error: None,
+        write_error: None,
     };
     let result = statement(graph, &mut journal);
+    let result = match journal.write_error.take() {
+        Some(reason) => Err(WalError::Rejected(reason).into()),
+        None => result,
+    };
     let result = match journal.history_error.take() {
         Some(reason) => Err(WalError::Corruption { offset: 0, reason }.into()),
         None => result,
@@ -75,15 +81,27 @@ pub(crate) fn atomically<T, E: From<WalError>>(
     match result {
         Ok(value) => {
             let Journal {
-                ops,
+                mut ops,
                 undo,
                 next_ids,
                 ..
             } = journal;
+            let removed: Vec<_> = undo.iter().filter_map(|u| match u { Undo::DeletedRel(r) => Some(r.clone()), _ => None }).collect();
+            let record = match crate::linked::record(graph, &ops, &removed) {
+                Ok(record) => record,
+                Err(error) => {
+                    roll_back(graph, undo, next_ids);
+                    return Err(WalError::Rejected(error.to_string()).into());
+                }
+            };
+            if let Some(record) = &record {
+                ops.push(crate::linked::operation(&crate::linked::Metadata::Commit { record: record.clone() }));
+            }
             if let Err(error) = wal.append_statement(ops) {
                 roll_back(graph, undo, next_ids);
                 return Err(error.into());
             }
+            if let Some(record) = record { crate::linked::apply_metadata(graph, crate::linked::Metadata::Commit { record }); }
             Ok(value)
         }
         Err(error) => {
@@ -275,6 +293,10 @@ impl Journal {
         id: NodeId,
         props: HashMap<String, Value>,
     ) {
+        if graph.linked.mirrors.contains_key(&id) {
+            self.write_error = Some("mirror facts are read-only; send corrections to the source".into());
+            return;
+        }
         let Some(before) = graph.get_node(id).map(|node| node.to_node()) else {
             return;
         };
@@ -315,6 +337,10 @@ impl Journal {
 
     /// Delete a node and every relationship still attached to it.
     pub(crate) fn delete_node(&mut self, graph: &mut Graph, id: NodeId) {
+        if graph.linked.mirrors.contains_key(&id) {
+            self.write_error = Some("mirror facts are read-only; send corrections to the source".into());
+            return;
+        }
         let Some(before) = graph.get_node(id).map(|node| node.to_node()) else {
             return;
         };
@@ -404,6 +430,10 @@ impl Journal {
     }
 
     pub(crate) fn delete_relationship(&mut self, graph: &mut Graph, id: RelId) {
+        if graph.linked.mirrors.values().any(|m| m.relationships.contains(&id)) {
+            self.write_error = Some("mirror facts are read-only; source relationships cannot be deleted".into());
+            return;
+        }
         let was_live = graph.get_relationship(id).is_some();
         let before = graph.get_relationship(id).map(|rel| rel.to_relationship());
         let before = if before.is_none() && graph.history.has_data() {

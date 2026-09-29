@@ -957,6 +957,7 @@ fn json_matches(ty: &str, value: &Json) -> bool {
             .is_some_and(|s| crate::history::date(s).is_ok());
     }
     match ty {
+        "Reference" => value.as_str().is_some_and(|s| s.parse::<crate::linked::Reference>().is_ok()),
         "String" => value.is_string(),
         "String<url>" | "String<iso2>" => value.as_str().is_some_and(|text| valid_unit_string(ty, text)),
         "Int" => value.as_i64().is_some(),
