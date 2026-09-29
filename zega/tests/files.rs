@@ -79,7 +79,7 @@ fn blake3_import_validation_rejects_entire_batch() {
         let source = format!("mutation {format} [\"rows.{format}\"] {{ File(name: $name && hash: $hash) }}");
         let sources = HashMap::from([(format!("rows.{format}"), rows.as_str().into())]);
         let error = db.run_lang_with_sources(schema, &source, &sources).unwrap_err().to_string();
-        assert!(error.contains("String<blake3>"), "{error}");
+        assert!(error.contains("File.hash must be String<blake3>"), "{error}");
         assert_eq!(db.graph_json().unwrap()["nodes"], json!([]));
     }
 }
