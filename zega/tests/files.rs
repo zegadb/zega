@@ -102,9 +102,9 @@ fn blake3_type_grammar_and_edge_properties() {
 }
 
 #[test]
-fn image_accepts_blake3_and_url_and_rejects_other_types() {
+fn image_accepts_blake3_file_and_url_and_rejects_other_types() {
     let db = Zega::in_memory().build().unwrap();
-    for ty in ["String<url>", "String<blake3>"] {
+    for ty in ["String<url>", "String<file>", "String<blake3>"] {
         let schema = format!("type Doc {{ image: {ty} }} display {{ graph {{ Doc(@image: &image) }} }}");
         db.schema(&schema).unwrap_or_else(|error| panic!("{ty}: {error}"));
     }
@@ -112,7 +112,7 @@ fn image_accepts_blake3_and_url_and_rejects_other_types() {
         let schema = format!("type Doc {{ image: {ty} }} display {{ graph {{ Doc(@image: &image) }} }}");
         let error = db.schema(&schema).unwrap_err().to_string();
         assert!(
-            error.contains("@image needs Doc.image to be String<url> or String<blake3>"),
+            error.contains("@image needs Doc.image to be String<url>, String<file> or String<blake3>"),
             "{ty}: {error}"
         );
     }

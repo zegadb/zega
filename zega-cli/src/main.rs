@@ -182,6 +182,12 @@ enum BundleCommand {
         dir: PathBuf,
         /// The .zgz file to write.
         out: Option<PathBuf>,
+        /// Copy the bytes behind local file:// paths into assets/ first, so
+        /// the .zgz carries them. Without it, a reference whose bytes exist
+        /// only at a local path refuses to pack. A .zgz never ships the
+        /// paths themselves.
+        #[arg(long)]
+        include_local: bool,
     },
     /// Unpack a .zgz into a new directory and verify it.
     Unpack {
@@ -206,15 +212,19 @@ fn bundle(command: BundleCommand) -> Result<(), Box<dyn std::error::Error>> {
         BundleCommand::Verify { dir } => {
             let report = zega::bundle::Bundle::open(&dir)?.verify()?;
             eprintln!(
-                "{} verified: {} assets ({} bytes), {} remote entries, {} references",
+                "{} verified: {} assets ({} bytes), {} remote entries, {} references ({} at local paths)",
                 dir.display(),
                 report.assets,
                 report.bytes,
                 report.remote,
-                report.references
+                report.references,
+                report.local
             );
+            for stale in &report.stale {
+                eprintln!("stale: {stale} no longer hashes to its reference — the file changed; re-index it");
+            }
         }
-        BundleCommand::Pack { dir, out } => {
+        BundleCommand::Pack { dir, out, include_local } => {
             let bundle = zega::bundle::Bundle::open(&dir)?;
             let out = out.unwrap_or_else(|| {
                 let mut name = dir.as_os_str().to_owned();
@@ -222,7 +232,7 @@ fn bundle(command: BundleCommand) -> Result<(), Box<dyn std::error::Error>> {
                 PathBuf::from(name)
             });
             let mut file = std::fs::File::create(&out)?;
-            bundle.pack(&mut file)?;
+            bundle.pack_with(&mut file, include_local)?;
             file.sync_all()?;
             eprintln!("packed {} to {}", dir.display(), out.display());
         }

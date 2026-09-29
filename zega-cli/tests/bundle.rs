@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
 const BIN: &str = env!("CARGO_BIN_EXE_zega");
-const SCHEMA: &str = "type File { name: String mediaType: String size: Int hash: String<blake3> width?: Int height?: Int duration?: Float source?: String<url> licence: String author?: String credit?: String fetchedAt?: String } display { graph { File(@shape: document, @image: &hash) } }";
+const SCHEMA: &str = "type File { name: String mediaType: String size: Int hash: String<blake3> path?: String<file> width?: Int height?: Int duration?: Float source?: String<url> licence: String author?: String credit?: String fetchedAt?: String } display { graph { File(@shape: document, @image: &hash) } }";
 
 fn zega(dir: &Path, args: &[&str]) -> Output {
     Command::new(BIN)
@@ -109,4 +109,58 @@ fn bundle_pack_is_deterministic_from_the_cli() {
     ok(dir, &["bundle", "pack", bundle_arg, "one.zgz"]);
     ok(dir, &["bundle", "pack", bundle_arg, "two.zgz"]);
     assert_eq!(std::fs::read(dir.join("one.zgz")).unwrap(), std::fs::read(dir.join("two.zgz")).unwrap());
+}
+
+#[test]
+fn pack_include_local_copies_the_bytes_into_assets() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path();
+    let bundle = dir.join("desk.zga");
+    let bundle_arg = bundle.to_str().unwrap();
+    ok(dir, &["bundle", "new", bundle_arg]);
+
+    // A photo that exists only on this computer: hash it, then take the asset
+    // back out — the graph will name its hash and its local path, and nothing
+    // sits in assets/.
+    let photo = dir.join("desktop-photo.png");
+    std::fs::write(&photo, b"desktop photo bytes").unwrap();
+    let add = ok(dir, &["bundle", "add", bundle_arg, photo.to_str().unwrap()]);
+    let hash = String::from_utf8(add.stdout).unwrap().trim().to_string();
+    std::fs::remove_file(bundle.join("assets").join(&hash)).unwrap();
+
+    let url = format!("file://{}", photo.display());
+    let data = dir.join("db");
+    let schema_file = dir.join("files.zql");
+    std::fs::write(&schema_file, format!("schema {{ {SCHEMA} }}")).unwrap();
+    let db = zega::Zega::open(data.to_str().unwrap()).build().unwrap();
+    db.run_lang(SCHEMA, &format!(r#"mutation {{ File(name: "desktop-photo.png" && mediaType: "image/png" && size: 19 && hash: "{hash}" && path: "{url}" && licence: "CC0") }}"#)).unwrap();
+    drop(db);
+    ok(dir, &[
+        "export",
+        bundle.join("graph.graph").to_str().unwrap(),
+        "--data",
+        data.to_str().unwrap(),
+        "--schema",
+        schema_file.to_str().unwrap(),
+    ]);
+
+    // Verify counts the local path; a default pack refuses to ship it.
+    let verify = ok(dir, &["bundle", "verify", bundle_arg]);
+    assert!(String::from_utf8_lossy(&verify.stderr).contains("1 at local paths"), "{}", String::from_utf8_lossy(&verify.stderr));
+    let refused = zega(dir, &["bundle", "pack", bundle_arg]);
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("--include-local"), "{}", String::from_utf8_lossy(&refused.stderr));
+    assert!(!bundle.join("assets").join(&hash).exists());
+
+    // --include-local copies the bytes into assets/ first; then it packs.
+    ok(dir, &["bundle", "pack", bundle_arg, "--include-local"]);
+    assert_eq!(std::fs::read(bundle.join("assets").join(&hash)).unwrap(), b"desktop photo bytes");
+    ok(dir, &["bundle", "verify", bundle_arg]);
+
+    // The packed graph carries no file:// value.
+    let restored = dir.join("restored.zga");
+    ok(dir, &["bundle", "unpack", dir.join("desk.zga.zgz").to_str().unwrap(), restored.to_str().unwrap()]);
+    let graph = std::fs::read(restored.join("graph.graph")).unwrap();
+    assert!(!graph.windows(b"file://".len()).any(|w| w == b"file://"), "a .zgz never ships a local path");
+    assert_eq!(std::fs::read(restored.join("assets").join(&hash)).unwrap(), b"desktop photo bytes");
 }

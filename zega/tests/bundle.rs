@@ -3,11 +3,11 @@
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
-use zega::bundle::{Bundle, GRAPH_FILE};
+use zega::bundle::{Bundle, Resolution, GRAPH_FILE};
 use zega::graph_file::ExportOptions;
 use zega::Zega;
 
-const SCHEMA: &str = "type File { name: String mediaType: String size: Int hash: String<blake3> width?: Int height?: Int duration?: Float source?: String<url> licence: String author?: String credit?: String fetchedAt?: String } display { graph { File(@shape: document, @image: &hash) } }";
+const SCHEMA: &str = "type File { name: String mediaType: String size: Int hash: String<blake3> path?: String<file> width?: Int height?: Int duration?: Float source?: String<url> licence: String author?: String credit?: String fetchedAt?: String } display { graph { File(@shape: document, @image: &hash) } }";
 
 fn photo(name: &str) -> (Vec<u8>, String) {
     let bytes = format!("fake image bytes of {name}").into_bytes();
@@ -48,6 +48,29 @@ fn sample_bundle(dir: &Path) -> (Bundle, Vec<(Vec<u8>, String)>) {
     (bundle, assets)
 }
 
+/// Write a graph with one File node that carries both a `hash` and the local
+/// `path` its bytes live at (APS 34 amendment); returns the `file://` URL.
+fn write_graph_with_path(bundle: &Path, name: &str, hash: &str, path: &Path) -> String {
+    let url = url::Url::from_file_path(path).unwrap().to_string();
+    let db = Zega::in_memory().build().unwrap();
+    db.run_lang(SCHEMA, &format!(r#"mutation {{ File(name: "{name}" && mediaType: "image/png" && size: 3 && hash: "{hash}" && path: "{url}" && licence: "CC0") }}"#)).unwrap();
+    let options = ExportOptions { schema: Some(SCHEMA.to_string()), ..Default::default() };
+    let mut out = fs::File::create(bundle.join(GRAPH_FILE)).unwrap();
+    db.export_with(&mut out, &options).unwrap();
+    url
+}
+
+/// The .zgz's gunzipped bytes.
+fn ungzip(zgz: &[u8]) -> Vec<u8> {
+    let mut plain = Vec::new();
+    flate2::read::GzDecoder::new(zgz).read_to_end(&mut plain).unwrap();
+    plain
+}
+
+fn contains_file_url(bytes: &[u8]) -> bool {
+    bytes.windows(b"file://".len()).any(|window| window == b"file://")
+}
+
 #[test]
 fn pack_twice_is_byte_identical() {
     let temp = tempfile::tempdir().unwrap();
@@ -56,16 +79,16 @@ fn pack_twice_is_byte_identical() {
     bundle.pack(&mut first).unwrap();
     // The same bundle, packed again later: mtimes on disk must not leak into
     // the archive. Set them to now, well past the filesystem's clock tick.
+    // Windows: `set_modified` (SetFileTime) needs a write handle — a read-only
+    // `File::open` fails with ERROR_ACCESS_DENIED (CI run 36528181297), so
+    // open for writing and drop the handle before packing again.
     let later = std::time::SystemTime::now() + std::time::Duration::from_secs(3);
-    fs::File::open(temp.path().join("pack.zga").join(GRAPH_FILE))
-        .unwrap()
-        .set_modified(later)
-        .unwrap();
+    let set_modified = |path: &Path| {
+        fs::OpenOptions::new().write(true).open(path).unwrap().set_modified(later).unwrap();
+    };
+    set_modified(&temp.path().join("pack.zga").join(GRAPH_FILE));
     for (_, hash) in &assets {
-        fs::File::open(bundle.asset_path(hash).unwrap())
-            .unwrap()
-            .set_modified(later)
-            .unwrap();
+        set_modified(&bundle.asset_path(hash).unwrap());
     }
     let mut second = Vec::new();
     bundle.pack(&mut second).unwrap();
@@ -268,4 +291,89 @@ fn remote_manifest_counts_as_a_reference() {
     )
     .unwrap();
     assert!(bundle.verify().is_err());
+}
+
+#[test]
+fn zgz_never_contains_a_file_url() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path().join("local.zga");
+    let bundle = Bundle::create(&dir).unwrap();
+    let (bytes, hash) = photo("scan.png");
+    let source = temp.path().join("scan.png");
+    fs::write(&source, &bytes).unwrap();
+    assert_eq!(bundle.put_asset(&source).unwrap(), hash);
+    let url = write_graph_with_path(&dir, "scan.png", &hash, &source);
+    assert!(url.starts_with("file://"));
+    // The bundle on disk keeps the local path; a hash counts as present when
+    // its local path exists and matches.
+    assert!(contains_file_url(&fs::read(dir.join(GRAPH_FILE)).unwrap()));
+    let report = bundle.verify().unwrap();
+    assert_eq!(report.references, 1);
+    // The .zgz strips it: no file:// value anywhere in the archive.
+    let mut zgz = Vec::new();
+    bundle.pack(&mut zgz).unwrap();
+    assert!(!contains_file_url(&ungzip(&zgz)), "a .zgz never ships a local path");
+    // Unpacked, the node keeps its hash and has no path to query.
+    let restored_dir = temp.path().join("unpacked.zga");
+    let restored = Bundle::unpack(&zgz[..], &restored_dir).unwrap();
+    assert_eq!(restored.read_asset(&hash).unwrap(), bytes);
+    let db = Zega::in_memory().build().unwrap();
+    db.import(fs::File::open(restored_dir.join(GRAPH_FILE)).unwrap()).unwrap();
+    let node = db.run_lang(SCHEMA, r#"query { File(name: "scan.png") { hash path } }"#).unwrap();
+    assert_eq!(node, serde_json::json!({"hash": hash, "path": null}));
+}
+
+#[test]
+fn a_changed_local_file_is_stale_and_never_resolved() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path().join("stale.zga");
+    let bundle = Bundle::create(&dir).unwrap();
+    let (bytes, hash) = photo("photo.png");
+    let source = temp.path().join("photo.png");
+    fs::write(&source, &bytes).unwrap();
+    let url = write_graph_with_path(&dir, "photo.png", &hash, &source);
+    // While the bytes match, the local path resolves and counts in verify.
+    assert_eq!(bundle.resolve(&hash, Some(&url)).unwrap(), Resolution::Local(source.clone()));
+    let report = bundle.verify().unwrap();
+    assert_eq!(report.local, 1);
+    assert!(report.stale.is_empty());
+    // The file changes on disk: its bytes no longer hash to the reference.
+    fs::write(&source, b"edited bytes").unwrap();
+    // Never resolved to the changed bytes — without an asset it is stale…
+    assert_eq!(bundle.resolve(&hash, Some(&url)).unwrap(), Resolution::Stale(source.clone()));
+    let error = bundle.verify().unwrap_err().to_string();
+    assert!(error.contains("dangling asset reference"), "{error}");
+    // …and with the right bytes in assets/, the asset serves, not the file.
+    bundle.put_reader(&mut &bytes[..]).unwrap();
+    let asset = bundle.asset_path(&hash).unwrap();
+    assert_eq!(bundle.resolve(&hash, Some(&url)).unwrap(), Resolution::Asset(asset));
+    let report = bundle.verify().unwrap();
+    assert_eq!(report.local, 0);
+    assert_eq!(report.stale, vec![url]);
+}
+
+#[test]
+fn include_local_copies_the_bytes_into_assets() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path().join("inc.zga");
+    let bundle = Bundle::create(&dir).unwrap();
+    let (bytes, hash) = photo("local.png");
+    let source = temp.path().join("local.png");
+    fs::write(&source, &bytes).unwrap();
+    let url = write_graph_with_path(&dir, "local.png", &hash, &source);
+    // No asset: the bytes exist only at the local path, which verify counts.
+    let report = bundle.verify().unwrap();
+    assert_eq!(report.local, 1);
+    assert_eq!(report.references, 1);
+    // A default pack refuses: the .zgz could not serve the reference.
+    let error = bundle.pack(&mut Vec::new()).unwrap_err().to_string();
+    assert!(error.contains("--include-local"), "{error}");
+    assert!(bundle.asset_path(&hash).is_none());
+    // --include-local copies the bytes into assets/ first; then it packs.
+    let mut zgz = Vec::new();
+    bundle.pack_with(&mut zgz, true).unwrap();
+    assert_eq!(bundle.read_asset(&hash).unwrap(), bytes);
+    bundle.verify().unwrap();
+    assert_eq!(bundle.resolve(&hash, Some(&url)).unwrap(), Resolution::Local(source));
+    assert!(!contains_file_url(&ungzip(&zgz)), "a .zgz never ships a local path");
 }

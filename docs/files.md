@@ -14,6 +14,7 @@ type File {
   mediaType: String
   size: Int
   hash: String<blake3>
+  path?: String<file>
   width?: Int
   height?: Int
   duration?: Float
@@ -28,6 +29,9 @@ type File {
 - `hash` is the file's blake3 hash, 64 lowercase hex characters. It is the
   asset's name in the bundle, so the graph and the bytes cannot drift apart
   without `verify` failing.
+- `path` is where the bytes live on this computer (a `String<file>`, APS 34
+  amendment). Desktop indexing writes path + hash and **never copies** the
+  bytes into `assets/`.
 - `source` is where the file was taken from (a `String<url>`); `licence`,
   `author` and `credit` carry attribution (APS 17).
 - `width`, `height` and `duration` describe images, video and audio.
@@ -54,11 +58,29 @@ execution error: error: File.hash must be String<blake3>
 `String<blake3>` indexes and filters as text, so `hash startsExact "af13"`
 works.
 
-## `@image` over blake3
+## `String<file>`: a local path
 
-`@image: &field` accepts a `String<url>` or a `String<blake3>` field. A URL
-points at the image directly; a blake3 value resolves to the bundle's asset of
-that name:
+A `String<file>` is an absolute `file://` URL with no host, normalised and
+percent-encoded, e.g. `file:///Users/ava/Photos/scan.png` (APS 34 amendment).
+It is checked on every write like the other string units, and `String<url>`
+stays http(s)-only — it still rejects `file://`.
+
+A File's bytes resolve in this order:
+
+1. the local `path`, if it is readable and its bytes still hash to `hash`;
+2. then `assets/<hash>`;
+3. then the remote in `assets/zega.json`.
+
+A hash mismatch means the file changed on disk: it is **stale** — reported by
+`verify` and never resolved, so the wrong image is never shown. Re-index it.
+Engines that cannot read the local disk (the browser, zega.earth, cloud)
+treat a `String<file>` as absent and fall through to the asset or the remote.
+
+## `@image` over url, file or blake3
+
+`@image: &field` accepts a `String<url>`, `String<file>` or `String<blake3>`
+field. A URL points at the image directly; a file or blake3 value resolves by
+the order above:
 
 ```zql
 type Photo {
@@ -103,9 +125,13 @@ locally — never credentials:
 `zega bundle verify` fails when:
 
 - an asset's bytes don't hash to its name;
-- a `String<blake3>` value in the graph has no local asset and no remote
-  entry;
+- a `String<blake3>` value in the graph has no matching local path, no local
+  asset and no remote entry — a hash counts as present if its local path
+  exists and matches, its asset exists, or a remote is listed;
 - or any file sits outside the layout.
+
+A local path whose bytes no longer hash to its reference is reported as
+stale, not counted.
 
 When the graph carries its schema (the standard case — `zega export
 --schema`), exactly the fields declared `String<blake3>` are checked. Without
@@ -117,6 +143,12 @@ A `.zgz` is a gzipped tar of the bundle, and it is **deterministic**: entries
 sorted by name, mtime 0, uid and gid 0, modes 644/755, and a gzip header with
 no mtime and no filename. The same bundle always packs to the same bytes, so
 packs can be cached and compared by hash.
+
+A `.zgz` never ships local paths (APS 34 amendment): `String<file>` values
+are stripped from the packed graph — they reveal usernames and folder layout.
+A reference whose bytes exist only at a local path refuses to pack;
+`zega bundle pack --include-local` copies those bytes into `assets/` first.
+Either way the archive contains no `file://` value.
 
 Unpack is safe by construction: it refuses path traversal (`..`), absolute
 paths, symlinks, links and device files, writes into a fresh directory, and
@@ -133,6 +165,7 @@ zega bundle new photos.zga
 zega bundle add photos.zga photo.jpg        # prints the asset's blake3 hash
 zega bundle verify photos.zga
 zega bundle pack photos.zga [photos.zgz]    # default: <dir>.zgz
+zega bundle pack photos.zga --include-local # copy local file:// bytes into assets/ first
 zega bundle unpack photos.zgz photos.zga
 ```
 
@@ -151,7 +184,8 @@ mutation, then `zega export --schema files.zql photos.zga/graph.graph`, then
 | `Bundle::open(path)` | open an existing bundle |
 | `bundle.put_asset(path)` / `bundle.put_reader(r)` | store bytes under their hash, atomically, deduplicated; returns the hash |
 | `bundle.asset_path(hash)` / `bundle.read_asset(hash)` | find / read an asset; `read_asset` re-hashes before returning |
-| `bundle.verify()` | layout, hashes and references; returns counts |
-| `bundle.pack(out)` | verified, deterministic `.zgz` to any `Write` |
+| `bundle.resolve(hash, path)` | local path → asset → remote; a hash mismatch is `Stale`, never resolved |
+| `bundle.verify()` | layout, hashes and references (local paths count); returns counts and stale paths |
+| `bundle.pack(out)` / `bundle.pack_with(out, include_local)` | verified, deterministic `.zgz` to any `Write`; never ships a local path — `include_local` copies the bytes into `assets/` first |
 | `Bundle::unpack(input, dir)` | safe unpack into a fresh directory, verified |
 | `manifest_json(&remote)` | the one `assets/zega.json` shape verify accepts |
