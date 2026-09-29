@@ -2758,6 +2758,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "ureq",
+ "url",
  "zega",
  "zega-server",
 ]

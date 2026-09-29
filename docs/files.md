@@ -61,8 +61,12 @@ works.
 ## `String<file>`: a local path
 
 A `String<file>` is an absolute `file://` URL with no host, normalised and
-percent-encoded, e.g. `file:///Users/ava/Photos/scan.png` (APS 34 amendment).
-It is checked on every write like the other string units, and `String<url>`
+percent-encoded, e.g. `file:///Users/ava/Photos/scan.png` — or
+`file:///C:/Users/ava/Photos/scan.png` on Windows (APS 34 amendment). Build it
+with `Url::from_file_path`, never by hand: `file://C:\...` is not a
+normalised file URL and is rejected. A drive-letter URL validates on every
+platform, so a bundle made on Windows still verifies elsewhere. It is checked
+on every write like the other string units, and `String<url>`
 stays http(s)-only — it still rejects `file://`.
 
 A File's bytes resolve in this order:

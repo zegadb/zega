@@ -894,7 +894,7 @@ pub(crate) const URL_HELP: &str = "write an absolute http:// or https:// URL wit
 
 pub(crate) const BLAKE3_HELP: &str = "write the file's blake3 hash as 64 lowercase hex characters, e.g. `af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262`";
 
-pub(crate) const FILE_HELP: &str = "write an absolute file:// URL with no host, normalised and percent-encoded, e.g. `file:///Users/ava/Photos/scan.png`";
+pub(crate) const FILE_HELP: &str = "write an absolute file:// URL with no host, normalised and percent-encoded, e.g. `file:///Users/ava/Photos/scan.png` or `file:///C:/Users/ava/Photos/scan.png`";
 
 /// A string checked against a unit on every write: `String<url>`, `String<iso2>`,
 /// `String<blake3>`, `String<file>`.
@@ -939,8 +939,12 @@ pub(crate) fn valid_blake3(value: &str) -> bool {
 /// percent-encoded — where a file's bytes live on this computer (APS 34
 /// amendment, docs/files.md). The URL must round-trip through the parser
 /// unchanged, which pins the normalised form: no `.` or `..` segments, no
-/// stray whitespace, every escape already percent-encoded. Engines that
-/// cannot read the local disk treat the value as absent.
+/// stray whitespace, every escape already percent-encoded. A Windows
+/// drive-letter URL (`file:///C:/...`, what `Url::from_file_path` writes
+/// there) validates on every platform, so a bundle made on Windows still
+/// verifies elsewhere; only `to_file_path` turns it back into a path on
+/// Windows. Engines that cannot read the local disk treat the value as
+/// absent.
 pub(crate) fn valid_file(value: &str) -> bool {
     url::Url::parse(value).is_ok_and(|url| {
         url.scheme() == "file"
@@ -5509,6 +5513,27 @@ mod tests {
         let report = diagnose(schema, query);
         assert!(report.diagnostics.len() >= 2, "{:?}", report.diagnostics);
         assert!(report.text.contains("\n\n"));
+    }
+
+    #[test]
+    fn file_url_accepts_a_windows_drive_letter() {
+        // What `url::Url::from_file_path` writes for `C:\Users\x\a.png` on
+        // Windows. Validation accepts it on every platform, so a bundle made
+        // on Windows still verifies elsewhere; `to_file_path` turns it back
+        // into a path on Windows only (zega#140, CI run 36528181297).
+        let url = "file:///C:/Users/x/a.png";
+        assert!(valid_file(url));
+        // Building the URL by hand (`format!("file://{}", path.display())`,
+        // what the CLI test used to do) gives `file://C:\...` on Windows,
+        // which does not round-trip and stays rejected.
+        assert!(!valid_file("file://C:\\Users\\x\\a.png"));
+        #[cfg(windows)]
+        {
+            let path = std::path::Path::new(r"C:\Users\x\a.png");
+            let built = url::Url::from_file_path(path).unwrap();
+            assert_eq!(built.as_str(), url);
+            assert_eq!(built.to_file_path().unwrap(), path);
+        }
     }
 }
 

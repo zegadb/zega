@@ -128,7 +128,11 @@ fn pack_include_local_copies_the_bytes_into_assets() {
     let hash = String::from_utf8(add.stdout).unwrap().trim().to_string();
     std::fs::remove_file(bundle.join("assets").join(&hash)).unwrap();
 
-    let url = format!("file://{}", photo.display());
+    // `Url::from_file_path`, never `format!("file://{}", path.display())`:
+    // on Windows the display form is `C:\...`, which is not a normalised file
+    // URL, and the String<file> validator rejects it (CI run 36528181297).
+    // from_file_path writes `file:///C:/...`, which validates everywhere.
+    let url = url::Url::from_file_path(&photo).unwrap().to_string();
     let data = dir.join("db");
     let schema_file = dir.join("files.zql");
     std::fs::write(&schema_file, format!("schema {{ {SCHEMA} }}")).unwrap();
