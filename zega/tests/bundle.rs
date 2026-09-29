@@ -142,10 +142,12 @@ fn hostile_archive(dir: &Path, add: impl FnOnce(&mut tar::Builder<Vec<u8>>)) -> 
     gz.finish().unwrap()
 }
 
+type Hostile = Box<dyn FnOnce(&mut tar::Builder<Vec<u8>>)>;
+
 #[test]
 fn traversal_absolute_symlink_and_device_entries_are_refused() {
     let temp = tempfile::tempdir().unwrap();
-    let cases: Vec<(&str, Box<dyn FnOnce(&mut tar::Builder<Vec<u8>>)>)> = vec![
+    let cases: Vec<(&str, Hostile)> = vec![
         ("../escape.txt", Box::new(file_entry("../escape.txt"))),
         ("/absolute.txt", Box::new(file_entry("/absolute.txt"))),
         ("assets/../../escape.txt", Box::new(file_entry("assets/../../escape.txt"))),

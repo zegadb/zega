@@ -258,7 +258,7 @@ impl Bundle {
             .get("remote")
             .and_then(|remote| if remote.is_null() { None } else { remote.as_object() })
             .ok_or_else(|| {
-                Error::Manifest(format!("`remote` must be an object of `\"<blake3>\": \"<url>\"`, e.g. {{\"remote\": {{\"af13…62\": \"https://…/photo.jpg\"}}}}"))
+                Error::Manifest(r#"`remote` must be an object of `"<blake3>": "<url>"`, e.g. {"remote": {"af13…62": "https://…/photo.jpg"}}"#.to_string())
             })
             .unwrap_or(&empty);
         let mut remote = HashMap::new();
