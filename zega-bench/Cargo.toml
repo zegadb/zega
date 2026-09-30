@@ -26,3 +26,9 @@ path = "src/main.rs"
 [[bin]]
 name = "zega-mem"
 path = "src/mem.rs"
+
+# The travel-graph scale bench (zegadb/zega#143): dataset generator and the
+# native server path. A separate binary for its own counting allocator.
+[[bin]]
+name = "zega-scale"
+path = "src/scale.rs"
