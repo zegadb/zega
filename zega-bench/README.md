@@ -41,8 +41,10 @@ travel-shaped graphs (1k–1M nodes: `Place { name zid kind at description }`,
   engine in headless Chromium loading the same sample exactly as zega.earth
   does (`load_locations` + fetch + `apply_with_sources`), on a desktop
   profile and with 4× CDP CPU throttling as a phone proxy. Reports gzipped
-  download size, download/load time, JS heap and wasm memory, and query
-  p50/p95/p99.
+  download size, engine-ready (wasm download + instantiation from page
+  open), download/load time, JS heap and wasm memory, and query p50/p95/p99.
+  `--pkg=<dir>` benches a different wasm package than the repo's
+  `browser/pkg` (e.g. the build zega.earth currently serves).
 
 Generated data and results live under `.tmp/scale-143/` (gitignored); the
 latest results and the recommendation are in `docs/scale-results.md`.

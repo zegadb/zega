@@ -3,9 +3,11 @@
 // zega.earth loads one (browser/scale/bench.js), on a desktop profile and
 // with 4× CDP CPU throttling as a phone proxy.
 //
-//   node scripts/scale-browser.mjs <dataRoot> <out.json> [sizes...]
+//   node scripts/scale-browser.mjs <dataRoot> <out.json> [sizes...] [--pkg=<dir>]
 //
-// <dataRoot> holds <nodes>/ dirs from `zega-scale gen`. Writes one JSON
+// <dataRoot> holds <nodes>/ dirs from `zega-scale gen`. --pkg serves the wasm
+// package from <dir> instead of the repo's browser/pkg (to bench the build
+// zega.earth actually serves, without touching browser/pkg). Writes one JSON
 // document: per size the gzipped download size, then per profile the bench
 // page's timings, memory and query p50/p95/p99. A size that throws, crashes
 // the page, or loads in over 60 s is recorded as failed and stops the run:
@@ -22,12 +24,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(path.join(root, 'browser', 'package.json'));
 const { chromium } = require('@playwright/test');
 
-const [dataRoot, outFile, ...sizeArgs] = process.argv.slice(2);
+const [dataRoot, outFile, ...rest] = process.argv.slice(2);
 if (!dataRoot || !outFile) {
-  console.error('usage: node scripts/scale-browser.mjs <dataRoot> <out.json> [sizes...]');
+  console.error('usage: node scripts/scale-browser.mjs <dataRoot> <out.json> [sizes...] [--pkg=<dir>]');
   process.exit(2);
 }
-const sizes = (sizeArgs.length ? sizeArgs : ['1000', '10000', '100000', '1000000']).map(Number);
+const pkgArg = rest.find((arg) => arg.startsWith('--pkg='));
+const pkgDir = pkgArg ? path.resolve(pkgArg.slice('--pkg='.length)) : null;
+const sizes = (rest.filter((arg) => !arg.startsWith('--')).length ? rest.filter((arg) => !arg.startsWith('--')) : ['1000', '10000', '100000', '1000000']).map(Number);
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm',
@@ -37,9 +41,14 @@ const MIME = {
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   // /browser/* comes from the repo (the page and the wasm package), /data/*
-  // from the generated samples.
-  const base = url.startsWith('/data/') ? dataRoot : url.startsWith('/browser/') ? path.join(root, 'browser') : null;
-  const rel = url.startsWith('/data/') ? url.slice('/data'.length) : url.slice('/browser'.length);
+  // from the generated samples. With --pkg, /browser/pkg/* comes from the
+  // given directory instead (the build zega.earth serves).
+  const base = url.startsWith('/data/') ? dataRoot
+    : pkgDir && url.startsWith('/browser/pkg/') ? pkgDir
+    : url.startsWith('/browser/') ? path.join(root, 'browser') : null;
+  const rel = url.startsWith('/data/') ? url.slice('/data'.length)
+    : pkgDir && url.startsWith('/browser/pkg/') ? url.slice('/browser/pkg'.length)
+    : url.slice('/browser'.length);
   const file = base && path.normalize(path.join(base, rel));
   if (!file || !file.startsWith(base) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
     res.writeHead(404).end('not found');
@@ -85,7 +94,7 @@ await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const port = server.address().port;
 const browser = await chromium.launch({ headless: true, args: ['--enable-precise-memory-info'] });
 
-const results = { path: 'browser', machine: process.env.SCALE_MACHINE || 'unknown', sizes: {} };
+const results = { path: 'browser', machine: process.env.SCALE_MACHINE || 'unknown', pkg: pkgDir || path.join(root, 'browser', 'pkg'), sizes: {} };
 try {
   for (const nodes of sizes) {
     if (!fs.existsSync(path.join(dataRoot, String(nodes), 'travel.zql'))) {
@@ -105,7 +114,11 @@ try {
   }
 } finally {
   await browser.close();
+  // Chromium's keep-alive connections survive server.close() and hold the
+  // event loop; drop them so the process exits instead of hanging.
+  server.closeAllConnections();
   server.close();
 }
 fs.writeFileSync(outFile, JSON.stringify(results, null, 2));
 console.log(`wrote ${outFile}`);
+process.exit(0);

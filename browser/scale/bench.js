@@ -27,8 +27,12 @@ function jsHeap() {
 
 window.runScaleBench = async (nodes) => {
   const wasm = await wasmReady;
+  // performance.now() is relative to navigation start, so every timestamp
+  // below is already "since page open" — first usable counts the wasm
+  // download and instantiation.
+  const engineReady = performance.now();
   const base = `/data/${nodes}`;
-  const started = performance.now();
+  const started = engineReady;
 
   // loadSample, timed in its two phases: download (zql + CSV shards) and
   // apply (parse + insert, all inside the engine).
@@ -82,9 +86,10 @@ window.runScaleBench = async (nodes) => {
     nodes,
     download_bytes: downloadBytes + new TextEncoder().encode(source).length,
     shards: locations.length,
+    engine_ready_ms: engineReady,
     download_ms: fetched - started,
     load_ms: applied - fetched,
-    first_usable_ms: firstUsable - started,
+    first_usable_ms: firstUsable,
     js_heap_after_load_bytes: heapAfterLoad !== null && heapBeforeApply !== null ? heapAfterLoad : null,
     js_heap_after_queries_bytes: heapAfterQueries,
     wasm_memory_bytes: wasmBytes,
