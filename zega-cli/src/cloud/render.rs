@@ -610,6 +610,198 @@ pub fn logs(body: &Value) -> Result<String, CloudError> {
     Ok(out)
 }
 
+/// A graph's or a bucket's keys: never a secret, only how to recognise one.
+pub fn keys(body: &Value) -> Result<String, CloudError> {
+    let keys = items(body, "keys")?;
+    if keys.is_empty() {
+        return Ok("no keys\n".into());
+    }
+    let mut table = Table::new(&[
+        ("ID", false),
+        ("NAME", false),
+        ("PREFIX", false),
+        ("CREATED", false),
+        ("LAST USED", false),
+        ("REVOKED", false),
+    ]);
+    for key in keys {
+        let when = |name: &str, none: &str| {
+            key.get(name)
+                .and_then(Value::as_str)
+                .map_or(none.to_string(), clean)
+        };
+        table.row(vec![
+            field(key, "id"),
+            field(key, "name"),
+            format!("{}...", field(key, "prefix")),
+            field(key, "createdAt"),
+            when("lastUsedAt", "never"),
+            when("revokedAt", NONE),
+        ]);
+    }
+    Ok(table.render())
+}
+
+/// The answer to creating a key: the one time its secret is shown. `holder`
+/// is "graph g0..." or "bucket b0...".
+pub fn key_created(key: &Value, holder: &str) -> String {
+    format!(
+        "created key {} ({}) for {holder}\nSecret (shown once, never again; copy it now): {}\n",
+        field(key, "name"),
+        field(key, "id"),
+        field(key, "secret"),
+    )
+}
+
+/// The one DNS record a custom domain needs.
+fn record(domain: &Value) -> Option<String> {
+    let record = domain.get("records")?.as_array()?.first()?;
+    Some(format!(
+        "{} {} -> {}",
+        field(record, "type"),
+        field(record, "name"),
+        field(record, "value")
+    ))
+}
+
+fn domain_state(domain: &Value) -> String {
+    if domain.get("active").and_then(Value::as_bool) == Some(true) {
+        "active".to_string()
+    } else {
+        let ssl = field(domain, "sslStatus");
+        format!(
+            "{} (certificate {})",
+            field(domain, "status"),
+            if ssl == NONE {
+                "not issued".into()
+            } else {
+                ssl
+            }
+        )
+    }
+}
+
+pub fn domains(body: &Value) -> Result<String, CloudError> {
+    let domains = items(body, "domains")?;
+    let mut out = format!(
+        "{} of {} domains; each one's CNAME points to {}\n",
+        domains.len(),
+        field(body, "limit"),
+        field(body, "cnameTarget")
+    );
+    if domains.is_empty() {
+        return Ok(out);
+    }
+    let mut table = Table::new(&[("HOSTNAME", false), ("STATE", false), ("DNS RECORD", false)]);
+    for domain in domains {
+        table.row(vec![
+            field(domain, "hostname"),
+            domain_state(domain),
+            record(domain).unwrap_or_else(|| NONE.to_string()),
+        ]);
+    }
+    out.push('\n');
+    out.push_str(&table.render());
+    Ok(out)
+}
+
+/// A domain just added: what to set at the DNS provider.
+pub fn domain_added(domain: &Value, graph: &str) -> String {
+    let mut out = format!(
+        "added domain {} to graph {}\nState: {}\n",
+        field(domain, "hostname"),
+        clean(graph),
+        domain_state(domain)
+    );
+    if let Some(record) = record(domain) {
+        out.push_str(&format!(
+            "Set this DNS record at your DNS provider: {record}\nThe domain serves the graph when it and its certificate are active (`zega cloud graph domain list {}`).\n",
+            clean(graph)
+        ));
+    }
+    out
+}
+
+pub fn monitoring(body: &Value) -> Result<String, CloudError> {
+    if !body.is_object() || body.get("keepQueryText").is_none() {
+        return Err(CloudError::Local(
+            "unexpected answer: no monitoring settings in it (is --api a Zega Cloud address?)"
+                .into(),
+        ));
+    }
+    let keep = body.get("keepQueryText").and_then(Value::as_bool) == Some(true);
+    Ok(Detail(vec![
+        ("Graph", field(body, "graph")),
+        (
+            "Keep query text",
+            if keep {
+                format!(
+                    "on ({} hours, for the owner only)",
+                    field(body, "textRetentionHours")
+                )
+            } else {
+                "off".to_string()
+            },
+        ),
+        (
+            "Request log kept",
+            format!("{} days", field(body, "logRetentionDays")),
+        ),
+    ])
+    .render())
+}
+
+/// What is about to be deleted, for the person who must type its id: the
+/// resource as the API shows it now, and what deleting it does.
+pub fn doomed(noun: &str, item: &Value, id: &str, consequence: &str) -> String {
+    let name = field(item, "name");
+    let mut out = format!(
+        "About to delete the {noun} {} ({})\n",
+        if name == NONE { clean(id) } else { name },
+        clean(id)
+    );
+    match noun {
+        "project" => {
+            let graphs = item
+                .get("graphs")
+                .and_then(Value::as_array)
+                .map_or(&[][..], Vec::as_slice);
+            if graphs.is_empty() {
+                out.push_str("  graphs: none\n");
+            }
+            for graph in graphs {
+                out.push_str(&format!(
+                    "  graph: {} ({}), {}\n",
+                    field(graph, "name"),
+                    field(graph, "id"),
+                    field(graph, "status")
+                ));
+            }
+        }
+        "graph" => out.push_str(&format!(
+            "  project: {}\n  status: {}, {}, {}\n",
+            project(item),
+            field(item, "status"),
+            field(item, "tier"),
+            field(item, "billing")
+        )),
+        "bucket" => out.push_str(&format!(
+            "  project: {}\n  stored: {}\n",
+            project(item),
+            item.get("bytesStored")
+                .and_then(Value::as_u64)
+                .map_or(NONE.into(), bytes)
+        )),
+        _ => out.push_str(&format!(
+            "  project: {}\n  deployed: {}\n",
+            project(item),
+            deployed(item)
+        )),
+    }
+    out.push_str(&format!("  {consequence}\n"));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

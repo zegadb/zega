@@ -14,6 +14,17 @@ Changes that affect code using the `zega` crate, newest first. File formats
   `function secret set|unset` to change functions. Global flags `--api` and
   `--token-file`. No effect on the `zega` crate. README, "Manage Zega Cloud".
 
+- **`zega cloud` manages: every `manage` route of the API is a command.**
+  `project`, `graph`, `bucket` and `function` take `rename` and `delete`;
+  `bucket create` and `function create` make one in a project; `graph key`
+  and `bucket key` (`list`, `create`, `revoke`), `graph domain` (`list`, `add`,
+  `remove`), `graph monitoring` (`show`, `set --keep-query-text on|off`),
+  `function logging <id> on|off` and `function code <id> [--out <file>]`.
+  A delete shows what it deletes and needs the id typed at a terminal, or
+  `--yes`; without either it refuses before sending anything. A created key's
+  secret is printed once. Money controls and tokens stay dashboard-only. No
+  effect on the `zega` crate. README, "Manage Zega Cloud".
+
 - **Read-only entry points: `Zega::run_lang_read` and `Zega::apply_zql_read`,
   and `ZegaError::NotARead`.** They run what `run_lang` and `apply_zql` run
   but refuse a `mutation` or a load (anywhere in a document) before anything

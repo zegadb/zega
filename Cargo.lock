@@ -2774,6 +2774,7 @@ dependencies = [
  "axum",
  "clap",
  "include_dir",
+ "libc",
  "rpassword",
  "serde_json",
  "sha2",
