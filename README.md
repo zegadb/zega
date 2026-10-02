@@ -170,6 +170,43 @@ Release manifests contain `zega-darwin-arm64`, `zega-darwin-x64`, `zega-linux-x6
 and `zega-windows-x64.exe`, with SHA-256 hashes. These are the artifact keys
 expected by the site's installer.
 
+### Manage Zega Cloud: `zega cloud`
+
+`zega cloud` talks to Zega Cloud's public management API
+(`https://cloud.zega.dev`, contract: `/openapi.json`). It needs an **API token**:
+make one in the dashboard at <https://dashboard.zega.dev/tokens>, with scope
+`read` (every GET) or `manage` (also deploys and function settings), optionally
+for one project.
+
+```sh
+zega cloud login                  # paste the token (hidden prompt, or pipe it in); checked, then saved
+zega cloud whoami                 # which token: name, scope, project, expiry
+zega cloud projects               # list; `zega cloud projects <id>` shows one with its graphs
+zega cloud graphs                 # also: buckets, functions (each takes an <id>)
+zega cloud usage                  # this month's usage and bill per graph
+zega cloud regions
+zega cloud function logs <id> --status 500 --limit 20
+zega cloud function deploy <id> worker.js
+zega cloud function var set <id> REGION yyz
+zega cloud function secret set <id> API_KEY < key.txt    # value from stdin or a hidden prompt
+zega cloud logout                 # forget the token (it stays valid until revoked in the dashboard)
+```
+
+Output is an aligned table; `--json` prints the API's JSON unchanged. The token
+is read from stdin or a hidden prompt, never from an argument, and is stored in
+`cloud.json` with mode 0600 in `$XDG_CONFIG_HOME/zega` (`~/.config/zega`), or
+`%APPDATA%\zega` on Windows, together with the API address it belongs to
+(`--api https://cloud.zega.world` for staging); a stored token is never sent to
+another host. For CI, `--token-file <path>` uses the token in that file instead
+(one token, a final newline is fine), as `zega start --token-file` does. There
+is no environment variable for the token.
+
+Creating a graph or project, resizing, spending caps, restoring a backup and
+managing tokens are money controls and are done in the dashboard: the API
+refuses them for any token (`session_required`) and `zega cloud` prints its
+answer. A command that fails exits non-zero and prints the API's message and
+code; on a 429 or 503 it says how long to wait and does not retry.
+
 ## Use it as a library
 
 Add `zega` to your `Cargo.toml` (path or git dependency for now):

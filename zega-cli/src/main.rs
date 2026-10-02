@@ -1,3 +1,4 @@
+mod cloud;
 mod fmt;
 
 use axum::{
@@ -46,6 +47,9 @@ enum Command {
         #[arg(long, value_enum)]
         lang: Option<fmt::Language>,
     },
+    /// Manage Zega Cloud projects, graphs, buckets and functions with an API
+    /// token made in the dashboard (https://dashboard.zega.dev/tokens).
+    Cloud(cloud::CloudArgs),
     /// Serve the database over HTTP with ZQL.
     Start {
         #[arg(long, default_value = "./zega-data")]
@@ -147,6 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     match cli.command {
+        Command::Cloud(args) => std::process::exit(cloud::run(args)),
         Command::Export { file, data, schema, meta } => {
             report("export", export(&file, &data, schema, &meta))
         }
@@ -444,11 +449,12 @@ fn serve_command(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let (data, host, port, token_file, allow_private, explorer, time_limit, max_import, snapshot_every_mb) = match cli.command {
         Command::Fmt { .. }
+        | Command::Cloud(_)
         | Command::Export { .. }
         | Command::Import { .. }
         | Command::SchemaDiff { .. }
         | Command::Bundle { .. } => {
-            unreachable!("fmt, export, import, schema-diff and bundle run without a server runtime")
+            unreachable!("fmt, cloud, export, import, schema-diff and bundle run without a server runtime")
         }
         Command::Start {
             data,
