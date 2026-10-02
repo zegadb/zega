@@ -1,0 +1,57 @@
+[23:03:06] === size 100000 ===
+[23:03:07] zega: idle, empty database
+[23:04:18] zega empty: rss 4.8 MB
+[23:04:18] zega: load
+[23:04:46] zega loaded: {"apply_ms":19110,"checkpoint_ms":8119,"nodes":110000,"on_disk_bytes":110801023,"relationships":499976}
+[23:04:46] zega: idle, loaded
+[23:05:59] zega loaded: rss 420.4 MB, disk 121.7 MB
+[23:05:59] neo4j docker: idle, empty database
+[23:07:13] neo4j docker empty: ps 432.5 MB, stats 424.7 MB
+[23:07:13] neo4j docker: load
+[23:07:41] neo4j docker loaded: {"index_await_ms":116,"load_ms":26690,"nodes":110000,"relationships":499976}
+[23:08:42] neo4j docker loaded: ps 789.3 MB, stats 786.8 MB, disk 515.9 MB
+[23:08:42] parity zega vs neo4j (docker)
+PARITY lookup   25/25 agree
+PARITY onehop   25/25 agree
+PARITY twohop   25/25 agree
+PARITY filtered 25/25 agree
+PARITY path     25/25 agree
+PARITY write   1/1 agree (created, verified, deleted w990917727)
+[23:08:47]   cell z100000 lookup conc=1
+[23:08:58]   cell z100000 lookup conc=8
+[23:09:09]   cell z100000 lookup conc=32
+[23:09:20]   cell z100000 onehop conc=1
+[23:09:31]   cell z100000 onehop conc=8
+[23:09:42]   cell z100000 onehop conc=32
+[23:09:53]   cell z100000 twohop conc=1
+[23:10:05]   cell z100000 twohop conc=8
+[23:10:16]   cell z100000 twohop conc=32
+[23:10:27]   cell z100000 filtered conc=1
+[23:10:38]   cell z100000 filtered conc=8
+[23:10:49]   cell z100000 filtered conc=32
+[23:11:00]   cell z100000 path conc=1
+[23:11:11]   cell z100000 path conc=8
+[23:11:22]   cell z100000 path conc=32
+[23:11:34]   cell z100000 write conc=1
+[23:11:46]   cell z100000 write conc=8
+[23:11:57]   cell z100000 write conc=32
+[23:12:08]   cell n100000 lookup conc=1
+[23:12:19]   cell n100000 lookup conc=8
+[23:12:30]   cell n100000 lookup conc=32
+[23:12:41]   cell n100000 onehop conc=1
+[23:12:53]   cell n100000 onehop conc=8
+[23:13:04]   cell n100000 onehop conc=32
+[23:13:15]   cell n100000 twohop conc=1
+[23:13:26]   cell n100000 twohop conc=8
+[23:13:37]   cell n100000 twohop conc=32
+[23:13:48]   cell n100000 filtered conc=1
+[23:13:59]   cell n100000 filtered conc=8
+[23:14:10]   cell n100000 filtered conc=32
+[23:14:21]   cell n100000 path conc=1
+[23:14:32]   cell n100000 path conc=8
+[23:14:43]   cell n100000 path conc=32
+[23:14:54]   cell n100000 write conc=1
+[23:15:05]   cell n100000 write conc=8
+[23:15:16]   cell n100000 write conc=32
+[23:15:28] === size 100000 done ===
+[23:15:28] ALL DONE

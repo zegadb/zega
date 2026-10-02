@@ -1,0 +1,5 @@
+# Generated datasets, server data dirs, build output.
+.work/
+data/
+target/
+Cargo.lock.bak

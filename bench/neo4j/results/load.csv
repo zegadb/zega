@@ -1,0 +1,3 @@
+engine,mode,size,load_ms,on_disk_bytes,index_await_ms,extra
+zega,default,100000,19110,110801023,0,checkpoint_ms=8119
+neo4j,docker-default,100000,26690,540991655,116,nodes=110000;rels=499976
