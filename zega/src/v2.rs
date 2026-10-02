@@ -86,7 +86,19 @@ impl Zega {
     /// HTTP(S) loads require the default `http` feature. Wasm hosts must supply
     /// raw UTF-8 sources with [`Self::run_lang_with_sources`].
     pub fn run_lang(&self, schema_src: &str, source: &str) -> Result<Json, ZegaError> {
-        self.run_lang_with_loader(schema_src, source, &|location| {
+        self.run_lang_with_loader(schema_src, source, Access::Any, &|location| {
+            read_location(location, self.allow_private_imports)
+        })
+    }
+
+    /// [`Self::run_lang`] for a statement that must be a read. A `mutation`
+    /// (and so a `mutation csv` or `mutation json` load) is refused with
+    /// [`ZegaError::NotARead`] before anything runs: no write, no WAL entry,
+    /// no change to the graph. This is what the HTTP `QUERY` method calls
+    /// (RFC 10008: a QUERY is safe), so the guard is in the engine, not in
+    /// whoever asks.
+    pub fn run_lang_read(&self, schema_src: &str, source: &str) -> Result<Json, ZegaError> {
+        self.run_lang_with_loader(schema_src, source, Access::ReadOnly, &|location| {
             read_location(location, self.allow_private_imports)
         })
     }
@@ -99,7 +111,7 @@ impl Zega {
         source: &str,
         sources: &HashMap<String, String>,
     ) -> Result<Json, ZegaError> {
-        self.run_lang_with_loader(schema_src, source, &|location| {
+        self.run_lang_with_loader(schema_src, source, Access::Any, &|location| {
             supplied_source(location, sources)
         })
     }
@@ -108,6 +120,7 @@ impl Zega {
         &self,
         schema_src: &str,
         source: &str,
+        access: Access,
         loader: &dyn Fn(&str) -> Result<String, LangError>,
     ) -> Result<Json, ZegaError> {
         let schema = crate::lang::parse_schema(schema_src)
@@ -119,7 +132,7 @@ impl Zega {
         let statement = crate::lang::parse_statement(source)
             .map_err(|error| explain(error, "query", source))?;
         let declared = Declared { uniques: &uniques, indexes: &indexes };
-        self.execute(&schema, declared, &statement, "query", source, loader)
+        self.execute(&schema, declared, &statement, access, Origin { name: "query", text: source }, loader)
     }
 
     /// Rows a ZQL filter has been tested on since this database opened. An
@@ -242,7 +255,17 @@ impl Zega {
 
     /// Run a `.zql` file: schema, unique, mutations, then an optional query.
     pub fn apply_zql(&self, source: &str) -> Result<Json, ZegaError> {
-        self.apply_zql_with_loader(source, &|location| {
+        self.apply_zql_with_loader(source, Access::Any, &|location| {
+            read_location(location, self.allow_private_imports)
+        })
+    }
+
+    /// [`Self::apply_zql`] for a document whose every block must be a read:
+    /// a schema and `query` blocks. If ANY block is a `mutation` or a load,
+    /// the whole document is refused with [`ZegaError::NotARead`] before the
+    /// first block runs (see [`Self::run_lang_read`]).
+    pub fn apply_zql_read(&self, source: &str) -> Result<Json, ZegaError> {
+        self.apply_zql_with_loader(source, Access::ReadOnly, &|location| {
             read_location(location, self.allow_private_imports)
         })
     }
@@ -253,24 +276,30 @@ impl Zega {
         source: &str,
         sources: &HashMap<String, String>,
     ) -> Result<Json, ZegaError> {
-        self.apply_zql_with_loader(source, &|location| supplied_source(location, sources))
+        self.apply_zql_with_loader(source, Access::Any, &|location| supplied_source(location, sources))
     }
 
     fn apply_zql_with_loader(
         &self,
         source: &str,
+        access: Access,
         loader: &dyn Fn(&str) -> Result<String, LangError>,
     ) -> Result<Json, ZegaError> {
         let file =
             crate::lang::parse_zql(source).map_err(|error| explain(error, "schema", source))?;
+        // Every block is checked before the first runs: a document that ends
+        // in a mutation is refused whole, not after its reads.
+        for statement in &file.statements {
+            access.admit(statement)?;
+        }
         let mut last = Json::Null;
         for statement in &file.statements {
             last = self.execute(
                 &file.schema,
                 Declared { uniques: &file.uniques, indexes: &file.indexes },
                 statement,
-                "schema",
-                source,
+                access,
+                Origin { name: "schema", text: source },
                 loader,
             )?;
         }
@@ -282,10 +311,13 @@ impl Zega {
         schema: &Schema,
         declared: Declared<'_>,
         statement: &Statement,
-        source_name: &str,
-        source: &str,
+        access: Access,
+        origin: Origin<'_>,
         loader: &dyn Fn(&str) -> Result<String, LangError>,
     ) -> Result<Json, ZegaError> {
+        let Origin { name: source_name, text: source } = origin;
+        // First, before the statement is checked, loaded or given the graph.
+        access.admit(statement)?;
         prepare(schema, statement).map_err(|error| explain(error, source_name, source))?;
         // I/O and parsing happen before the graph lock. Each complete load is
         // inserted under the same lock as ordinary mutations.
@@ -336,6 +368,37 @@ impl Zega {
         let mut rels: Vec<Json> = graph.relationships().map(rel_json).collect();
         rels.sort_by_key(|rel| rel["id"].as_u64().unwrap_or(0));
         Ok(json!({ "nodes": nodes, "rels": rels }))
+    }
+}
+
+/// The text a statement came from, and the name its diagnostics call it.
+#[derive(Clone, Copy)]
+struct Origin<'a> {
+    name: &'a str,
+    text: &'a str,
+}
+
+/// What a caller of [`Zega::execute`] lets a statement do.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Access {
+    /// Anything: reads, mutations and loads.
+    Any,
+    /// Reads only (`run_lang_read`, `apply_zql_read`).
+    ReadOnly,
+}
+
+impl Access {
+    /// The one place that decides whether a parsed statement writes: a
+    /// `mutation` block or a load. Nothing has run when this answers.
+    fn admit(self, statement: &Statement) -> Result<(), ZegaError> {
+        if self == Access::Any {
+            return Ok(());
+        }
+        match statement {
+            Statement::Run(query) if !query.mutation => Ok(()),
+            Statement::Run(_) => Err(ZegaError::NotARead("a mutation".into())),
+            Statement::Load { .. } => Err(ZegaError::NotARead("a load (`mutation csv` or `mutation json`)".into())),
+        }
     }
 }
 

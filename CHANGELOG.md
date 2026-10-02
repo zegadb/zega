@@ -6,6 +6,13 @@ Changes that affect code using the `zega` crate, newest first. File formats
 
 ## Unreleased
 
+- **Read-only entry points: `Zega::run_lang_read` and `Zega::apply_zql_read`,
+  and `ZegaError::NotARead`.** They run what `run_lang` and `apply_zql` run
+  but refuse a `mutation` or a load (anywhere in a document) before anything
+  executes: no write, no WAL entry. `zega-server` serves them as the HTTP
+  `QUERY /zql` method (RFC 10008; README, "`QUERY /zql`"). `ZegaError` gained a
+  variant, so an exhaustive `match` on it needs an arm for `NotARead`.
+
 - **`zega::Value` payloads are boxed** (zegadb/zega#100). A stored property
   is 24 bytes instead of 56, so the variants that set the size moved behind
   a pointer:

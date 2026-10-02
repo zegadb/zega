@@ -2,7 +2,7 @@ use crate::{auth, AppState};
 use axum::{
     body::{Body, Bytes},
     extract::{rejection::JsonRejection, Path, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{header, header::HeaderName, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -44,6 +44,18 @@ async fn execute(
     state: AppState,
     action: impl FnOnce(&Zega) -> Result<Value, ZegaError> + Send + 'static,
 ) -> Response {
+    execute_refusing(state, StatusCode::BAD_REQUEST, action).await
+}
+
+/// [`execute`], with `refused` as the status of a statement the engine
+/// refuses (a parse, check or execution error, or the time limit). `POST`
+/// answers 400 for all of them; `QUERY` answers 422 (RFC 10008: the content
+/// is consistent with its media type, but cannot be processed as a query).
+async fn execute_refusing(
+    state: AppState,
+    refused: StatusCode,
+    action: impl FnOnce(&Zega) -> Result<Value, ZegaError> + Send + 'static,
+) -> Response {
     match tokio::task::spawn_blocking(move || {
         let db = state
             .zega
@@ -58,11 +70,22 @@ async fn execute(
         // "this query is wrong". A 4xx, like any other refused query: a 5xx
         // or 408 invites an automatic retry of the same slow query.
         Ok(Err(cause @ ZegaError::QueryTimeLimit { .. })) => (
-            StatusCode::BAD_REQUEST,
+            refused,
             Json(json!({"ok": false, "error": cause.to_string(), "code": "query_time_limit"})),
         )
             .into_response(),
-        Ok(Err(cause)) => error(StatusCode::BAD_REQUEST, cause.to_string()),
+        // Only the read-only entry points (QUERY) can say this: a statement
+        // that writes, refused before it ran. Always 422, whatever `refused` is.
+        Ok(Err(ZegaError::NotARead(what))) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({
+                "ok": false,
+                "error": format!("QUERY /zql runs reads only, and this is {what}. Send it with POST /zql."),
+                "code": "not_a_read",
+            })),
+        )
+            .into_response(),
+        Ok(Err(cause)) => error(refused, cause.to_string()),
         Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "database worker failed"),
     }
 }
@@ -129,6 +152,160 @@ pub async fn zql(
         (true, Some(sources)) => db.apply_zql_with_sources(&request.query, &sources),
     })
     .await
+}
+
+/// The raw-text media type of `QUERY /zql`: the body is one `.zql` document
+/// (a `schema { }` block, then `query { }` blocks), read-only. There is no
+/// schema anywhere else to use: this server keeps none, so a bare query with
+/// no `schema { }` would fail with "schema has no types".
+pub const ZQL_MEDIA_TYPE: &str = "application/zql";
+
+/// Every media type `QUERY /zql` takes as its content. The one list: the 415
+/// check and the `Accept-Query` header both read it, so the server advertises
+/// exactly what it accepts.
+pub const QUERY_MEDIA_TYPES: [&str; 2] = ["application/json", ZQL_MEDIA_TYPE];
+
+/// `Accept-Query` (RFC 10008 section 3): a Structured Fields list of media
+/// ranges, here `application/json, application/zql`.
+fn accept_query() -> String {
+    QUERY_MEDIA_TYPES.join(", ")
+}
+
+/// The methods `/zql` answers, as `Allow` lists them.
+const ZQL_ALLOW: &str = "OPTIONS, POST, QUERY";
+
+fn with_allow(mut response: Response) -> Response {
+    let headers = response.headers_mut();
+    headers.insert(header::ALLOW, header::HeaderValue::from_static(ZQL_ALLOW));
+    if let Ok(value) = header::HeaderValue::from_str(&accept_query()) {
+        headers.insert(HeaderName::from_static("accept-query"), value);
+    }
+    response
+}
+
+/// Every method of `/zql` but `POST` (axum's method router calls this for
+/// the rest; axum 0.7 has no filter for a method it does not know, so
+/// `QUERY` is told apart here by name). `QUERY` runs a read; `OPTIONS` says
+/// what the route takes; anything else is the same 405 it always was, now
+/// listing `QUERY` in `Allow`.
+pub async fn zql_other(State(state): State<AppState>, request: axum::extract::Request) -> Response {
+    use axum::extract::FromRequest;
+    match request.method().as_str() {
+        "QUERY" => {
+            let headers = request.headers().clone();
+            if !authorized(&headers, &state) {
+                return error(StatusCode::UNAUTHORIZED, "unauthorized");
+            }
+            // The same 16 MB DefaultBodyLimit as POST's `Json`: `Bytes` applies it.
+            let body = match Bytes::from_request(request, &state).await {
+                Ok(body) => body,
+                Err(rejection) => return rejection.into_response(),
+            };
+            let mut response = query(state, &headers, &body).await;
+            // A QUERY answer is cacheable by default (RFC 10008 section 2.8). This one is
+            // authenticated and the graph changes under it: no cache may keep or share it.
+            response
+                .headers_mut()
+                .insert(header::CACHE_CONTROL, header::HeaderValue::from_static("no-store"));
+            with_allow(response)
+        }
+        "OPTIONS" => {
+            if !authorized(request.headers(), &state) {
+                return error(StatusCode::UNAUTHORIZED, "unauthorized");
+            }
+            with_allow(StatusCode::NO_CONTENT.into_response())
+        }
+        _ => with_allow(error(
+            StatusCode::METHOD_NOT_ALLOWED,
+            format!("{} is not supported on /zql; it takes {ZQL_ALLOW}", request.method()),
+        )),
+    }
+}
+
+/// `QUERY /zql`, after the bearer. Status codes, per RFC 10008 section 2:
+/// 400 no `Content-Type`, or content that is not what its type says (JSON
+/// that is not a request, bytes that are not UTF-8); 415 a type this does not
+/// take (or a `charset` other than UTF-8); 406 an `Accept` that excludes
+/// `application/json`, the only type it answers in; 422 anything the engine
+/// refuses to run as a read: a mutation (nothing changes), ZQL that does not
+/// parse or check, the time limit.
+async fn query(state: AppState, headers: &HeaderMap, body: &[u8]) -> Response {
+    let media = match content_type(headers) {
+        Ok(media) => media,
+        Err((status, message)) => return error(status, message),
+    };
+    if !acceptable(headers, "application/json") {
+        return error(
+            StatusCode::NOT_ACCEPTABLE,
+            "QUERY /zql answers in application/json",
+        );
+    }
+    let request = if media == ZQL_MEDIA_TYPE {
+        match std::str::from_utf8(body) {
+            Ok(text) => ZqlRequest {
+                schema: String::new(),
+                query: text.to_string(),
+                document: true,
+                sources: None,
+            },
+            Err(_) => return error(StatusCode::BAD_REQUEST, "the content is not valid UTF-8"),
+        }
+    } else {
+        match serde_json::from_slice::<ZqlRequest>(body) {
+            Ok(request) => request,
+            Err(cause) => return error(StatusCode::BAD_REQUEST, format!("the content is not a ZQL request: {cause}")),
+        }
+    };
+    // `sources` feeds only `mutation csv|json` loads, which a read never has:
+    // a QUERY that sent them runs exactly as without.
+    execute_refusing(state, StatusCode::UNPROCESSABLE_ENTITY, move |db| {
+        if request.document {
+            db.apply_zql_read(&request.query)
+        } else {
+            db.run_lang_read(&request.schema, &request.query)
+        }
+    })
+    .await
+}
+
+/// The media type of a QUERY's content, lowercased, or the refusal: 400 when
+/// the header is missing or not a media type, 415 when the type (or its
+/// `charset`) is not one `QUERY_MEDIA_TYPES` takes.
+fn content_type(headers: &HeaderMap) -> Result<String, (StatusCode, String)> {
+    let Some(raw) = headers.get(header::CONTENT_TYPE) else {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("QUERY needs a Content-Type that says what the content is: {}", accept_query()),
+        ));
+    };
+    let Some((media, parameters)) = raw
+        .to_str()
+        .ok()
+        .map(|raw| raw.split_once(';').unwrap_or((raw, "")))
+        .filter(|(media, _)| media.trim().split_once('/').is_some_and(|(kind, sub)| !kind.is_empty() && !sub.is_empty()))
+    else {
+        return Err((StatusCode::BAD_REQUEST, "the Content-Type is not a media type".into()));
+    };
+    let media = media.trim().to_ascii_lowercase();
+    let unsupported = || (StatusCode::UNSUPPORTED_MEDIA_TYPE, format!("QUERY /zql takes {}", accept_query()));
+    if !QUERY_MEDIA_TYPES.contains(&media.as_str()) {
+        return Err(unsupported());
+    }
+    let charset = parameters.split(';').find_map(|parameter| {
+        let (name, value) = parameter.split_once('=')?;
+        name.trim().eq_ignore_ascii_case("charset").then(|| value.trim().trim_matches('"').to_ascii_lowercase())
+    });
+    if charset.is_some_and(|charset| charset != "utf-8") {
+        return Err(unsupported());
+    }
+    Ok(media)
+}
+
+/// Whether `Accept` allows `media`: absent, empty, or a range that matches it
+/// with a q-value above zero (RFC 9110 section 12.5.1).
+fn acceptable(headers: &HeaderMap, media: &str) -> bool {
+    let ranges = accept_ranges(headers);
+    ranges.is_empty() || quality(&ranges, media) > 0.0
 }
 
 #[derive(Deserialize)]
@@ -209,8 +386,17 @@ impl io::Write for BodyWriter {
 /// `Accept` header (RFC 9110 §12.5.1): `(json, graph)` q-values. The most
 /// specific range that matches a type sets its q-value.
 fn accepted(headers: &HeaderMap) -> (f32, f32) {
-    let Some(accept) = headers.get(header::ACCEPT).and_then(|value| value.to_str().ok()) else {
+    if !headers.contains_key(header::ACCEPT) {
         return (0.0, 1.0);
+    }
+    let ranges = accept_ranges(headers);
+    (quality(&ranges, "application/json"), quality(&ranges, zega::graph_file::MEDIA_TYPE))
+}
+
+/// The media ranges of an `Accept` header with their q-values, lowercased.
+fn accept_ranges(headers: &HeaderMap) -> Vec<(String, f32)> {
+    let Some(accept) = headers.get(header::ACCEPT).and_then(|value| value.to_str().ok()) else {
+        return Vec::new();
     };
     let mut ranges = Vec::new();
     for item in accept.split(',') {
@@ -225,14 +411,16 @@ fn accepted(headers: &HeaderMap) -> (f32, f32) {
             .map_or(1.0, |q| q.clamp(0.0, 1.0));
         ranges.push((range, q));
     }
-    let quality = |media: &str| {
-        let (kind, _) = media.split_once('/').unwrap_or((media, ""));
-        let exact = ranges.iter().find(|(range, _)| range == media);
-        let family = ranges.iter().find(|(range, _)| range.strip_suffix("/*") == Some(kind));
-        let any = ranges.iter().find(|(range, _)| range == "*/*");
-        exact.or(family).or(any).map_or(0.0, |(_, q)| *q)
-    };
-    (quality("application/json"), quality(zega::graph_file::MEDIA_TYPE))
+    ranges
+}
+
+/// The q-value `ranges` give `media`: the most specific matching range sets it.
+fn quality(ranges: &[(String, f32)], media: &str) -> f32 {
+    let (kind, _) = media.split_once('/').unwrap_or((media, ""));
+    let exact = ranges.iter().find(|(range, _)| range == media);
+    let family = ranges.iter().find(|(range, _)| range.strip_suffix("/*") == Some(kind));
+    let any = ranges.iter().find(|(range, _)| range == "*/*");
+    exact.or(family).or(any).map_or(0.0, |(_, q)| *q)
 }
 
 fn with_vary(mut response: Response) -> Response {

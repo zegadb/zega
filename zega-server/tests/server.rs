@@ -1061,3 +1061,291 @@ async fn a_checkpoint_while_a_download_is_stalled_leaves_both_whole() {
     let summary = copy.import(&body[..]).expect("the download is not a whole .graph file");
     assert_eq!(summary.nodes, 40);
 }
+
+// ---- QUERY /zql (RFC 10008) -------------------------------------------------------------
+
+fn query_method() -> reqwest::Method {
+    reqwest::Method::from_bytes(b"QUERY").unwrap()
+}
+
+/// `QUERY /zql` with the bearer and no content type of its own.
+fn query_request(client: &Client, server: &TestServer) -> reqwest::RequestBuilder {
+    client
+        .request(query_method(), format!("{}/zql", server.base_url))
+        .bearer_auth(TOKEN)
+}
+
+/// `QUERY /zql` with a JSON request, as `POST /zql` takes it.
+fn query_json(client: &Client, server: &TestServer, request: &Value) -> reqwest::RequestBuilder {
+    query_request(client, server)
+        .header("content-type", "application/json")
+        .body(request.to_string())
+}
+
+fn query_text(client: &Client, server: &TestServer, content_type: &str, text: &'static [u8]) -> reqwest::RequestBuilder {
+    query_request(client, server).header("content-type", content_type).body(text)
+}
+
+/// A server holding Ada, loaded through `POST`.
+async fn server_with_ada(client: &Client) -> TestServer {
+    let server = start_server().await;
+    let body: Value = post(client, &server)
+        .json(&json!({"schema": SCHEMA, "query": "mutation { Person(name: \"Ada\" && age: 37) }"}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(body["ok"], true, "{body}");
+    server
+}
+
+/// The graph as the engine holds it, read behind the same gate the requests take.
+fn graph_now(server: &TestServer) -> Value {
+    server.zega.lock().unwrap().graph_json().unwrap()
+}
+
+const READ: &str = "{ Person { name age } }";
+const MUTATION: &str = "mutation { Person(name: \"Grace\" && age: 85) }";
+const ACCEPT_QUERY: &str = "application/json, application/zql";
+
+#[tokio::test]
+async fn query_runs_a_read_and_answers_as_post_does() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    let request = json!({"schema": SCHEMA, "query": READ});
+    let posted: Value = post(&client, &server).json(&request).send().await.unwrap().json().await.unwrap();
+
+    let response = query_json(&client, &server, &request).send().await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["accept-query"], ACCEPT_QUERY);
+    assert_eq!(response.headers()["allow"], "OPTIONS, POST, QUERY");
+    assert_eq!(response.headers()["cache-control"], "no-store", "an authenticated answer is never kept by a cache");
+    assert_eq!(response.json::<Value>().await.unwrap(), posted);
+    assert_eq!(posted["result"], json!([{"name": "Ada", "age": 37}]));
+}
+
+#[tokio::test]
+async fn query_takes_a_zql_document_as_its_raw_content() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    let document: &'static [u8] = b"schema { type Person { name: String age?: Int } }\nquery { Person { name age } }";
+    for content_type in ["application/zql", "Application/ZQL; charset=utf-8", "application/zql;charset=\"UTF-8\""] {
+        let response = query_text(&client, &server, content_type, document).send().await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "{content_type}");
+        assert_eq!(response.json::<Value>().await.unwrap(), json!({"ok": true, "result": [{"name": "Ada", "age": 37}]}));
+    }
+    // The same document, as JSON content, with `document: true`.
+    let response = query_json(&client, &server, &json!({"document": true, "query": std::str::from_utf8(document).unwrap()})).send().await.unwrap();
+    assert_eq!(response.json::<Value>().await.unwrap()["result"], json!([{"name": "Ada", "age": 37}]));
+}
+
+#[tokio::test]
+async fn query_content_type_follows_the_rfc() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    let body = json!({"schema": SCHEMA, "query": READ}).to_string();
+
+    // No Content-Type: 400. A value that is not a media type: 400.
+    for content_type in [None, Some("garbage"), Some("/json"), Some("application/")] {
+        let request = query_request(&client, &server).body(body.clone());
+        let request = match content_type {
+            Some(value) => request.header("content-type", value),
+            None => request,
+        };
+        let response = request.send().await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{content_type:?}");
+        assert!(response.json::<Value>().await.unwrap()["error"].as_str().unwrap().contains("Content-Type"));
+    }
+
+    // A type it does not take: 415, and the answer says which it takes.
+    for content_type in ["text/plain", "application/xml", "application/sql", "application/x-www-form-urlencoded", "application/json; charset=latin1", "application/zql; charset=utf-16"] {
+        let response = query_request(&client, &server)
+            .header("content-type", content_type)
+            .body(body.clone())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE, "{content_type}");
+        assert_eq!(response.headers()["accept-query"], ACCEPT_QUERY, "{content_type}");
+    }
+
+    // Content that is not what its type says: 400.
+    for (content_type, content) in [
+        ("application/json", b"not json".to_vec()),
+        ("application/json", b"".to_vec()),
+        ("application/json", br#"{"schema": "x"}"#.to_vec()),
+        ("application/json", br#"{"query": 7}"#.to_vec()),
+        ("application/json", br#"{"query": "{ Person { name } }", "unknown": 1}"#.to_vec()),
+        ("application/zql", vec![0xff, 0xfe, 0x00]),
+    ] {
+        let response = query_request(&client, &server)
+            .header("content-type", content_type)
+            .body(content.clone())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{content_type} {:?}", String::from_utf8_lossy(&content));
+        assert_eq!(response.json::<Value>().await.unwrap()["ok"], false);
+    }
+}
+
+#[tokio::test]
+async fn query_accept_follows_the_rfc() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    let request = json!({"schema": SCHEMA, "query": READ});
+    for (accept, status) in [
+        (None, StatusCode::OK),
+        (Some("application/json"), StatusCode::OK),
+        (Some("*/*"), StatusCode::OK),
+        (Some("text/html, application/*;q=0.5"), StatusCode::OK),
+        (Some("text/html"), StatusCode::NOT_ACCEPTABLE),
+        (Some("application/json;q=0, */*;q=0.1"), StatusCode::NOT_ACCEPTABLE),
+        (Some("application/xml"), StatusCode::NOT_ACCEPTABLE),
+    ] {
+        let response = match accept {
+            Some(accept) => query_json(&client, &server, &request).header("accept", accept),
+            None => query_json(&client, &server, &request),
+        }
+        .send()
+        .await
+        .unwrap();
+        assert_eq!(response.status(), status, "{accept:?}");
+    }
+}
+
+#[tokio::test]
+async fn query_refuses_every_mutation_with_422_and_the_graph_is_unchanged() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    let before = graph_now(&server);
+    let document = |statement: &str| format!("schema {{ type Person {{ name: String age?: Int }} }}\n{statement}");
+    for (content_type, content) in [
+        ("application/json", json!({"schema": SCHEMA, "query": MUTATION}).to_string()),
+        ("application/json", json!({"schema": SCHEMA, "query": format!("// a comment\n{MUTATION}")}).to_string()),
+        ("application/json", json!({"schema": SCHEMA, "query": "mutation { Person(name: \"Ada\") set age: 38 { age } }"}).to_string()),
+        ("application/json", json!({"schema": SCHEMA, "query": "mutation { delete Person(name: \"Ada\") }"}).to_string()),
+        ("application/json", json!({"schema": SCHEMA, "query": r#"mutation json ["a.json"] { Person(name: $name) }"#, "sources": {"a.json": "[{\"name\":\"Mallory\"}]"}}).to_string()),
+        ("application/json", json!({"document": true, "query": document(MUTATION)}).to_string()),
+        ("application/json", json!({"document": true, "query": document(&format!("query {{ Person {{ name }} }}\n{MUTATION}"))}).to_string()),
+        ("application/zql", document(MUTATION)),
+        ("application/zql", document(&format!("query {{ Person {{ name }} }}\n{MUTATION}"))),
+    ] {
+        let response = query_request(&client, &server)
+            .header("content-type", content_type)
+            .body(content.clone())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY, "{content}");
+        assert_eq!(response.headers()["accept-query"], ACCEPT_QUERY);
+        let answer: Value = response.json().await.unwrap();
+        assert_eq!(answer["ok"], false);
+        assert_eq!(answer["code"], "not_a_read");
+        assert!(answer["error"].as_str().unwrap().contains("POST /zql"), "{answer}");
+        assert_eq!(graph_now(&server), before, "{content}");
+    }
+    // And through the API, as a user would look: Ada alone is still there.
+    let answer: Value = post(&client, &server).json(&json!({"schema": SCHEMA, "query": READ})).send().await.unwrap().json().await.unwrap();
+    assert_eq!(answer["result"], json!([{"name": "Ada", "age": 37}]));
+}
+
+#[tokio::test]
+async fn query_reads_that_only_mention_mutation_still_run() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    let before = graph_now(&server);
+    let schema = "type Gene { mutation: String }";
+    let response = query_json(&client, &server, &json!({"schema": schema, "query": "// mutation { Gene(mutation: \"x\") }\n{ Gene(mutation: \"mutation\") { mutation } }"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.json::<Value>().await.unwrap()["ok"], true);
+    assert_eq!(graph_now(&server), before);
+}
+
+#[tokio::test]
+async fn query_answers_a_refused_statement_with_422_where_post_says_400() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    let request = json!({"schema": SCHEMA, "query": "MATCH this is not ZQL"});
+    let posted = post(&client, &server).json(&request).send().await.unwrap();
+    assert_eq!(posted.status(), StatusCode::BAD_REQUEST);
+    let posted: Value = posted.json().await.unwrap();
+    let queried = query_json(&client, &server, &request).send().await.unwrap();
+    assert_eq!(queried.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(queried.json::<Value>().await.unwrap(), posted, "the same engine message");
+
+    // A schema-less request (the server keeps no schema): the engine's own error.
+    let queried = query_json(&client, &server, &json!({"query": READ})).send().await.unwrap();
+    assert_eq!(queried.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(queried.json::<Value>().await.unwrap()["error"].as_str().unwrap().contains("schema has no types"));
+}
+
+#[tokio::test]
+async fn query_needs_the_bearer_and_options_and_405_advertise_it() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    for token in [None, Some("wrong")] {
+        let request = client.request(query_method(), format!("{}/zql", server.base_url)).header("content-type", "application/json").body(json!({"schema": SCHEMA, "query": READ}).to_string());
+        let request = match token {
+            Some(token) => request.bearer_auth(token),
+            None => request,
+        };
+        assert_eq!(request.send().await.unwrap().status(), StatusCode::UNAUTHORIZED, "{token:?}");
+        let request = client.request(reqwest::Method::OPTIONS, format!("{}/zql", server.base_url));
+        let request = match token {
+            Some(token) => request.bearer_auth(token),
+            None => request,
+        };
+        assert_eq!(request.send().await.unwrap().status(), StatusCode::UNAUTHORIZED, "OPTIONS {token:?}");
+    }
+
+    let options = client.request(reqwest::Method::OPTIONS, format!("{}/zql", server.base_url)).bearer_auth(TOKEN).send().await.unwrap();
+    assert_eq!(options.status(), StatusCode::NO_CONTENT);
+    assert_eq!(options.headers()["allow"], "OPTIONS, POST, QUERY");
+    assert_eq!(options.headers()["accept-query"], ACCEPT_QUERY);
+
+    for method in [reqwest::Method::GET, reqwest::Method::PUT, reqwest::Method::DELETE] {
+        let response = client.request(method.clone(), format!("{}/zql", server.base_url)).bearer_auth(TOKEN).send().await.unwrap();
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED, "{method}");
+        assert_eq!(response.headers()["allow"], "OPTIONS, POST, QUERY", "{method}");
+    }
+}
+
+#[tokio::test]
+async fn query_is_served_on_zql_only() {
+    let client = Client::new();
+    let server = server_with_ada(&client).await;
+    for path in ["/graph", "/health", "/stats", "/vector-view", "/schema/diff", "/graph/relationships", "/sync/check", "/cql"] {
+        let response = client
+            .request(query_method(), format!("{}{path}", server.base_url))
+            .bearer_auth(TOKEN)
+            .header("content-type", "application/json")
+            .body(json!({"schema": SCHEMA, "query": READ}).to_string())
+            .send()
+            .await
+            .unwrap();
+        assert!(
+            response.status() == StatusCode::METHOD_NOT_ALLOWED || response.status() == StatusCode::NOT_FOUND,
+            "{path}: {}",
+            response.status()
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_slow_query_over_query_gets_the_time_limit_error_as_a_422() {
+    let server = start_limited_server().await;
+    let client = Client::new();
+    load_stops(&client, &server, 4_000).await;
+    let response = query_json(&client, &server, &json!({"schema": STOPS, "query": PAIRS})).send().await.unwrap();
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        response.json::<Value>().await.unwrap(),
+        json!({"ok": false, "error": "query exceeded the 2 s limit", "code": "query_time_limit"})
+    );
+}
