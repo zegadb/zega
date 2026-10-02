@@ -175,8 +175,8 @@ expected by the site's installer.
 `zega cloud` talks to Zega Cloud's public management API
 (`https://cloud.zega.dev`, contract: `/openapi.json`). It needs an **API token**:
 make one in the dashboard at <https://dashboard.zega.dev/tokens>, with scope
-`read` (every GET) or `manage` (also deploys and function settings), optionally
-for one project.
+`read` (every GET) or `manage` (also creates, renames, deletes, deploys and
+settings), optionally for one project.
 
 ```sh
 zega cloud login                  # paste the token (hidden prompt, or pipe it in); checked, then saved
@@ -189,6 +189,15 @@ zega cloud function logs <id> --status 500 --limit 20
 zega cloud function deploy <id> worker.js
 zega cloud function var set <id> REGION yyz
 zega cloud function secret set <id> API_KEY < key.txt    # value from stdin or a hidden prompt
+zega cloud function code <id> --out worker.js            # the deployed code, exactly
+zega cloud function create <project> hello               # also: bucket create <project> <name>
+zega cloud function rename <id> greeter                  # also: project, graph, bucket rename
+zega cloud function logging <id> on                      # logs are off until turned on, and billed
+zega cloud graph key create <graph> --name ci            # prints the secret once; also: bucket key
+zega cloud graph key list <graph>                        # also: key revoke <graph> <key>
+zega cloud graph domain add <graph> graph.example.com    # prints the CNAME to set; also: list, remove
+zega cloud graph monitoring set <graph> --keep-query-text on    # also: monitoring show
+zega cloud project delete <id>    # also: graph, bucket, function delete; asks first
 zega cloud logout                 # forget the token (it stays valid until revoked in the dashboard)
 ```
 
@@ -200,6 +209,14 @@ is read from stdin or a hidden prompt, never from an argument, and is stored in
 another host. For CI, `--token-file <path>` uses the token in that file instead
 (one token, a final newline is fine), as `zega start --token-file` does. There
 is no environment variable for the token.
+
+A delete (`project`, `graph`, `bucket` or `function delete <id>`) shows what it
+will delete, by name and id, and asks you to type the id; nothing is sent before
+that. In a script, pass `--yes`. Without a terminal on stdin and without
+`--yes` it refuses and sends nothing. A new key's secret (`graph key create`,
+`bucket key create`) is printed once and the API cannot show it again; with
+`--json` the API's answer, secret included, is printed unchanged. `function
+code` prints the module byte for byte, or writes it to `--out <file>`.
 
 Creating a graph or project, resizing, spending caps, restoring a backup and
 managing tokens are money controls and are done in the dashboard: the API

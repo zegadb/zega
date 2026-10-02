@@ -8,11 +8,12 @@
 //! pretend otherwise.
 
 mod api;
+mod confirm;
 mod credentials;
 mod render;
 
 use api::{normalize_api, ApiError, Body, Client, CloudError, Reply, DASHBOARD, DEFAULT_API};
-use clap::{Args, Subcommand};
+use clap::{Args, Subcommand, ValueEnum};
 use serde_json::{json, Value};
 use std::{
     io::{self, Write},
@@ -73,10 +74,205 @@ enum CloudCommand {
     Usage,
     /// The regions a graph can run in.
     Regions,
-    /// Read a function's logs, deploy its code, set its variables and secrets.
+    /// Rename or delete a project.
+    Project {
+        #[command(subcommand)]
+        command: ProjectCommand,
+    },
+    /// Rename or delete a graph; its keys, custom domains and monitoring.
+    Graph {
+        #[command(subcommand)]
+        command: GraphCommand,
+    },
+    /// Create, rename or delete a bucket; its keys.
+    Bucket {
+        #[command(subcommand)]
+        command: BucketCommand,
+    },
+    /// Create, rename or delete a function; read its logs and code, deploy
+    /// code, set its variables and secrets.
     Function {
         #[command(subcommand)]
         command: FunctionCommand,
+    },
+}
+
+/// What a delete asks first. Without a terminal there is nobody to ask.
+#[derive(Args)]
+struct Confirm {
+    /// Delete without asking. Without it, a terminal shows what will be
+    /// deleted and asks for its id; without a terminal the command refuses.
+    #[arg(long)]
+    yes: bool,
+}
+
+/// A setting that is on or off.
+#[derive(Clone, Copy, ValueEnum)]
+enum Switch {
+    On,
+    Off,
+}
+
+impl Switch {
+    fn as_str(self) -> &'static str {
+        match self {
+            Switch::On => "on",
+            Switch::Off => "off",
+        }
+    }
+    fn is_on(self) -> bool {
+        matches!(self, Switch::On)
+    }
+}
+
+#[derive(Subcommand)]
+enum ProjectCommand {
+    /// Rename a project: the label only. Needs a manage token.
+    Rename {
+        /// A project id.
+        id: String,
+        /// 1 to 64 characters.
+        name: String,
+    },
+    /// Delete a project and everything in it: its graphs, functions and
+    /// buckets. Needs a manage token.
+    Delete {
+        /// A project id.
+        id: String,
+        #[command(flatten)]
+        confirm: Confirm,
+    },
+}
+
+#[derive(Subcommand)]
+enum GraphCommand {
+    /// Rename a graph: the label only. Needs a manage token.
+    Rename {
+        /// A graph id.
+        id: String,
+        /// 1 to 64 characters.
+        name: String,
+    },
+    /// Delete a graph. A project's last graph cannot be deleted alone: delete
+    /// the project. Needs a manage token.
+    Delete {
+        /// A graph id.
+        id: String,
+        #[command(flatten)]
+        confirm: Confirm,
+    },
+    /// The graph's API keys (`zk_...`): list, create, revoke.
+    Key {
+        #[command(subcommand)]
+        command: KeyCommand,
+    },
+    /// The graph's custom domains: list, add, remove.
+    Domain {
+        #[command(subcommand)]
+        command: DomainCommand,
+    },
+    /// The graph's monitoring settings: show, set.
+    Monitoring {
+        #[command(subcommand)]
+        command: MonitoringCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum BucketCommand {
+    /// Create a bucket in a project (the project needs a paid graph). Needs a
+    /// manage token.
+    Create {
+        /// The project's id.
+        project: String,
+        /// The bucket's label, 1 to 64 characters.
+        name: String,
+    },
+    /// Rename a bucket: the label only. Needs a manage token.
+    Rename {
+        /// A bucket id.
+        id: String,
+        /// 1 to 64 characters.
+        name: String,
+    },
+    /// Delete a bucket. Refused while it holds objects. Needs a manage token.
+    Delete {
+        /// A bucket id.
+        id: String,
+        #[command(flatten)]
+        confirm: Confirm,
+    },
+    /// The bucket's storage keys (`zs_...`): list, create, revoke.
+    Key {
+        #[command(subcommand)]
+        command: KeyCommand,
+    },
+}
+
+/// A graph's or a bucket's keys.
+#[derive(Subcommand)]
+enum KeyCommand {
+    /// List the keys: how to recognise each, never a secret. Needs a read token.
+    List {
+        /// The graph's or bucket's id.
+        id: String,
+    },
+    /// Make a key. Its secret is printed once and cannot be read again.
+    /// Needs a manage token.
+    Create {
+        /// The graph's or bucket's id.
+        id: String,
+        /// A label, up to 64 characters.
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// Revoke a key: the next call with it is a 401. Needs a manage token.
+    Revoke {
+        /// The graph's or bucket's id.
+        id: String,
+        /// The key's id (from `key list`).
+        key: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum DomainCommand {
+    /// List the domains and the DNS record each needs. Needs a read token.
+    List {
+        /// A graph id.
+        id: String,
+    },
+    /// Add a domain you own, and print the CNAME to set. Needs a manage token.
+    Add {
+        /// A graph id.
+        id: String,
+        /// For example graph.example.com.
+        hostname: String,
+    },
+    /// Remove a domain. Needs a manage token.
+    Remove {
+        /// A graph id.
+        id: String,
+        /// The domain.
+        hostname: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum MonitoringCommand {
+    /// Show the settings. Needs a read token.
+    Show {
+        /// A graph id.
+        id: String,
+    },
+    /// Change a setting. Needs a manage token.
+    Set {
+        /// A graph id.
+        id: String,
+        /// Keep each call's exact query text for 24 hours, for the owner only
+        /// (off by default; off deletes what was kept).
+        #[arg(long, value_enum, value_name = "on|off")]
+        keep_query_text: Switch,
     },
 }
 
@@ -105,6 +301,47 @@ enum FunctionCommand {
         /// The cursor a previous page printed.
         #[arg(long)]
         cursor: Option<String>,
+    },
+    /// Create a function in a project. Its address answers 404 until code is
+    /// deployed. Needs a manage token.
+    Create {
+        /// The project's id.
+        project: String,
+        /// The function's label, 1 to 64 characters.
+        name: String,
+    },
+    /// Rename a function: the label only. Needs a manage token.
+    Rename {
+        /// A function id.
+        id: String,
+        /// 1 to 64 characters.
+        name: String,
+    },
+    /// Delete a function and its code. Needs a manage token.
+    Delete {
+        /// A function id.
+        id: String,
+        #[command(flatten)]
+        confirm: Confirm,
+    },
+    /// Print the deployed code exactly as it is, or write it to a file. Needs
+    /// a read token.
+    Code {
+        /// A function id.
+        id: String,
+        /// Write the code to this file (replacing it) instead of stdout.
+        #[arg(long, value_name = "FILE")]
+        out: Option<PathBuf>,
+    },
+    /// Turn the function's logs on or off. They are off until turned on, and
+    /// every logged event is billed under the function's own cap. Needs a
+    /// manage token.
+    Logging {
+        /// A function id.
+        id: String,
+        /// on or off.
+        #[arg(value_enum)]
+        setting: Switch,
     },
     /// Deploy a file as the function's code: one ES module of JavaScript, at
     /// most 1,000,000 bytes (bundle TypeScript first). Needs a manage token.
@@ -245,7 +482,252 @@ fn execute(args: CloudArgs) -> Result<(), CloudError> {
             client.get(&["v1", "functions", &id], &[])?,
             render::function_one,
         ),
+        CloudCommand::Project { command } => project_command(client, json, command),
+        CloudCommand::Graph { command } => graph_command(client, json, command),
+        CloudCommand::Bucket { command } => bucket_command(client, json, command),
         CloudCommand::Function { command } => function(client, json, command),
+    }
+}
+
+fn project_command(client: &Client, json: bool, command: ProjectCommand) -> Result<(), CloudError> {
+    match command {
+        ProjectCommand::Rename { id, name } => rename(client, json, Kind::Project, &id, &name),
+        ProjectCommand::Delete { id, confirm } => {
+            delete(client, json, confirm.yes, Kind::Project, &id)
+        }
+    }
+}
+
+fn graph_command(client: &Client, json: bool, command: GraphCommand) -> Result<(), CloudError> {
+    match command {
+        GraphCommand::Rename { id, name } => rename(client, json, Kind::Graph, &id, &name),
+        GraphCommand::Delete { id, confirm } => delete(client, json, confirm.yes, Kind::Graph, &id),
+        GraphCommand::Key { command } => keys(client, json, Kind::Graph, command),
+        GraphCommand::Domain {
+            command: DomainCommand::List { id },
+        } => show(
+            json,
+            client.get(&["v1", "graphs", &id, "domains"], &[])?,
+            render::domains,
+        ),
+        GraphCommand::Domain {
+            command: DomainCommand::Add { id, hostname },
+        } => {
+            let reply = client.call(
+                "POST",
+                &["v1", "graphs", &id, "domains"],
+                &[],
+                Body::Json(json!({ "hostname": hostname })),
+            )?;
+            done(json, reply, "domain", |domain| {
+                render::domain_added(domain, &id)
+            })
+        }
+        GraphCommand::Domain {
+            command: DomainCommand::Remove { id, hostname },
+        } => {
+            let reply = client.call(
+                "DELETE",
+                &["v1", "graphs", &id, "domains", &hostname],
+                &[],
+                Body::None,
+            )?;
+            done(json, reply, "removed", |removed| {
+                format!(
+                    "removed domain {} from graph {}\n",
+                    render::clean(removed.as_str().unwrap_or(&hostname)),
+                    render::clean(&id)
+                )
+            })
+        }
+        GraphCommand::Monitoring {
+            command: MonitoringCommand::Show { id },
+        } => show(
+            json,
+            client.get(&["v1", "graphs", &id, "monitoring", "settings"], &[])?,
+            render::monitoring,
+        ),
+        GraphCommand::Monitoring {
+            command:
+                MonitoringCommand::Set {
+                    id,
+                    keep_query_text,
+                },
+        } => {
+            let reply = client.call(
+                "PUT",
+                &["v1", "graphs", &id, "monitoring", "settings"],
+                &[],
+                Body::Json(json!({ "keepQueryText": keep_query_text.is_on() })),
+            )?;
+            if json {
+                return print_bytes(&reply.raw, true);
+            }
+            print_bytes(
+                format!(
+                    "monitoring settings of graph {}\n{}",
+                    render::clean(&id),
+                    render::monitoring(&reply.json)?
+                )
+                .as_bytes(),
+                false,
+            )
+        }
+    }
+}
+
+fn bucket_command(client: &Client, json: bool, command: BucketCommand) -> Result<(), CloudError> {
+    match command {
+        BucketCommand::Create { project, name } => {
+            let reply = client.call(
+                "POST",
+                &["v1", "projects", &project, "buckets"],
+                &[],
+                Body::Json(json!({ "name": name })),
+            )?;
+            done(json, reply, "bucket", |bucket| {
+                format!(
+                    "created bucket {}\nAddress {}\nMake a key with `zega cloud bucket key create {}`\n",
+                    name_of(bucket, ""),
+                    render_field(bucket, "url"),
+                    render_field(bucket, "id")
+                )
+            })
+        }
+        BucketCommand::Rename { id, name } => rename(client, json, Kind::Bucket, &id, &name),
+        BucketCommand::Delete { id, confirm } => {
+            delete(client, json, confirm.yes, Kind::Bucket, &id)
+        }
+        BucketCommand::Key { command } => keys(client, json, Kind::Bucket, command),
+    }
+}
+
+/// The four kinds of resource that are renamed and deleted the same way.
+#[derive(Clone, Copy)]
+enum Kind {
+    Project,
+    Graph,
+    Bucket,
+    Function,
+}
+
+impl Kind {
+    /// `project`: the word in messages and the key of a single resource in an answer.
+    fn noun(self) -> &'static str {
+        match self {
+            Kind::Project => "project",
+            Kind::Graph => "graph",
+            Kind::Bucket => "bucket",
+            Kind::Function => "function",
+        }
+    }
+    /// `projects`: the path segment after `/v1/`.
+    fn collection(self) -> &'static str {
+        match self {
+            Kind::Project => "projects",
+            Kind::Graph => "graphs",
+            Kind::Bucket => "buckets",
+            Kind::Function => "functions",
+        }
+    }
+    /// What deleting it does, from the API's own description of the route.
+    fn consequence(self) -> &'static str {
+        match self {
+            Kind::Project => "This deletes its graphs, functions and buckets too. An unpaid graph is gone at once; a paid one is cancelled and its data deleted 30 days later, after which nothing brings it back.",
+            Kind::Graph => "An unpaid graph is gone at once. A paid one is cancelled and its machine stopped; its data is deleted 30 days later, after which nothing brings it back.",
+            Kind::Bucket => "Its keys are revoked with it. It is refused while the bucket holds objects.",
+            Kind::Function => "Its code is deleted and its address answers 404 from then on.",
+        }
+    }
+}
+
+fn rename(client: &Client, json: bool, kind: Kind, id: &str, name: &str) -> Result<(), CloudError> {
+    let reply = client.call(
+        "PUT",
+        &["v1", kind.collection(), id, "name"],
+        &[],
+        Body::Json(json!({ "name": name })),
+    )?;
+    done(json, reply, kind.noun(), |item| {
+        format!(
+            "renamed {} {} to {}\n",
+            kind.noun(),
+            render::clean(id),
+            render::clean(item.get("name").and_then(Value::as_str).unwrap_or(name))
+        )
+    })
+}
+
+/// Delete a project, graph, bucket or function after it was confirmed: by
+/// `--yes`, or by typing its id at a terminal. Nothing reaches the API before
+/// that, not even the lookup that says what is about to go.
+fn delete(client: &Client, json: bool, yes: bool, kind: Kind, id: &str) -> Result<(), CloudError> {
+    if !yes {
+        confirm::require_terminal(kind.noun())?;
+        let shown = client.get(&["v1", kind.collection(), id], &[])?;
+        let item = shown.json.get(kind.noun()).cloned().unwrap_or(Value::Null);
+        let shown_id = item.get("id").and_then(Value::as_str).unwrap_or(id);
+        // On stderr: the question is not the command's output, so `--json` stays clean.
+        eprint!(
+            "{}",
+            render::doomed(kind.noun(), &item, shown_id, kind.consequence())
+        );
+        confirm::ask(shown_id)?;
+    }
+    let reply = client.call("DELETE", &["v1", kind.collection(), id], &[], Body::None)?;
+    done(json, reply, kind.noun(), |item| {
+        let mut line = format!("deleted {} {}\n", kind.noun(), name_of(item, id));
+        if let Some(when) = item
+            .get("deleteAfter")
+            .and_then(Value::as_str)
+            .filter(|_| matches!(kind, Kind::Graph))
+        {
+            line.push_str(&format!("its data is deleted on {}\n", render::clean(when)));
+        }
+        line
+    })
+}
+
+/// A graph's or a bucket's keys.
+fn keys(client: &Client, json: bool, kind: Kind, command: KeyCommand) -> Result<(), CloudError> {
+    let collection = kind.collection();
+    match command {
+        KeyCommand::List { id } => show(
+            json,
+            client.get(&["v1", collection, &id, "keys"], &[])?,
+            render::keys,
+        ),
+        KeyCommand::Create { id, name } => {
+            let body = match name {
+                Some(name) => json!({ "name": name }),
+                None => json!({}),
+            };
+            let reply = client.call(
+                "POST",
+                &["v1", collection, &id, "keys"],
+                &[],
+                Body::Json(body),
+            )?;
+            done(json, reply, "key", |key| {
+                render::key_created(key, &format!("{} {}", kind.noun(), render::clean(&id)))
+            })
+        }
+        KeyCommand::Revoke { id, key } => {
+            let reply = client.call(
+                "DELETE",
+                &["v1", collection, &id, "keys", &key],
+                &[],
+                Body::None,
+            )?;
+            done(json, reply, "revoked", |revoked| {
+                format!(
+                    "revoked key {} of {} {}\n",
+                    render::clean(revoked.as_str().unwrap_or(&key)),
+                    kind.noun(),
+                    render::clean(&id)
+                )
+            })
+        }
     }
 }
 
@@ -277,6 +759,67 @@ fn function(client: &Client, json: bool, command: FunctionCommand) -> Result<(),
                 render::logs,
             )
         }
+        FunctionCommand::Create { project, name } => {
+            let reply = client.call(
+                "POST",
+                &["v1", "projects", &project, "functions"],
+                &[],
+                Body::Json(json!({ "name": name })),
+            )?;
+            done(json, reply, "function", |function| {
+                format!(
+                    "created function {}\nAddress {} (404 until you deploy: `zega cloud function deploy {} <file>`)\n",
+                    name_of(function, ""),
+                    render_field(function, "url"),
+                    render_field(function, "id")
+                )
+            })
+        }
+        FunctionCommand::Rename { id, name } => rename(client, json, Kind::Function, &id, &name),
+        FunctionCommand::Delete { id, confirm } => {
+            delete(client, json, confirm.yes, Kind::Function, &id)
+        }
+        FunctionCommand::Logging { id, setting } => {
+            let reply = client.call(
+                "PUT",
+                &["v1", "functions", &id, "logs"],
+                &[],
+                Body::Json(json!({ "logs": setting.as_str() })),
+            )?;
+            done(json, reply, "function", |function| {
+                format!(
+                    "logs are {} for {}\n",
+                    render_field(function, "logs"),
+                    name_of(function, &id)
+                )
+            })
+        }
+        FunctionCommand::Code { id, out } => {
+            if json && out.is_some() {
+                return Err("--json prints the API's answer, which holds the code: it cannot be combined with --out".into());
+            }
+            let reply = client.get(&["v1", "functions", &id, "code"], &[])?;
+            if json {
+                return print_bytes(&reply.raw, true);
+            }
+            let code = reply
+                .json
+                .get("code")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("function {} has no deployed code yet: `zega cloud function deploy {} <file>`", render::clean(&id), render::clean(&id)))?;
+            match out {
+                // Written only now, so a failed request never empties an existing file.
+                Some(path) => {
+                    std::fs::write(&path, code)
+                        .map_err(|error| format!("cannot write {}: {error}", path.display()))?;
+                    print_bytes(
+                        format!("wrote {} bytes to {}\n", code.len(), path.display()).as_bytes(),
+                        false,
+                    )
+                }
+                None => print_bytes(code.as_bytes(), false),
+            }
+        }
         FunctionCommand::Deploy { id, file } => {
             let code = std::fs::read(&file)
                 .map_err(|error| format!("cannot read {}: {error}", file.display()))?;
@@ -286,7 +829,7 @@ fn function(client: &Client, json: bool, command: FunctionCommand) -> Result<(),
                 &[],
                 Body::Module(&code),
             )?;
-            done(json, reply, |function| {
+            done(json, reply, "function", |function| {
                 format!(
                     "deployed {} as version {}\n{}\n",
                     name_of(function, &id),
@@ -304,7 +847,7 @@ fn function(client: &Client, json: bool, command: FunctionCommand) -> Result<(),
                 &[],
                 Body::Json(json!({ "value": value })),
             )?;
-            done(json, reply, |function| {
+            done(json, reply, "function", |function| {
                 format!("set variable {name} on {}\n", name_of(function, &id))
             })
         }
@@ -317,7 +860,7 @@ fn function(client: &Client, json: bool, command: FunctionCommand) -> Result<(),
                 &[],
                 Body::None,
             )?;
-            done(json, reply, |function| {
+            done(json, reply, "function", |function| {
                 format!("removed variable {name} from {}\n", name_of(function, &id))
             })
         }
@@ -331,7 +874,7 @@ fn function(client: &Client, json: bool, command: FunctionCommand) -> Result<(),
                 &[],
                 Body::Json(json!({ "value": value })),
             )?;
-            done(json, reply, |function| {
+            done(json, reply, "function", |function| {
                 format!("set secret {name} on {}\n", name_of(function, &id))
             })
         }
@@ -344,25 +887,27 @@ fn function(client: &Client, json: bool, command: FunctionCommand) -> Result<(),
                 &[],
                 Body::None,
             )?;
-            done(json, reply, |function| {
+            done(json, reply, "function", |function| {
                 format!("removed secret {name} from {}\n", name_of(function, &id))
             })
         }
     }
 }
 
-/// The function a manage call answered with: `{ "function": { ... } }`.
-fn name_of(function: &Value, id: &str) -> String {
-    let name = function.get("name").and_then(Value::as_str).unwrap_or("");
-    if name.is_empty() {
-        render::clean(id)
-    } else {
-        format!("{} ({})", render::clean(name), render::clean(id))
+/// A resource a manage call answered with (`{ "function": { ... } }`) as
+/// `name (id)`; the id the API gave, else `fallback`.
+fn name_of(item: &Value, fallback: &str) -> String {
+    let name = item.get("name").and_then(Value::as_str).unwrap_or("");
+    let id = item.get("id").and_then(Value::as_str).unwrap_or(fallback);
+    match (name.is_empty(), id.is_empty()) {
+        (false, false) => format!("{} ({})", render::clean(name), render::clean(id)),
+        (false, true) => render::clean(name),
+        _ => render::clean(id),
     }
 }
 
-fn render_field(function: &Value, name: &str) -> String {
-    match function.get(name) {
+fn render_field(item: &Value, name: &str) -> String {
+    match item.get(name) {
         Some(Value::String(text)) => render::clean(text),
         Some(Value::Number(number)) => number.to_string(),
         _ => "-".to_string(),
@@ -381,13 +926,19 @@ fn show(
     print_bytes(human(&reply.json)?.as_bytes(), false)
 }
 
-/// Print what a change answered (`{ "function": ... }`): the bytes with `--json`, else one line.
-fn done(json: bool, reply: Reply, line: impl FnOnce(&Value) -> String) -> Result<(), CloudError> {
+/// Print what a change answered (`{ "function": ... }`, `{ "revoked": "..." }`):
+/// the bytes with `--json`, else the text made from the answer's `key`.
+fn done(
+    json: bool,
+    reply: Reply,
+    key: &str,
+    line: impl FnOnce(&Value) -> String,
+) -> Result<(), CloudError> {
     if json {
         return print_bytes(&reply.raw, true);
     }
-    let function = reply.json.get("function").cloned().unwrap_or(Value::Null);
-    print_bytes(line(&function).as_bytes(), false)
+    let item = reply.json.get(key).cloned().unwrap_or(Value::Null);
+    print_bytes(line(&item).as_bytes(), false)
 }
 
 /// Write to stdout. A closed pipe (`zega cloud projects | head`) ends the
@@ -524,8 +1075,8 @@ fn guidance(error: &ApiError, token_file: Option<&std::path::Path>) -> Vec<Strin
     }
     match error.effect.as_deref() {
         Some("nothing") => lines.push("The change did not take effect.".to_string()),
-        Some("partly") => lines.push("The change took effect in part: look at the function (`zega cloud functions <id>`) before you repeat it.".to_string()),
-        Some("unknown") => lines.push("It is not known whether the change took effect: look at the function (`zega cloud functions <id>`); repeating it is safe.".to_string()),
+        Some("partly") => lines.push("The change took effect in part: look at what you changed (`zega cloud projects|graphs|buckets|functions <id>`) before you repeat it.".to_string()),
+        Some("unknown") => lines.push("It is not known whether the change took effect: look at what you changed (`zega cloud projects|graphs|buckets|functions <id>`); repeating it is safe.".to_string()),
         _ => {}
     }
     lines
