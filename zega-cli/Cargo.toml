@@ -12,8 +12,15 @@ path = "src/main.rs"
 axum = "0.7"
 clap = { version = "4.6", features = ["derive"] }
 include_dir = "0.7"
+# Hidden prompt for `zega cloud login` and `function secret set` (no echo on
+# Unix and on the Windows console).
+rpassword = "7"
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "signal"] }
+# The HTTPS client for `zega cloud`: the one the engine already links for HTTP
+# loads (same version, same rustls), so no new crate for the transport.
+ureq = { version = "~3.4.2", default-features = false, features = ["rustls"] }
+url = "2.5"
 zega = { workspace = true }
 zega-server = { path = "../zega-server" }
 

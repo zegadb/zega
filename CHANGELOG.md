@@ -6,6 +6,14 @@ Changes that affect code using the `zega` crate, newest first. File formats
 
 ## Unreleased
 
+- **`zega cloud`: a command line for Zega Cloud's public management API**
+  (`https://cloud.zega.dev`). `login`, `logout` and `whoami` for an API token
+  made in the dashboard; `projects`, `graphs`, `buckets`, `functions`,
+  `usage`, `regions` and `function logs` to read (a table, or `--json` for the
+  API's own JSON); `function deploy`, `function var set|unset` and
+  `function secret set|unset` to change functions. Global flags `--api` and
+  `--token-file`. No effect on the `zega` crate. README, "Manage Zega Cloud".
+
 - **Read-only entry points: `Zega::run_lang_read` and `Zega::apply_zql_read`,
   and `ZegaError::NotARead`.** They run what `run_lang` and `apply_zql` run
   but refuse a `mutation` or a load (anywhere in a document) before anything
