@@ -110,6 +110,46 @@ optional `sources` object mapping literal ZQL locations to raw text. The engine
 parses and inserts that text. To execute a full ZQL file, set `document: true`
 and put the document in `query` (no separate schema needed).
 
+#### `QUERY /zql`: reads with the HTTP QUERY method
+
+`QUERY /zql` ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html)) runs a
+**read** and nothing else: it is safe, idempotent and carries the query in the
+request content. It answers exactly as `POST /zql` does for a read. A
+`mutation` (or a `mutation csv|json` load, or a `document: true` file with one
+mutation block anywhere in it) is refused with `422` before anything runs, and
+the graph is unchanged: send writes with `POST`. The engine does the refusing
+(`Zega::run_lang_read`, `Zega::apply_zql_read`), not the route.
+
+The content is one of two types, which `Accept-Query` and `Allow` list:
+
+```sh
+# the JSON request POST takes
+curl -s -X QUERY http://127.0.0.1:9342/zql \
+  -H 'Content-Type: application/json' \
+  -d '{"schema":"type Player { name: String }","query":"{ Player { name } }"}'
+# a ZQL document as the raw content: the schema is inside it, because this
+# server keeps none (a bare query would fail with "schema has no types")
+curl -s -X QUERY http://127.0.0.1:9342/zql \
+  -H 'Content-Type: application/zql' \
+  --data-binary $'schema { type Player { name: String } }\nquery { Player { name } }'
+```
+
+| request | status |
+|---|---|
+| a read | `200`, `{ "ok": true, "result": … }` |
+| no `Content-Type`, or one that is not a media type | `400` |
+| content that is not what its type says (not JSON, not a ZQL request, not UTF-8) | `400` |
+| a type other than `application/json` or `application/zql`, or a `charset` other than UTF-8 | `415`, with `Accept-Query` |
+| an `Accept` that excludes `application/json` | `406` |
+| a mutation, a load, or a document containing one | `422`, `code: "not_a_read"`, nothing changed |
+| ZQL the engine refuses (syntax, schema, time limit) | `422` (`POST` says `400`; same message and `code`) |
+| no or wrong bearer | `401` |
+| `OPTIONS /zql` | `204` with `Allow: OPTIONS, POST, QUERY` and `Accept-Query` |
+
+`QUERY` is served on `/zql` only. Its answers carry `Cache-Control: no-store`
+(RFC 10008 makes a QUERY answer cacheable by default; this one is
+authenticated and the graph changes under it).
+
 `GET /graph` returns the whole graph as a `.graph` file
 (`application/vnd.zega.graph`, [spec](docs/graph-format.md)); a client that
 prefers `application/json` in its `Accept` header gets the JSON view the

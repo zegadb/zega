@@ -17,7 +17,9 @@ pub fn app(state: AppState) -> Router {
         .route("/zega/sync/push", post(crate::sync::push))
         .route("/health", get(handlers::health))
         .route("/stats", get(handlers::stats))
-        .route("/zql", post(handlers::zql))
+        // `POST` is the original; every other method (QUERY, OPTIONS, and a 405 for
+        // the rest) goes to `zql_other`.
+        .route("/zql", post(handlers::zql).fallback(handlers::zql_other))
         .route("/vector-view", post(handlers::vector_view))
         // A `.graph` upload streams into the engine, so the JSON body limit
         // below does not apply to it.

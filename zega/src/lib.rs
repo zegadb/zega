@@ -54,6 +54,11 @@ pub enum ZegaError {
     Io(#[from] std::io::Error),
     #[error("execution error: {0}")]
     Execution(String),
+    /// A read-only entry point ([`Zega::run_lang_read`],
+    /// [`Zega::apply_zql_read`]) was given a statement that writes. Nothing
+    /// ran and nothing changed. The text says what it was given.
+    #[error("not a read: this is {0}")]
+    NotARead(String),
     /// A ZQL statement ran past the time limit set with
     /// [`ZegaBuilder::query_time_limit`]. It stopped where it was; a
     /// mutation's writes were rolled back.
