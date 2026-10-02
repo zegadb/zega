@@ -1,0 +1,12 @@
+{
+  "machine": "iMac20,2",
+  "cpu": "Intel(R) Core(TM) i9-10910 CPU @ 3.60GHz (10 cores / 20 threads)",
+  "ram_gb": 128,
+  "macos": "26.7 (build 25G229)",
+  "arch": "x86_64",
+  "docker": "29.5.2 (colima VM: 4 CPUs, ~7.75 GiB RAM — Neo4j in Docker shares this VM)",
+  "data_volume": "/Volumes/Projects is an external USB disk; zega data dirs and Docker volumes live on it",
+  "neo4j_image": "neo4j:5.26-community @ sha256:5eb12ad77fa46ab73e23df9ea1f43f5c0f2a79523435577648e046be042b9b93",
+  "neo4j_native_dist": "neo4j-community-5.26.0-unix.tar.gz (dist.neo4j.org), OpenJDK 21.0.12.1 (Homebrew openjdk@21)",
+  "date": "2026-10-02"
+}

@@ -1,0 +1,5 @@
+tag,engine,mode,size,state,rss_mb,ondisk_mb,notes
+z100000,zega,default,100000,empty,4.8,0.0,
+z100000,zega,default,100000,loaded,420.4,121.7,
+n100000,neo4j,docker-default,100000,empty,432.5,515.9,stats=424.7MB
+n100000,neo4j,docker-default,100000,loaded,789.3,515.9,stats=786.8MB

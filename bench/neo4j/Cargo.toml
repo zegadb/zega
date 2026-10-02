@@ -1,0 +1,27 @@
+# Benchmark: zega vs Neo4j (idle RAM, throughput). See README.md and
+# RESULTS.md in this directory. Not part of the root workspace: it builds a
+# standalone client with its own lockfile so the bench can pin neo4rs and be
+# rerun years later.
+[workspace]
+
+[package]
+name = "zega-neo4j-bench"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+# In-process load path for the zega side (the same calls zega-scale makes).
+zega = { path = "../../zega" }
+# Bolt driver for Neo4j. Neo4j ships no official Rust driver; neo4rs is the
+# community driver the repo already uses in zega-bench.
+neo4rs = "0.8"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+reqwest = { version = "0.12", features = ["json"] }
+
+[[bin]]
+name = "bench"
+path = "src/main.rs"
