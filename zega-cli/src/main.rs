@@ -1,14 +1,7 @@
 mod cloud;
 mod fmt;
 
-use axum::{
-    body::Body,
-    http::{header, StatusCode, Uri},
-    response::Response,
-    routing::get,
-};
 use clap::{Parser, Subcommand};
-use include_dir::{include_dir, Dir};
 use std::{
     io,
     net::{IpAddr, Ipv4Addr},
@@ -18,10 +11,8 @@ use tokio::net::TcpListener;
 use zega::Zega;
 use zega_server::AppState;
 
-static EXPLORER: Dir<'_> = include_dir!("$OUT_DIR/explorer");
-
 #[derive(Parser)]
-#[command(name = "zega-server", version, about = "Zega graph database and explorer")]
+#[command(name = "zega-server", version, about = "Zega graph database server")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -115,24 +106,6 @@ enum Command {
     Bundle {
         #[command(subcommand)]
         command: BundleCommand,
-    },
-    /// Serve the embedded explorer against a local database. Prints a URL; opens nothing.
-    Explorer {
-        #[arg(long, default_value_t = 9343)]
-        port: u16,
-        #[arg(long, default_value = "./zega-data")]
-        data: PathBuf,
-        #[arg(long)]
-        allow_private_imports: bool,
-        /// The largest .graph file `PUT /graph` accepts, in bytes.
-        #[arg(long, value_name = "BYTES", default_value_t = zega_server::DEFAULT_MAX_IMPORT_BYTES)]
-        max_import_bytes: u64,
-        /// Checkpoint once the WAL reaches this many MiB (and the size of the
-        /// last checkpoint): the graph is written to graphs/ and the WAL starts
-        /// over, so a restart replays at most about this much. 0 turns
-        /// automatic checkpoints off.
-        #[arg(long, value_name = "MIB", default_value_t = zega::DEFAULT_SNAPSHOT_EVERY_BYTES >> 20)]
-        snapshot_every_mb: u64,
     },
 }
 
@@ -321,7 +294,7 @@ fn report(command: &str, result: Result<(), Box<dyn std::error::Error>>) -> ! {
     }
 }
 
-/// Take the data directory's lock, the one `zega-server start` and `zega-server explorer`
+/// Take the data directory's lock, the one `zega-server start` and `zega-server import`
 /// hold for as long as they run: two processes never share a WAL.
 fn lock_data(data: &Path) -> Result<std::fs::File, Box<dyn std::error::Error>> {
     std::fs::create_dir_all(data)?;
@@ -447,7 +420,7 @@ fn serve_command(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    let (data, host, port, token_file, allow_private, explorer, time_limit, max_import, snapshot_every_mb) = match cli.command {
+    let (data, host, port, token_file, allow_private, time_limit, max_import, snapshot_every_mb) = match cli.command {
         Command::Fmt { .. }
         | Command::Cloud(_)
         | Command::Export { .. }
@@ -469,26 +442,8 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let limit = std::time::Duration::try_from_secs_f64(query_time_limit)
                 .map_err(|_| "--query-time-limit must be a number of seconds, 0 or more")?;
             let limit = (!limit.is_zero()).then_some(limit);
-            (data, host, port, token_file, allow_private_imports, false, limit, max_import_bytes, snapshot_every_mb)
+            (data, host, port, token_file, allow_private_imports, limit, max_import_bytes, snapshot_every_mb)
         }
-        Command::Explorer {
-            data,
-            port,
-            allow_private_imports,
-            max_import_bytes,
-            snapshot_every_mb,
-        } => (
-            data,
-            IpAddr::V4(Ipv4Addr::LOCALHOST),
-            port,
-            None,
-            allow_private_imports,
-            true,
-            // The explorer is one person's local database; nothing to share.
-            None,
-            max_import_bytes,
-            snapshot_every_mb,
-        ),
     };
     let token = token_file.map(std::fs::read_to_string).transpose()?;
     let token = token.as_deref().map(str::trim);
@@ -498,8 +453,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     if token.is_none() && host != IpAddr::V4(Ipv4Addr::LOCALHOST) {
         return Err("--token-file is required when --host is not 127.0.0.1".into());
     }
-    // Both commands can target the same directory; never let two CLI processes
-    // append independent graph histories to one WAL.
+    // Never let two CLI processes append independent graph histories to one WAL.
     let _data_lock = lock_data(&data)?;
     let path = data.to_str().ok_or("data path must be UTF-8")?;
     let snapshot_every = snapshot_every_mb
@@ -517,55 +471,12 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind((host, port)).await?;
     let address = listener.local_addr()?;
     println!("http://{address}");
-    if explorer {
-        let app = zega_server::routes::app(state)
-            .route(
-                "/explorer-config.json",
-                get(|| async { axum::Json(serde_config()) }),
-            )
-            .fallback(embedded);
-        axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown())
-            .await?;
-    } else {
-        axum::serve(listener, zega_server::routes::app(state))
-            .with_graceful_shutdown(shutdown())
-            .await?;
-    }
+    axum::serve(listener, zega_server::routes::app(state))
+        .with_graceful_shutdown(shutdown())
+        .await?;
     Ok(())
-}
-
-fn serde_config() -> std::collections::HashMap<&'static str, &'static str> {
-    std::collections::HashMap::from([("backend", "native")])
 }
 
 async fn shutdown() {
     let _ = tokio::signal::ctrl_c().await;
-}
-
-async fn embedded(uri: Uri) -> Response {
-    let path = uri.path().trim_start_matches('/');
-    let path = if path.is_empty() { "index.html" } else { path };
-    let Some(file) = EXPLORER.get_file(path) else {
-        return Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(Body::empty())
-            .unwrap();
-    };
-    let content_type = match path.rsplit('.').next() {
-        Some("html") => "text/html; charset=utf-8",
-        Some("js" | "mjs") => "text/javascript; charset=utf-8",
-        Some("css") => "text/css; charset=utf-8",
-        Some("wasm") => "application/wasm",
-        Some("json") => "application/json",
-        Some("geojson") => "application/geo+json",
-        Some("ttf") => "font/ttf",
-        _ => "text/plain; charset=utf-8",
-    };
-    Response::builder()
-        .header(header::CONTENT_TYPE, content_type)
-        .header(header::CACHE_CONTROL, "no-cache")
-        .header("x-content-type-options", "nosniff")
-        .body(Body::from(file.contents()))
-        .unwrap()
 }

@@ -197,56 +197,14 @@ fn token_file_requires_bearer_and_bad_configuration_fails() {
 }
 
 #[test]
-fn explorer_embeds_assets_and_shares_the_persistent_database() {
-    let directory = tempfile::tempdir().unwrap();
-    {
-        let server = Running::start("explorer", directory.path(), &[]);
-        let (status, body, mime) = server.request("GET", "/", None, None);
-        assert_eq!(status, 200);
-        assert!(mime.starts_with("text/html"));
-        assert!(String::from_utf8(body)
-            .unwrap()
-            .contains("<title>zega</title>"));
-        let (status, body, mime) = server.request("GET", "/pkg/zega_wasm_bg.wasm", None, None);
-        assert_eq!(status, 200);
-        assert_eq!(mime, "application/wasm");
-        assert_eq!(&body[..4], b"\0asm");
-        assert_eq!(server.request("GET", "/backend.js", None, None).0, 200);
-        for path in ["/map.js", "/map-style.js", "/table.js", "/theme.js"] {
-            let (status, _, mime) = server.request("GET", path, None, None);
-            assert_eq!(status, 200, "{path}");
-            assert!(mime.starts_with("text/javascript"), "{path}: {mime}");
-        }
-        let (status, font, mime) = server.request("GET", "/fonts/space-grotesk-700.ttf", None, None);
-        assert_eq!(status, 200);
-        assert_eq!(mime, "font/ttf");
-        assert!(!font.is_empty());
-        let (status, sample, _) = server.request("GET", "/samples/calgary.zql", None, None);
-        assert_eq!(status, 200);
-        assert!(String::from_utf8(sample).unwrap().contains("display"));
-        let (_, body, _) = server.request("GET", "/explorer-config.json", None, None);
-        assert_eq!(
-            serde_json::from_slice::<Value>(&body).unwrap(),
-            json!({"backend":"native"})
-        );
-        for path in [
-            "/.git/config",
-            "/Cargo.toml",
-            "/missing.js",
-            "/pkg/missing.wasm",
-        ] {
-            assert_eq!(server.request("GET", path, None, None).0, 404);
-        }
-        assert_eq!(
-            server.zql("mutation { Player(name: \"Explorer\" && salary: 9) { name salary } }"),
-            json!({"name":"Explorer","salary":9})
-        );
-    }
-    let server = Running::start("start", directory.path(), &[]);
-    assert_eq!(
-        server.zql("{ Player { name salary } }"),
-        json!([{"name":"Explorer","salary":9}])
-    );
+fn the_explorer_is_the_zega_command_s_not_this_server_s() {
+    // `zega explorer` (the zegadb/cli package) serves the explorer page; this binary is the database only.
+    let output = Command::new(BIN).arg("explorer").output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("unrecognized subcommand 'explorer'"), "{stderr}");
+    let help = Command::new(BIN).arg("--help").output().unwrap();
+    assert!(!String::from_utf8_lossy(&help.stdout).contains("explorer"));
 }
 
 #[test]
@@ -286,11 +244,7 @@ fn help_version_and_defaults_are_available_without_starting_a_server() {
         String::from_utf8(version.stdout).unwrap().trim(),
         format!("zega-server {}", env!("CARGO_PKG_VERSION"))
     );
-    for args in [
-        vec!["--help"],
-        vec!["start", "--help"],
-        vec!["explorer", "--help"],
-    ] {
+    for args in [vec!["--help"], vec!["start", "--help"]] {
         let output = Command::new(BIN).args(&args).output().unwrap();
         assert!(output.status.success());
         let help = String::from_utf8(output.stdout).unwrap();
@@ -302,9 +256,6 @@ fn help_version_and_defaults_are_available_without_starting_a_server() {
                     && help.contains("--max-import-bytes")
             );
         }
-        if args[0] == "explorer" {
-            assert!(help.contains("9343"));
-        }
     }
 }
 
@@ -314,14 +265,14 @@ fn only_one_cli_process_owns_a_data_directory() {
     {
         let _server = Running::start("start", directory.path(), &[]);
         let output = Command::new(BIN)
-            .args(["explorer", "--port", "0", "--data"])
+            .args(["start", "--port", "0", "--data"])
             .arg(directory.path().join("db"))
             .output()
             .unwrap();
         assert!(!output.status.success());
         assert!(String::from_utf8_lossy(&output.stderr).contains("already in use"));
     }
-    let server = Running::start("explorer", directory.path(), &[]);
+    let server = Running::start("start", directory.path(), &[]);
     assert_eq!(server.request("GET", "/health", None, None).0, 200);
 }
 

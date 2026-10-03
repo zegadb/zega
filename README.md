@@ -51,8 +51,6 @@ zega-server --help
 zega-server --version
 zega-server start --data ./data
 # http://127.0.0.1:9342
-zega-server explorer --data ./data
-# http://127.0.0.1:9343
 zega-server export graph.graph --data ./data
 zega-server import graph.graph --data ./other --replace
 ```
@@ -69,19 +67,21 @@ it: use `GET /graph` and `PUT /graph` then.
 
 The CLI locks its data directory for the life of the process; starting another
 CLI process against that directory fails instead of sharing the WAL. `start` defaults to port **9342** (ZEGA on a
-phone keypad); `explorer` defaults to **9343**. Both accept `--port 0` to ask the
-OS for an available port and print the actual URL. The default data directory
-is `./zega-data`. The explorer serves the embedded browser bundle and uses the
-native database for every query, import and graph edit; it never opens a browser
-automatically or reseeds an existing database. Its editor currently loads Monaco
-from the same CDN used by the standalone explorer, so editor startup needs a
-network connection even though the application assets and wasm are embedded.
+phone keypad) and accepts `--port 0` to ask the OS for an available port and print the
+actual URL. The default data directory is `./zega-data`.
+
+The explorer is not part of this binary. It belongs to the `zega` command (the
+[zegadb/cli](https://github.com/zegadb/cli) package, which bundles this server):
+`zega explorer` serves the explorer page on a database it starts with
+`zega-server start`, and `zega start --explorer` serves it on the server it starts.
+The page's source stays in [browser/](browser/), shared with the playground; its
+`build:cli` build is what that command vendors.
 
 `zega-server start --host 0.0.0.0 --token-file ./token --data ./data` enables an
 explicit remote bind. The file must contain one nonempty bearer token (a final
 newline is fine). With a token file, every database route requires
 `Authorization: Bearer <token>`, including `/health`. Without one, only the exact
-address `127.0.0.1` is accepted. Explorer always binds to `127.0.0.1`.
+address `127.0.0.1` is accepted.
 Configuration is through flags; product behavior does not use environment
 variables. The old server executable, environment-variable startup and `/cql`
 route have been removed.
@@ -429,7 +429,7 @@ consumer that depends on `zega` by path and is never published:
 |---|---|
 | `zega` | the database: the only thing on crates.io |
 | `zega-server` | reusable ZQL HTTP service |
-| `zega-cli` | `zega-server start` and the embedded `zega-server explorer` |
+| `zega-cli` | the `zega-server` executable: `start`, `export`, `import`, `fmt`, `bundle`, `schema-diff`, `cloud` |
 | `zega-wasm` | wasm-bindgen wrapper for the browser (in-memory) |
 | `zega-bench` | the ZQL-vs-Neo4j benchmark |
 

@@ -78,18 +78,28 @@ The explorer sends no Content-Security-Policy today, so nothing blocks the
 connection; the same spec fails if a policy is added without api.zega.dev in
 `connect-src`.
 
-## Native CLI mode
+## Native mode and the `zega` command
 
-`zega-server explorer --data ./data` serves the same static application embedded in the
-binary at `http://127.0.0.1:9343`. It opens nothing automatically. The CLI provides
-`/explorer-config.json`, selecting the native `/zql` and `/graph` backend. File
-picker imports still pass raw text to Rust; normal ZQL URL/path loads use the
-native library transport. Opening or reloading the UI never seeds the database.
-The standalone deployed site remains a wasm/localStorage database.
+The page has three modes, and `/explorer-config.json` says which. No such file: the
+standalone site, a wasm/localStorage database in the browser. `{ "backend": "native" }`:
+the page talks to a database's own HTTP routes (`/zql`, `/graph`, ...) on its own
+origin. `{ "backend": "native", "ui": "cli", ... }`: the `zega` command's page (the
+[zegadb/cli](https://github.com/zegadb/cli) package, `zega explorer` and
+`zega start --explorer`), which serves it in front of a `zega-server start` it runs.
+The explorer subcommand of `zega-server` itself is gone: this binary is the database only.
+
+`npm run build:cli` makes `dist-cli/`, the page for that command: the same source as the
+site without its links, sample buttons, examples and demo components (the elements marked
+`data-site-only` in `index.html` are removed, and the build fails if a link to the site is
+left). It opens on the user's own database or a cloud graph, with an empty state, and
+reaches a cloud graph through the command (`remote.base`: its requests are passed on, so the
+cloud router's CORS rule does not apply). zegadb/cli vendors it with `bun run
+explorer:update`. `tests/cli-page.spec.js` runs it.
 
 After `cargo build --locked -p zega-cli` from the workspace with
 `CARGO_TARGET_DIR=.target`, run `npm run test:cli` here for the real Chromium
-native-backend import/reload/restart test. `assets.json` is the shared static
+native-backend import/reload/restart test. `cli-tests/harness.mjs` stands in for the
+command's serving: it starts `zega-server start` and serves `dist/` in front of it. `assets.json` is the shared static
 bundle inventory used by both `npm run build` and the CLI's build script; a
 normal Cargo build needs no Node installation. The build validates the vendored
 wasm hashes before embedding the bundle.

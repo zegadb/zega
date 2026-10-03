@@ -1,24 +1,10 @@
 import { test, expect } from '../tests/offline.js';
 import { tileFixture } from '../tests/map-fixture.js';
-import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { createInterface } from 'node:readline';
+import { start } from './harness.mjs';
 
-async function start(directory) {
-  const child = spawn(resolve('../.target/debug/zega-server'), ['explorer', '--port', '0', '--data', directory], { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] });
-  let stderr = '';
-  child.stderr.on('data', (data) => { stderr += data; });
-  const url = await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { child.kill(); reject(Error(`CLI startup timed out: ${stderr}`)); }, 15000);
-    child.once('error', (error) => { clearTimeout(timeout); reject(error); });
-    child.once('exit', (code) => { clearTimeout(timeout); reject(Error(`CLI exited ${code}: ${stderr}`)); });
-    createInterface({ input: child.stdout }).once('line', (line) => { clearTimeout(timeout); resolve(line); });
-  });
-  return { url, async stop() { if (child.exitCode !== null) return; const exit = new Promise((resolve) => child.once('exit', resolve)); child.kill(); await exit; } };
-}
-
-test('embedded explorer writes through native ZQL and preserves data across reload and restart', async ({ page, request }) => {
+test('the explorer page writes through native ZQL and preserves data across reload and restart', async ({ page, request }) => {
   await mkdir('.tmp', { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(resolve('.tmp/cli-ui-'));
   let server = await start(directory);
@@ -65,7 +51,7 @@ test('embedded explorer writes through native ZQL and preserves data across relo
 });
 
 
-test('embedded Calgary Point map uses native storage and survives reload and restart', async ({ page, request }) => {
+test('the explorer page: the Calgary Point map uses native storage and survives reload and restart', async ({ page, request }) => {
   await mkdir('.tmp', { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(resolve('.tmp/cli-map-'));
   let server = await start(directory);
@@ -124,7 +110,7 @@ test('embedded Calgary Point map uses native storage and survives reload and res
   } finally { await server.stop(); await rm(directory, { recursive: true, force: true }); }
 });
 
-test('embedded explorer serves the tickets sample in both vector views', async ({ page }) => {
+test('the explorer page serves the tickets sample in both vector views', async ({ page }) => {
   await mkdir('.tmp', { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(resolve('.tmp/cli-vectors-'));
   const server = await start(directory);
@@ -149,7 +135,7 @@ test('embedded explorer serves the tickets sample in both vector views', async (
 });
 
 
-test('native explorer formats both editor panes through the shared WASM export', async ({ page }) => {
+test('the explorer page on a native database formats both editor panes through the shared WASM export', async ({ page }) => {
   await mkdir('.tmp', { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(resolve('.tmp/cli-format-'));
   const server = await start(directory);
@@ -199,7 +185,7 @@ test('native storage and WASM checker agree on URL documents and Space preview',
   } finally { await server.stop();await rm(directory,{recursive:true,force:true}); }
 });
 
-test('native explorer serves the country outlines and highlights String<iso2> nodes on the globe', async ({ page, request }) => {
+test('the explorer page on a native database serves the country outlines and highlights String<iso2> nodes on the globe', async ({ page, request }) => {
   await tileFixture(page);
   await mkdir('.tmp', { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(resolve('.tmp/cli-globe-'));
