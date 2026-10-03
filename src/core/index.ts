@@ -1,26 +1,12 @@
-// node
-import os from 'node:os'
-import path from 'node:path'
-import fs from 'node:fs'
-import Database from 'better-sqlite3'
-
-export { config } from './config/config'
-export { add } from './add/add'
-export { status } from './status/status'
-
-// Use the user's home directory to store the application data
-const appDataPath = path.join(os.homedir(), '.kebele')
-
-const dbPath = path.join(appDataPath, 'kb.db');
-
-if (!fs.existsSync(appDataPath)) {
-    fs.mkdirSync(appDataPath, { recursive: true });
-}
-
-const db = new Database(dbPath);
-
-export {
-    appDataPath,
-    dbPath,
-    db
-}
+export { login } from './login/login'
+export { logout } from './logout/logout'
+export { whoami } from './whoami/whoami'
+export { init } from './init/init'
+export { projects } from './projects/projects'
+export { graphs } from './graphs/graphs'
+export { buckets } from './buckets/buckets'
+export { functions } from './functions/functions'
+export { functionLogs } from './function/function'
+export type { LogsOptions } from './function/function'
+export { usage } from './usage/usage'
+export { regions } from './regions/regions'
