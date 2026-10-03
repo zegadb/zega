@@ -94,7 +94,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
             ? `none (--local-graph points ${urlVar} at a local zega-server, --cloud-graph <id> at a cloud graph)`
             : graph.kind === 'local'
               ? `LOCAL zega-server at ${graph.url} as ${urlVar}` +
-                (graph.reachable ? '' : ' (nothing answers there yet: start it with `zega-server start`)')
+                (graph.reachable ? '' : ' (nothing answers there yet: start it with `zega start`)')
               : `CLOUD graph ${graph.id} "${graph.name}" at ${graph.url} as ${urlVar}; its key must be ${keyVar} in .dev.vars (this command never sends your API token to a function or to the graph)`
     if (options.json === true) {
         await write(

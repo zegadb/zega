@@ -209,7 +209,7 @@ describe('zega dev: which graph', () => {
         const dead = `http://127.0.0.1:${freePort()}`
         const { dev, url } = await serve(dir, [`--local-graph=${dead}`, '--graph-url-var', 'DB_URL'])
         expect(((await (await fetch(url)).json()) as { env: object }).env).toEqual({ DB_URL: dead })
-        expect(dev.stdout()).toContain('(nothing answers there yet: start it with `zega-server start`)')
+        expect(dev.stdout()).toContain('(nothing answers there yet: start it with `zega start`)')
 
         const remote = await startDev(['--local-graph=https://x.zegadb.com'], { cwd: dir, home })
         expect(await remote.exited).toBe(1)

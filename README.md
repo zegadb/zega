@@ -67,6 +67,9 @@ zega login [--store file|keychain]   store an API token
 zega logout                          remove the stored token
 zega whoami                          who you are, and the token: name, scope, project, expiry
 zega init                            write zega.json for a project here
+zega start [args]                    run the zega-server that ships with this CLI (zega-server start)
+zega explorer [graph]                the explorer for a local database; with a graph id, its console address
+
 zega build [id]                      bundle the functions zega.json lists into dist/<id>.js (no upload, no token)
 zega dev [id]                        serve them on localhost with Bun, rebuilt when a file changes
 zega deploy [id]                     bundle and upload the functions zega.json lists
@@ -92,6 +95,47 @@ Global options: `--api <url>`, `--token-file <path>`, `--json`.
 - With `--json` stdout is the API's answer unchanged, one per function; the size line is on stderr.
 
 `zega function logs <id>` takes `--from`, `--to`, `--limit` (1 to 200), `--status`, `--search` and `--cursor`.
+
+### start
+
+`zega start [args]` runs `zega-server start [args]`, the database server that ships with this CLI: the arguments are passed through untouched (`zega start --data ./data --port 9342`, `--host 0.0.0.0 --token-file ./token`; `--help` is the server's own), stderr is the server's, and the exit code is the server's (128 plus the signal if it was killed by one). SIGTERM and SIGHUP sent to `zega` reach the server; so does SIGINT unless a terminal is attached, where Ctrl-C already reaches both. What is `zega`'s own, taken out of the arguments: `--explorer`, `--explorer-port <n>`, `--json` and `--server <path>`.
+
+On a terminal it says what is running in a banner (the mark, a tagline, a rule, then a line each); without a terminal, or with `--json`, it prints one JSON line with the same facts:
+
+```
+  ➜  Local:     http://127.0.0.1:9342
+  ➜  Explorer:  (stopped)
+       zega start --explorer
+```
+
+```
+{"server":{"url":"http://127.0.0.1:9342","status":"running"},"explorer":{"url":null,"status":"stopped"}}
+```
+
+`zega start --explorer` starts the server and serves the explorer (below) on the same database, on 9343 (`--explorer-port <n>`; 0 chooses a free one); both lines then have their addresses. If the server needs a token (`--token-file`), the explorer adds it to the requests it passes on: the page never has it.
+
+Which server: the binary of the npm package `@zegadb/server-<os>-<cpu>` (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win32-x64`; one file, `bin/zega-server`), which `zegadb` lists as optionalDependencies at the exact version of the zega release this CLI is tested against, as create-deka-app does for deka. It is looked for from where the CLI's code is, then from where the running executable is, in each one's `node_modules` and every `node_modules` above. **It is never the `zega-server` on `PATH`.** If the package for this machine is not installed, `zega start` exits 1 naming the package and the platform (reinstall `zegadb` without `--omit=optional`). `--server <path>` runs another build, for development.
+
+### explorer
+
+```
+zega explorer [--port 9343] [--data ./zega-data]
+zega explorer <graph>
+```
+
+`zega explorer` runs the bundled `zega-server start` on the data directory (on a port of its own, 127.0.0.1) and serves the explorer page on 127.0.0.1:9343, then prints the address and opens nothing (a browser is yours to open). Ctrl-C stops both. It exits 1 if the database cannot start (a data directory another process holds, say; the server's own words are printed) or the port is taken. `--json` prints `{ "url", "data", "server" }`.
+
+The page is zegadb/zega's explorer in its CLI form: the same source as the zega.dev playground, built without the website's links, sample graphs and examples, so it opens on your own database and has nothing else in it. The bar says what it is connected to (`local server · zega-data`, or `cloud graph · <name>`) and has one button to switch between the two. An empty database says so and shows how to load data (Import, or a ZQL mutation); `clear` asks before it deletes anything. Writes go to the real engine in `zega-server`, so the database is persistent and the same one `zega start` serves.
+
+**A cloud graph** is connected from the same page: **Connect to remote graph**, then the graph and its key (`zk_...`, made in the dashboard). If you are logged in the graphs of your account are offered by name. The page's requests go to `zega`, which passes them on to the graph's own address with the key the page sent; the cloud only ever sees a server, so its CORS rule does not apply, and `zega` keeps nothing (no key, no body, no log of either). Your API token is used only to list your graphs and find their addresses, and never goes to a graph.
+
+`zega explorer <graph>` prints instead the address of that cloud graph's console in the dashboard (`https://dashboard.zega.dev/graphs/<id>/console`; the project-first layout in zegadb/dashboard#44 redirects it), after asking the API that the graph exists. `--json` prints `{ "url" }`. It needs a token (`zega login` or `--token-file`).
+
+Only 127.0.0.1 is served. A page of another website must not be able to drive your database through your machine, so a request must carry this server's own `Host` (against DNS rebinding), and one that can change anything must have no `Origin` or its own.
+
+The page is vendored in `src/explorer/` (built files and `inventory.json`: the zegadb/zega commit and the SHA-256 of each file; `bun test` fails if they disagree). It is embedded in the compiled executables. To update it: commit the change in a zegadb/zega checkout, then `bun run explorer:update ../zega` here (it builds `browser/` with `npm run build:cli`, refuses a dirty checkout, and rewrites `src/explorer/`). `zega explorer --assets <dir>` serves a build of the page from a directory instead (a `browser/dist-cli` you are working on), and `--server <path>` runs another zega-server.
+
+Two things the page still takes from the network, as the playground does: the editor (Monaco, from cdn.jsdelivr.net) and map tiles.
 
 ### build
 

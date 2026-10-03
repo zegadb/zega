@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import pkg from '../package.json'
+import { FAKE_SERVER, startCli } from './cli_helpers'
 import { FN, eventually, freePort, startDev, writeProject } from './dev_helpers'
 import { FIXTURES, FUNCTION_ID, TOKEN, callBundle, deployedFunction, fakeApi, regionsBody, remove, scratch } from './helpers'
 
@@ -108,6 +109,34 @@ describe('the compiled executable', () => {
         expect(result.code).toBe(1)
         expect(result.stderr).toContain('Node built-ins are not available in Zega Cloud functions yet: node:crypto in src/crypto.ts')
     })
+    test.skipIf(process.platform === 'win32')('zega start runs the server it is pointed at, with the arguments and the exit code passed through', async () => {
+        const fake = path.join(dir, 'fake-zega-server')
+        fs.writeFileSync(fake, '#!/bin/sh\necho "got $*"\nexit 5\n', { mode: 0o755 })
+        const result = await run(['start', '--data', './d', '--token-file', './t', '--server', fake])
+        expect(result.stdout).toBe('got start --data ./d --token-file ./t\n')
+        expect(result.code).toBe(5)
+        const missing = await run(['start', '--port', '0'], { path: '/nonexistent' })
+        expect(missing.code).toBe(1)
+        expect(missing.stderr).toContain('is not installed: it is the npm package @zegadb/server-')
+    })
+    test.skipIf(process.platform === 'win32')('zega explorer serves the page embedded in the executable, on a database server it starts, and stops it again', async () => {
+        const data = path.join(dir, 'explorer-data')
+        const cli = startCli(['explorer', '--port', '0', '--server', FAKE_SERVER, '--data', data], { cwd: dir, home: dir, command: [exe] })
+        await cli.until('Ctrl-C to stop', 'stderr')
+        const url = cli.stdout().split('\n')[0]!
+        expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
+        const html = await (await fetch(url)).text()
+        expect(html).toContain('<title>zega</title>')
+        expect(html).not.toContain('zega.dev')
+        const wasm = await fetch(`${url}/pkg/zega_wasm_bg.wasm`)
+        expect(wasm.headers.get('content-type')).toBe('application/wasm')
+        expect((await wasm.arrayBuffer()).byteLength).toBeGreaterThan(1_000_000)
+        expect((await (await fetch(`${url}/graph`)).json())).toEqual({ ok: true, result: { nodes: [], rels: [] } })
+        cli.signal('SIGTERM')
+        expect(await cli.exited).toBe(0)
+        expect(fs.existsSync(path.join(data, 'stopped'))).toBe(true)
+    }, 30_000)
+
     test('zega build and zega dev work inside the executable: no bun on the PATH, a dependency, cloudflare:workers, a reload', async () => {
         const project = writeProject(
             {
