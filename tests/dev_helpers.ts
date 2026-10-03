@@ -84,7 +84,8 @@ export async function startDev(
     void pump(child.stdout, (t) => (out += t))
     void pump(child.stderr, (t) => (err += t))
     const until = async (text: string, where: 'stdout' | 'stderr' = 'stdout') => {
-        const deadline = Date.now() + 20_000
+        // Framework dev servers can need more than 20 seconds after a cold install/build.
+        const deadline = Date.now() + 60_000
         while (Date.now() < deadline) {
             if ((where === 'stdout' ? out : err).includes(text)) return
             if (child.exitCode !== null) break
@@ -108,10 +109,11 @@ export async function startDev(
 /** Fetch until the body satisfies the check (a rebuild is asynchronous), or fail with the last body. */
 export async function eventually(url: string, check: (body: string) => boolean): Promise<string> {
     let last = ''
-    const deadline = Date.now() + 15_000
+    // Astro's cold Cloudflare dev runtime can take a while to accept its first request.
+    const deadline = Date.now() + 60_000
     while (Date.now() < deadline) {
         try {
-            last = await (await fetch(url)).text()
+            last = await (await fetch(url, { signal: AbortSignal.timeout(2_000) })).text()
             if (check(last)) return last
         } catch {
             // not up yet
