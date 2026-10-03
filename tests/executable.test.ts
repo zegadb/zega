@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import pkg from '../package.json'
+import { FN, eventually, freePort, startDev, writeProject } from './dev_helpers'
 import { FIXTURES, FUNCTION_ID, TOKEN, callBundle, deployedFunction, fakeApi, regionsBody, remove, scratch } from './helpers'
 
 /**
@@ -107,4 +108,30 @@ describe('the compiled executable', () => {
         expect(result.code).toBe(1)
         expect(result.stderr).toContain('Node built-ins are not available in Zega Cloud functions yet: node:crypto in src/crypto.ts')
     })
+    test('zega build and zega dev work inside the executable: no bun on the PATH, a dependency, cloudflare:workers, a reload', async () => {
+        const project = writeProject(
+            {
+                'src/index.ts': "import { env } from 'cloudflare:workers'\nimport { word } from './word'\nexport default { fetch: () => new Response(word + ' ' + env.NAME) }\n",
+                'src/word.ts': "export const word = 'one'\n",
+            },
+            [{ id: FN, entry: 'src/index.ts' }],
+        )
+        fs.writeFileSync(path.join(project, '.dev.vars'), 'NAME=exe\n')
+        const built = await run(['build'], { cwd: project, path: '/nonexistent' })
+        expect(built.code).toBe(0)
+        expect(fs.readFileSync(path.join(project, 'dist', `${FN}.js`), 'utf8')).toContain('cloudflare:workers')
+
+        const port = freePort()
+        const devRun = await startDev(['--port', String(port)], { cwd: project, home: dir, command: [exe], env: { PATH: '/nonexistent' } })
+        try {
+            await devRun.until('watching')
+            const url = `http://127.0.0.1:${port}`
+            expect(await (await fetch(url)).text()).toBe('one exe')
+            fs.writeFileSync(path.join(project, 'src', 'word.ts'), "export const word = 'two'\n")
+            expect(await eventually(url, (body) => body === 'two exe')).toBe('two exe')
+        } finally {
+            await devRun.stop()
+            remove(project)
+        }
+    }, 30_000)
 })
