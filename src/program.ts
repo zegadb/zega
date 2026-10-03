@@ -17,8 +17,12 @@ program
     .option('--api <url>', 'use another API (e.g. staging)')
     .option('--token-file <path>', 'read the token from a file (CI, agents)')
     .option('--human', 'readable output for people')
+    .option('--nopretty', 'compact JSON')
     // A command-line mistake is JSON on stderr like any other error (text with --human).
-    .configureOutput({ outputError: (text, out) => out(usageError(text, process.argv.slice(2).includes('--human'))) })
+    .configureOutput({ outputError: (text, out) => {
+            const argv = process.argv.slice(2)
+            out(usageError(text, { human: argv.includes('--human'), nopretty: argv.includes('--nopretty') }))
+        } })
     // The help is JSON too, written from the command definitions below, never by hand.
     .configureHelp({ formatHelp: (cmd, helper) => helpJson(cmd, helper), showGlobalOptions: true })
     // `zega <cmd> --help` covers it; a lone "Commands:" group with only `help` is noise.
@@ -38,7 +42,7 @@ function action<A extends unknown[]>(run: (...args: A) => Promise<void>) {
             const options = globals()
             await write(
                 'stderr',
-                describe(error, { api: options.api ?? null, tokenFile: options.tokenFile ?? null }, options.human === true),
+                describe(error, { api: options.api ?? null, tokenFile: options.tokenFile ?? null, nopretty: options.nopretty === true }, options.human === true),
             )
             process.exitCode = 1
         }

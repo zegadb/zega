@@ -1,4 +1,5 @@
 import { DASHBOARD } from '@/utils/constants'
+import { formatJson } from '@/utils/pretty'
 
 /** Why a command failed. Every one of these ends the process with exit code 1. */
 export type ZegaError = ApiFailure | NetworkFailure | LocalFailure
@@ -54,6 +55,8 @@ export type ErrorContext = {
     api: string | null
     /** `--token-file` as typed, when given. */
     tokenFile: string | null
+    /** `--nopretty`: the JSON is one compact line on a terminal too. */
+    nopretty?: boolean
 }
 
 /** The code, message and hint of a failure: the one source of both the JSON and the readable text. */
@@ -77,10 +80,10 @@ export function report(error: ZegaError, context: ErrorContext): Report {
 export function describe(error: unknown, context: ErrorContext, human: boolean): string {
     if (!isZegaError(error)) {
         const message = error instanceof Error ? error.message : String(error)
-        return human ? `zega: ${clean(message)}\n` : JSON.stringify({ error: { code: 'error', message, hint: null } }) + '\n'
+        return human ? `zega: ${clean(message)}\n` : formatJson({ error: { code: 'error', message, hint: null } }, { stream: 'stderr', nopretty: context.nopretty })
     }
     const { code, message, hint } = report(error, context)
-    if (!human) return JSON.stringify({ error: { code, message, hint } }) + '\n'
+    if (!human) return formatJson({ error: { code, message, hint } }, { stream: 'stderr', nopretty: context.nopretty })
     if (error instanceof LocalFailure) return `zega: ${error.message}\n`
     if (error instanceof NetworkFailure) {
         let text = `zega: could not reach ${error.host}: ${clean(error.detail)}\n`
@@ -93,11 +96,11 @@ export function describe(error: unknown, context: ErrorContext, human: boolean):
 }
 
 /** A command-line mistake (an unknown option, a bad value), as commander words it. */
-export function usageError(message: string, human: boolean): string {
+export function usageError(message: string, how: { human: boolean; nopretty: boolean }): string {
     const text = message.replace(/^error: /, '').trim()
-    return human
+    return how.human
         ? `error: ${text}\nhint: zega --help\n`
-        : JSON.stringify({ error: { code: 'usage', message: text, hint: 'zega --help' } }) + '\n'
+        : formatJson({ error: { code: 'usage', message: text, hint: 'zega --help' } }, { stream: 'stderr', nopretty: how.nopretty })
 }
 
 export function guidance(error: ApiFailure, tokenFile: string | null): string[] {

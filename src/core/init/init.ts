@@ -3,7 +3,7 @@ import path from 'node:path'
 import { openSessionIfAny, projectConfig, regionChoices, type Globals } from '@/handlers'
 import * as questions from '@/questions'
 import { LocalFailure } from '@/utils/errors'
-import { answer, canPrompt, json, welcome, write } from '@/utils'
+import { answer, canPrompt, result, welcome, write } from '@/utils'
 
 export type InitOptions = Globals & {
     name?: string
@@ -97,7 +97,7 @@ export async function init(options: InitOptions): Promise<void> {
     }
     const file = projectConfig.write(dir, config)
     if (options.human !== true) {
-        await write('stdout', json({ file, config }))
+        await result(options, { file, config })
         return
     }
     const deploys = (config.functions ?? []).map((item) => `Deploys  ${item.id} from ${item.entry}\n`).join('')

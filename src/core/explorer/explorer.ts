@@ -6,7 +6,7 @@ import { DEFAULT_PORT, serveDatabaseExplorer, type Serving } from '@/handlers/ex
 import { resolveServer } from '@/handlers/server_binary'
 import { LocalFailure } from '@/utils/errors'
 import { DASHBOARD } from '@/utils/constants'
-import { json, write } from '@/utils'
+import { event, result, write } from '@/utils'
 
 export type ExplorerOptions = Globals & {
     /** The explorer's own port (default 9343, as `zega-server explorer` had); 0 asks the OS. */
@@ -45,7 +45,8 @@ async function consoleUrl(id: string, options: ExplorerOptions): Promise<void> {
     const { graph } = (await session.client.get('/v1/graphs/{graph}', { path: { graph: id } })).json
     // `/graphs/<id>/console` is the dashboard's address today; its project-first layout redirects it (zegadb/dashboard#44).
     const url = `${dashboardFor(session.api)}/graphs/${encodeURIComponent(graph.id)}/console`
-    await write('stdout', options.human === true ? `${url}\n` : json({ url }))
+    if (options.human === true) await write('stdout', `${url}\n`)
+    else await result(options, { url })
 }
 
 async function serveLocal(options: ExplorerOptions): Promise<void> {
@@ -70,7 +71,7 @@ async function serveLocal(options: ExplorerOptions): Promise<void> {
         await write('stdout', `${web.url}\n`)
         await write('stderr', `explorer for ${data} (database server at ${local.url}); Ctrl-C to stop\n`)
     } else {
-        await write('stdout', json({ event: 'ready', url: web.url, data, server: local.url }))
+        await write('stdout', event({ event: 'ready', url: web.url, data, server: local.url }))
     }
 
     const reason = await Promise.race([

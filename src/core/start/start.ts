@@ -8,7 +8,7 @@ import { DEFAULT_PORT, serveDatabaseExplorer, type Serving } from '@/handlers/ex
 import { flagValue, resolveServer, takeStartFlags } from '@/handlers/server_binary'
 import { LocalFailure } from '@/utils/errors'
 import { startBanner } from '@/utils/banner'
-import { json, showLogo, write } from '@/utils'
+import { event, showLogo, write } from '@/utils'
 
 /** The signals worth forwarding: a supervisor's stop, and a hang-up. */
 const FORWARDED = ['SIGTERM', 'SIGHUP'] as const
@@ -23,7 +23,7 @@ export type Running = { server: string; explorer: string | null }
 
 /** The `ready` event, one JSON line: each thing's address and whether it is running. */
 export function runningJson(running: Running): string {
-    return json({
+    return event({
         event: 'ready',
         server: { url: running.server, status: 'running' },
         explorer: running.explorer === null ? { url: null, status: 'stopped' } : { url: running.explorer, status: 'running' },
@@ -56,10 +56,10 @@ function relay(human: boolean) {
             pending += text
             const lines = pending.split('\n')
             pending = lines.pop() ?? ''
-            for (const line of lines) await write('stdout', json({ event: 'output', line }))
+            for (const line of lines) await write('stdout', event({ event: 'output', line }))
         },
         async end(): Promise<void> {
-            if (pending !== '') await write('stdout', json({ event: 'output', line: pending }))
+            if (pending !== '') await write('stdout', event({ event: 'output', line: pending }))
             pending = ''
         },
     }

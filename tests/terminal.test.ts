@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { TOKEN, credentialsFile, errorOf, fakeApi, graph, regionsBody, remove, scratch, whoamiRoute, whoamiShown } from './helpers'
+import { TOKEN, credentialsFile, fakeApi, graph, regionsBody, remove, scratch, whoamiRoute, whoamiShown } from './helpers'
 
 /**
  * A real terminal (a pty). With `--human` the wizard asks, takes typed answers, and the
@@ -156,13 +156,13 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
         ] as const) {
             const session = await onTerminal([...args, '--api', api.url, '--token-file', tokenFile], { home, cwd: home })
             expect(await session.exited).toBe(0)
-            // A pty turns \n into \r\n; the text is otherwise the API's own, byte for byte.
+            // On a terminal the JSON is pretty-printed (a pty turns \n into \r\n); it is the API's answer all the same.
             const answers: Record<string, unknown> = {
                 'GET /v1/whoami': whoamiShown, // the API's answer without the token's prefix
                 'GET /v1/regions': regionsBody,
                 'GET /v1/graphs': { graphs: [graph] },
             }
-            expect(session.output.replace(/\r\n/g, '\n')).toBe(JSON.stringify(answers[route]) + '\n')
+            expect(session.output.replace(/\r\n/g, '\n')).toBe(JSON.stringify(answers[route], null, 2) + '\n')
             expect(session.output).not.toContain('\u001b')
         }
     })
@@ -189,8 +189,9 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
             const login = await onTerminal(['login', '--api', api.url], { home: dir, cwd: dir })
             expect(await login.exited).toBe(1)
             expect(login.output).not.toContain('input is hidden')
-            expect(errorOf({ stderr: login.output })).toMatchObject({ code: 'missing_flag' })
-            expect(errorOf({ stderr: login.output }).message).toContain('missing --token-file')
+            const loginError = JSON.parse(login.output).error
+            expect(loginError).toMatchObject({ code: 'missing_flag' })
+            expect(loginError.message).toContain('missing --token-file')
             expect(fs.existsSync(credentialsFile(dir))).toBe(false)
         } finally {
             remove(dir)

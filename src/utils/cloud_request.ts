@@ -36,7 +36,7 @@ export type QueryParams<P extends keyof paths, M extends Method = 'get'> =
     OperationParameters<P, M> extends { query?: infer X } ? Exclude<X, undefined> : never
 
 /** A 2xx answer: the text as sent (what is printed by default) and its parse. */
-export type Reply<T> = { raw: string; json: T }
+export type Reply<T> = { json: T }
 
 export class CloudClient {
     readonly base: string
@@ -117,7 +117,7 @@ export class CloudClient {
             if (json === undefined) {
                 throw new LocalFailure(`${this.host} answered HTTP ${response.status} with something that is not JSON`)
             }
-            return { raw, json }
+            return { json }
         }
         throw apiFailure(response.status, json, response.headers.get('retry-after'), this.host)
     }

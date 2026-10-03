@@ -85,7 +85,7 @@ zega usage                           this month's usage and bill per graph
 zega regions                         the regions a graph can run in
 ```
 
-Global options: `--api <url>`, `--token-file <path>`, `--human`.
+Global options: `--api <url>`, `--token-file <path>`, `--human`, `--nopretty`.
 
 ### deploy
 
@@ -195,6 +195,8 @@ zega dev: Bun serves your function; this is not the Workers runtime (see `zega d
 | `explorer` | `{ "event": "ready", "url", "data", "server" }`, then nothing until it stops |
 | `start` | `{ "event": "ready", "server": { "url", "status" }, "explorer": { "url", "status" } }`, then `{ "event": "output", "line" }` for what the server prints |
 | `dev` | `{ "event": "ready", "functions": [{ "id", "entry", "url", "env" }], "graph", "watching" }`, then `reloaded`, `build_failed`, `request`, `threw`, `wait_until_rejected`, `warning` events |
+
+**Shape.** On a terminal a result (and an error) is pretty-printed with 2 spaces and coloured like the help; piped it is one compact line. `--nopretty` makes it one compact, uncoloured line on a terminal too. The events of `start`, `dev` and `explorer` are always one compact line each. `--human` and the help are not affected.
 
 **Errors** are one JSON object on stderr and a nonzero exit code: `{"error":{"code","message","hint"}}`. For a failure of the API `code` is its code and `message` its sentence; `hint` is what to do about it (how to log in on a 401, a manage token on `scope_required`, the wait time on 429 and 503: the CLI never retries by itself; whether the change took effect), or `null`. A network failure has the code `network`; a mistake on the command line, `usage` (hint `zega --help`); one on this machine its own (`not_logged_in`, `missing_flag`, `invalid_flag`, otherwise `local`). With `--human` it is the sentence people read: `zega: <sentence> (code: <code>, HTTP <status>)` and the hint lines under it.
 

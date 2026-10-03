@@ -12,6 +12,8 @@ export type Globals = {
     tokenFile?: string
     /** Readable output for people (tables, banners, questions on a terminal) instead of JSON. */
     human?: boolean
+    /** Compact JSON, on a terminal too. */
+    nopretty?: boolean
 }
 
 export type Session = { client: CloudClient; api: string }
