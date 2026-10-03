@@ -6,6 +6,17 @@ Changes that affect code using the `zega` crate, newest first. File formats
 
 ## Unreleased
 
+- **`@zegadb/lib/client`: a `fetch`-only client for a running zega.** A second
+  entry point of `@zegadb/lib`: `connect({ url, key?, schema? })`, then
+  `query()` (sent as `QUERY /zql`, falling back to POST on a server without
+  that method), `mutate()` (`POST /zql`) and `schema()` (Zega Cloud's
+  `GET /schema`). Errors are `ZegaError` (the engine's own text, `help` and
+  position, the server's `code`, the HTTP status) or `ZegaNetworkError` (no
+  answer, aborted, timed out). A `zql` tagged template writes values into ZQL
+  as escaped literals, since ZQL has no query parameters. No dependencies, no
+  wasm, no Node built-ins: importing it never loads the engine. No effect on
+  the `zega` crate. `npm/README.md`, "Talking to a running zega".
+
 - **The executable is renamed `zega` -> `zega-server`, and the npm library
   `zegadb` -> `@zegadb/lib`.** The `zega` command is going to a new developer
   command line (its own repository), so two programs would otherwise share the
