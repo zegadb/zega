@@ -96,21 +96,18 @@ export async function load(): Promise<Stored | null> {
 /**
  * Store the token. The credentials file is never readable by anyone else, not
  * even for an instant: it is created with its final mode, then renamed into
- * place, so a crash leaves the old file or the new one. Returns where the token
- * went, for the person to read.
+ * place, so a crash leaves the old file or the new one. Nothing says where it
+ * went: that is not for the screen.
  */
-export async function save(api: string, token: string, store: Store): Promise<string> {
+export async function save(api: string, token: string, store: Store): Promise<void> {
     const file = credentialsPath()
     const previous = readRecordQuietly()
     let body: Record<string, string>
-    let where: string
     if (store === 'keychain') {
         await keychain(() => Bun.secrets.set({ service: KEYCHAIN_SERVICE, name: api, value: token }))
         body = { api, store: 'keychain' }
-        where = `the OS keychain (service ${KEYCHAIN_SERVICE}, account ${api}); settings in ${file}`
     } else {
         body = { api, store: 'file', token }
-        where = file
     }
     const dir = path.dirname(file)
     try {
@@ -130,7 +127,6 @@ export async function save(api: string, token: string, store: Store): Promise<st
     if (previous !== null && previous.store === 'keychain' && !(store === 'keychain' && previous.api === api)) {
         await keychain(() => Bun.secrets.delete({ service: KEYCHAIN_SERVICE, name: previous.api })).catch(() => false)
     }
-    return where
 }
 
 function readRecordQuietly(): StoredRecord | null {

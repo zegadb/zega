@@ -27,6 +27,29 @@ echo "$TOKEN" | zega login      # or pipe it
 zega login --token-file ./token # or read it from a file
 ```
 
+It then says who you are, and nothing about the token beyond its name and what it may do (never any part of the secret, and not where it is kept):
+
+```
+$ zega login
+Logged in as Ada Lovelace (@ada)
+
+Token    ci-bot
+Scope    manage
+Project  all projects
+Expires  Dec 1, 2026
+
+$ zega whoami
+Logged in as Ada Lovelace (@ada)
+
+API      https://cloud.zega.dev
+Token    ci-bot
+Scope    manage
+Project  all projects
+Expires  never
+```
+
+An account with no full name shows as `Logged in as @ada`. `--json` prints the API's answer unchanged (it also has when the token was made and last used).
+
 The token is never an argument (arguments show in process listings) and never an environment variable. It is checked with `GET /v1/whoami` before it is saved, so a mistyped token never replaces a good one.
 
 Where it is kept: by default in `cloud.json` in your config directory (`$XDG_CONFIG_HOME/zega`, default `~/.config/zega`; `%APPDATA%\zega` on Windows), mode 0600 in a 0700 directory, together with the API host it belongs to. A stored token is only ever sent to that host. `zega login --store keychain` keeps the token in the OS keychain instead (macOS Keychain, libsecret, Windows Credential Manager); the file then holds only the host.
@@ -42,10 +65,13 @@ For CI and agents, skip login: pass `--token-file <path>` to any command.
 ```
 zega login [--store file|keychain]   store an API token
 zega logout                          remove the stored token
-zega whoami                          which token this is: name, scope, project, expiry
+zega whoami                          who you are, and the token: name, scope, project, expiry
 zega init                            write zega.json for a project here
 zega start [args]                    run the zega-server that ships with this CLI (zega-server start)
 zega explorer [graph]                the explorer for a local database; with a graph id, its console address
+
+zega build [id]                      bundle the functions zega.json lists into dist/<id>.js (no upload, no token)
+zega dev [id]                        serve them on localhost with Bun, rebuilt when a file changes
 zega deploy [id]                     bundle and upload the functions zega.json lists
 zega function deploy <id> [entry]    bundle and upload one function
 zega projects [id]                   list projects, or show one with its graphs
@@ -110,6 +136,45 @@ Only 127.0.0.1 is served. A page of another website must not be able to drive yo
 The page is vendored in `src/explorer/` (built files and `inventory.json`: the zegadb/zega commit and the SHA-256 of each file; `bun test` fails if they disagree). It is embedded in the compiled executables. To update it: commit the change in a zegadb/zega checkout, then `bun run explorer:update ../zega` here (it builds `browser/` with `npm run build:cli`, refuses a dirty checkout, and rewrites `src/explorer/`). `zega explorer --assets <dir>` serves a build of the page from a directory instead (a `browser/dist-cli` you are working on), and `--server <path>` runs another zega-server.
 
 Two things the page still takes from the network, as the playground does: the editor (Monaco, from cdn.jsdelivr.net) and map tiles.
+
+### build
+
+`zega build [id]` writes each function's bundle to `dist/<function id>.js` (`--out <dir>` changes the directory, `--minify` shrinks it). It is `zega deploy` without the upload: the same bundling step (one function, `prepare` in `src/handlers/deploy.ts`), so the file is byte for byte what `deploy` would send, the Node built-in refusal and the 1,000,000-byte limit are the same, and it needs no token and no network. `--json` prints `[{ "id", "entry", "file", "bytes" }]`.
+
+```
+$ zega build
+bundled src/index.ts: 540 bytes (limit 1,000,000)
+Built  f0bbbbbbbbbbbbbbbb  src/index.ts -> dist/f0bbbbbbbbbbbbbbbb.js (540 bytes)
+```
+
+### dev
+
+`zega dev [id]` runs the functions `zega.json` lists on localhost, with Bun, built by the same bundling step as `deploy`. A function is `export default { fetch(request, env, ctx) }` here as in the cloud.
+
+```
+$ zega dev
+zega dev: Bun serves your function; this is not the Workers runtime (see `zega dev --help`)
+  f0bbbbbbbbbbbbbbbb  src/index.ts  http://127.0.0.1:8787
+    env: GREETING, SECRET  (.dev.vars)
+  graph: none (--local-graph points ZEGA_GRAPH_URL at a local zega-server, --cloud-graph <id> at a cloud graph)
+  watching for changes; Ctrl-C to stop
+```
+
+- **Ports** are stable: the first function in `zega.json` is on 8787 (`--port <n>` moves the first), the next on one more, and so on. `zega dev <id>` serves one function on the port it has when all are served. A port that is taken is an error naming it, never a silent move. Only `127.0.0.1` is bound.
+- **Reload.** Any file saved under the project (not `node_modules`, `dist`, `.git`, `.tmp`) rebuilds. The port stays; the new build replaces the old one between requests. A build that fails (a syntax error, a Node built-in, a bundle over the limit) prints why and the previous build keeps serving. `--no-watch` serves once.
+- **Env and secrets.** A deployed function has no bindings: its `env` is its variables and secrets, flat strings, and nothing else. `zega dev` gives it the same shape from a dotenv file next to `zega.json`: `.dev.vars` for every function, and `.dev.vars.<function id>` over it for one. Names and sizes follow the cloud's rules (a letter or `_` then letters, digits and `_`, up to 64 characters; a value up to 5,120; 64 values), so what runs here can be set there. The shell's environment and your stored API token are never passed to a function; names are printed at start, values never. Add `.dev.vars*` to `.gitignore`.
+- **Which graph.** A function reaches a graph over HTTPS: the address in a variable, a graph key (`zk_...`) in a secret. `--local-graph [url]` sets that variable to a `zega-server start` on this machine (default `http://127.0.0.1:9342`; it says if nothing answers there). `--cloud-graph <id>` sets it to that cloud graph's address, asked of the API with your stored token (or `--token-file`); the key is a secret like any other and comes from `.dev.vars`, and the start-up says it is the CLOUD graph and warns when the key is missing. The variable is `ZEGA_GRAPH_URL` and the key `ZEGA_GRAPH_KEY`; `--graph-url-var` and `--graph-key-var` use the names your function reads. The two flags are alternatives, and with neither the function gets no graph address.
+- `--json` prints one document on stdout at start (`functions` with their addresses and env names, the `graph`); logs, reloads and request lines go to stderr.
+
+**What Bun is not.** `zega dev` is not the Workers runtime, and says so. Where it can tell, it prints a one-line warning when a function uses something it cannot imitate; the rest is listed here:
+
+- `request.cf` is undefined; there are no `cf-*` request headers; the request URL is `http://127.0.0.1:<port>/...`, not the function's address.
+- No Cache API (`caches`), no `WebSocketPair` or WebSocket upgrade responses, no `crypto.DigestStream`, no `crypto.subtle.timingSafeEqual`.
+- `cloudflare:workers` provides `env` and `waitUntil` only; other `cloudflare:` modules, Durable Object and entrypoint classes and any export besides the default are not provided. (Zega Cloud uploads a function with no bindings, so there is nothing to bind them to.)
+- `ctx.passThroughOnException()` does nothing: there is no origin to fall through to, an error answers 500. `scheduled`, `queue`, `email` and `tail` handlers are never called (a function is only invoked over HTTP).
+- Bun has globals and modules Workers has not: `process` (so `process.env` is your shell here and absent in the cloud), `Buffer`, `Bun`, `require`; `navigator.userAgent` says Bun. Node built-in imports are refused at build as in `deploy`, but the globals are not removed.
+- Limits are not enforced: the function's CPU time and subrequest limits (`zega functions <id>`), memory, request and response sizes. Workers freezes `Date.now()` while code runs; Bun does not. Outbound `fetch` can reach `localhost`, which is how `--local-graph` works and which a deployed function cannot do.
+- `console` output goes to your terminal, not to the function's cloud logs.
 
 ### for agents and scripts
 

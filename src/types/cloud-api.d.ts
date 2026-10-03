@@ -53,7 +53,7 @@ export interface paths {
         };
         /**
          * Which token this is
-         * @description The token's name, scope, project restriction and expiry. Never the secret.
+         * @description Who is calling: the account's login and full name, and the token's name, scope, project restriction and expiry. Never the secret, and never an email.
          */
         get: operations["whoami"];
         put?: never;
@@ -1167,6 +1167,12 @@ export interface components {
             country: string;
             continent: string;
         };
+        AccountInfo: {
+            /** @description The account's sign-in name. */
+            login: string | null;
+            /** @description The account's full name, when it has one. */
+            name: string | null;
+        };
         TokenInfo: {
             id: string;
             name: string;
@@ -1271,13 +1277,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The token. */
+            /** @description The account and the token. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
+                        account: components["schemas"]["AccountInfo"];
                         token: components["schemas"]["TokenInfo"];
                     };
                 };

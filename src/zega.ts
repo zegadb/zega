@@ -111,6 +111,29 @@ program
     )
 
 program
+    .command('build')
+    .description('bundle the functions zega.json lists (or only <id>) exactly as deploy does, into dist/<id>.js; uploads nothing, needs no token')
+    .argument('[id]', 'build only this function id')
+    .option('--minify', 'minify the bundle (smaller, harder to read in logs)')
+    .option('--out <dir>', 'the directory to write to, relative to zega.json (default dist)')
+    .action(action(async (id: string | undefined, options: { minify?: boolean; out?: string }) => core.build(id, { ...globals(), ...options })))
+
+program
+    .command('dev')
+    .description(
+        'serve the functions zega.json lists (or only <id>) on localhost with Bun, built as deploy builds them, rebuilt when a file changes; env from .dev.vars; needs no token (except --cloud-graph)',
+    )
+    .argument('[id]', 'serve only this function id')
+    .option('--port <n>', `the first function's port; each next function in zega.json gets one more (default ${core.DEFAULT_PORT})`, integer('--port', 1, 65535))
+    .option('--local-graph [url]', 'set the graph variable to a zega-server on this machine (default http://127.0.0.1:9342, see `zega start`)')
+    .option('--cloud-graph <id>', "set the graph variable to this cloud graph's address (asks the API with the stored token; the graph key comes from .dev.vars)")
+    .option('--graph-url-var <name>', 'the variable that holds the graph address (default ZEGA_GRAPH_URL)')
+    .option('--graph-key-var <name>', 'the secret that holds the graph key, checked in .dev.vars (default ZEGA_GRAPH_KEY)')
+    .option('--minify', 'minify the bundle, as deploy --minify does')
+    .option('--no-watch', 'serve once; do not rebuild when a file changes')
+    .action(action(async (id: string | undefined, options: Omit<core.DevOptions, keyof Globals>) => core.dev(id, { ...globals(), ...options })))
+
+program
     .command('projects')
     .description('list projects, or show one with its graphs')
     .argument('[id]', 'a project id')
