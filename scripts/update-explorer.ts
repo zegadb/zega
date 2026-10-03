@@ -5,7 +5,7 @@
  *
  * It builds `dist-cli/` there (`npm run build:cli` in `browser/`: the explorer without the website's
  * links and samples), refuses a checkout with uncommitted changes (the recorded commit would not be
- * what was built), copies the files into `src/explorer/dist/` (replacing what was there, file by file),
+ * what was built), copies the files into `src/explorer/page/` (replacing what was there, file by file),
  * and writes `src/explorer/inventory.json` (commit and SHA-256 of every file) and `src/explorer/files.ts`.
  * Commit all of it together; `bun test` fails when they disagree.
  */
@@ -16,7 +16,7 @@ import { filesModule, inventoryOf, listFiles } from '../src/handlers/explorer_in
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const TARGET = path.join(ROOT, 'src', 'explorer')
-const DIST = path.join(TARGET, 'dist')
+const DIST = path.join(TARGET, 'page')
 
 const from = process.argv[2]
 if (from === undefined) {
@@ -41,7 +41,7 @@ const commit = run(['git', 'rev-parse', 'HEAD'], zega)
 run(['node', 'scripts/build.mjs', '--cli'], path.join(zega, 'browser'))
 const built = path.join(zega, 'browser', 'dist-cli')
 
-// Replace file by file: nothing outside src/explorer/dist is touched.
+// Replace file by file: nothing outside src/explorer/page is touched.
 fs.mkdirSync(DIST, { recursive: true })
 const wanted = new Set(listFiles(built))
 for (const old of listFiles(DIST)) if (!wanted.has(old)) fs.unlinkSync(path.join(DIST, old))

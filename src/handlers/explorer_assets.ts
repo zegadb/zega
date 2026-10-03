@@ -22,7 +22,7 @@ function typed(file: string, name: string): Blob {
     return type === undefined ? blob : blob.slice(0, blob.size, type)
 }
 
-/** The files vendored in `src/explorer/dist` (and embedded in a compiled executable). */
+/** The files vendored in `src/explorer/page` (and embedded in a compiled executable). */
 export async function embeddedAssets(): Promise<Assets> {
     const { FILES } = await import('@/explorer/files')
     return { get: (name) => (Object.hasOwn(FILES, name) ? typed(FILES[name]!, name) : null) }

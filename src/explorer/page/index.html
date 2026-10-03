@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zega</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="vendor/maplibre-gl/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+</head>
+<body>
+<header id="topbar">
+  <span class="brand" role="img" aria-label="zega">
+    <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+      <path d="M8 7 H24 L8 25 H24" fill="none" stroke="currentColor" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="24" cy="7" r="4.2" fill="#0C8B43" />
+      <circle cx="8" cy="25" r="4.2" fill="#0C8B43" />
+    </svg>
+    <span class="brand-word">zega</span>
+  </span>
+  <span class="conn" role="status"><span class="conn-dot"></span> <span id="conn-label">local · wasm</span></span>
+  <button id="btn-remote" type="button" hidden>Connect to remote graph</button>
+  <button id="btn-push-schema" type="button" hidden>Push schema</button>
+  <span class="spacer"></span>
+  <button id="btn-theme" aria-label="Switch theme">Dark</button>
+  <button id="btn-csv">Import</button>
+  <span id="autorun-note" class="autorun-note" role="status" hidden>auto-run paused: mutation</span>
+  <button id="btn-run" class="primary">Run</button>
+  <button id="btn-clear">clear</button>
+</header>
+<div id="panes">
+  <div class="band" id="band-top">
+    <section class="pane" data-pane="schema">
+      <h2>schema</h2>
+      <div id="schema" class="editor"></div>
+    </section>
+    <div class="split split-x" data-band="top" title="drag the graph wider or narrower"></div>
+    <section class="pane pane-graph" data-pane="view">
+      <div id="view-tabs" role="tablist" aria-label="Data views"></div>
+      <div id="graph"></div>
+    </section>
+  </div>
+  <div id="split-rows" class="split split-y" title="drag to resize rows"></div>
+  <div class="band" id="band-bottom">
+    <section class="pane" data-pane="query">
+      <h2>query <span id="query-time" class="pane-stat"></span></h2>
+      <div id="query" class="editor"></div>
+    </section>
+    <section class="pane" data-pane="output">
+      <h2>output <span id="output-size" class="pane-stat"></span></h2>
+      <div id="output" class="editor"></div>
+    </section>
+    <section class="pane" data-pane="raw">
+      <h2>raw <span id="raw-count" class="pane-stat"></span></h2>
+      <div id="raw" class="editor"></div>
+    </section>
+  </div>
+</div>
+<dialog id="remote-dialog" aria-labelledby="remote-title">
+  <form id="remote-form" method="dialog" autocomplete="off">
+    <h2 id="remote-title">Connect to remote graph</h2>
+    <p class="remote-note">A Zega Cloud graph, by its id and a graph key (zk_…). The key stays in this page's memory: it is never saved, and a reload or Disconnect forgets it. The zega command passes your requests on to the graph and keeps nothing.</p>
+    <label>Graph id or URL <input id="remote-id" list="remote-graphs" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="u7bgg2k9q4xmh3ne5t"></label>
+    <datalist id="remote-graphs"></datalist>
+    <label>API key <input id="remote-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="zk_…" data-1p-ignore data-lpignore="true"></label>
+    <p id="remote-error" class="remote-error" role="alert" hidden></p>
+    <div class="remote-actions">
+      <button type="button" id="remote-cancel">Cancel</button>
+      <button type="submit" id="remote-connect" class="primary">Connect</button>
+    </div>
+  </form>
+</dialog>
+<div id="tour">
+  <button id="btn-play" class="primary">pause</button>
+  <div id="tour-queries"></div>
+</div>
+<script type="module" src="repl.js"></script>
+<script type="module" src="panes.js"></script>
+</body>
+</html>

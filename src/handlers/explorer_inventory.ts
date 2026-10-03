@@ -17,7 +17,7 @@ export type Inventory = {
     source: 'zegadb/zega'
     /** The commit of that repository whose `browser/` built them. */
     commit: string
-    /** Path (forward slashes, relative to `src/explorer/dist`) to its SHA-256. */
+    /** Path (forward slashes, relative to `src/explorer/page`) to its SHA-256. */
     files: Record<string, string>
 }
 
@@ -53,7 +53,7 @@ export function filesModule(paths: string[]): string {
         '// Each import is a file Bun embeds in a compiled executable; the value is a path `Bun.file` reads.',
         '',
     ]
-    paths.forEach((file, index) => lines.push(`import f${index} from './dist/${file}' with { type: 'file' }`))
+    paths.forEach((file, index) => lines.push(`import f${index} from './page/${file}' with { type: 'file' }`))
     lines.push('', 'export const FILES = {')
     paths.forEach((file, index) => lines.push(`    ${JSON.stringify(file)}: f${index},`))
     lines.push('} as unknown as Record<string, string>', '')

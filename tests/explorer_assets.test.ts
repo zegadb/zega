@@ -8,7 +8,7 @@ import { directoryAssets, embeddedAssets } from '../src/handlers/explorer_assets
 import { filesModule, inventoryOf, listFiles, type Inventory } from '../src/handlers/explorer_inventory'
 
 const EXPLORER = path.resolve(import.meta.dir, '..', 'src', 'explorer')
-const DIST = path.join(EXPLORER, 'dist')
+const DIST = path.join(EXPLORER, 'page')
 const inventory = JSON.parse(fs.readFileSync(path.join(EXPLORER, 'inventory.json'), 'utf8')) as Inventory
 
 describe('the vendored explorer is what its inventory says', () => {
