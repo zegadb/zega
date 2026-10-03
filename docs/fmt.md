@@ -1,13 +1,13 @@
-# Formatting ZQL and JSON with zega fmt
+# Formatting ZQL and JSON with zega-server fmt
 
-`zega fmt` gives every ZQL and JSON file one layout. There are no options and
+`zega-server fmt` gives every ZQL and JSON file one layout. There are no options and
 no style settings: two files that mean the same thing look the same. The rules
 were locked in [APS 12](https://github.com/zegadb/aps/issues/12), and this page
 shows each of them on real input.
 
 The formatter reads the file with the same parser the engine uses, then prints
 it again. If the input does not parse, for example a query you are halfway
-through typing, `zega fmt` returns it byte for byte unchanged. It never guesses.
+through typing, `zega-server fmt` returns it byte for byte unchanged. It never guesses.
 
 ## Running it
 
@@ -16,33 +16,33 @@ recursively for `*.zql` and `*.json` files; hidden directories, `node_modules`,
 `target` and `dist` are skipped.
 
 ```sh
-zega fmt schema.zql queries/
+zega-server fmt schema.zql queries/
 ```
 
 Check without writing, for CI. Every file that would change is listed.
 
 ```sh
-zega fmt --check .
+zega-server fmt --check .
 ```
 
 | Exit code | Meaning |
 |---|---|
 | `0` | Every file is already formatted (or, without `--check`, the files were formatted). |
 | `1` | With `--check`, at least one file would be reformatted. Nothing else exits `1`. |
-| `2` | `zega fmt` could not do its job: the arguments are wrong (for example no paths and no `--stdin`), or a file or directory could not be read or written. The error, starting `zega fmt:`, names the path. |
+| `2` | `zega-server fmt` could not do its job: the arguments are wrong (for example no paths and no `--stdin`), or a file or directory could not be read or written. The error, starting `zega-server fmt:`, names the path. |
 
 Input that does not parse is left unchanged, so `--check` passes on it. Use the
-engine or the explorer to find syntax errors; `zega fmt` only lays out valid
+engine or the explorer to find syntax errors; `zega-server fmt` only lays out valid
 code.
 
 Format standard input to standard output, for editors. The language is ZQL
 unless you say otherwise with `--lang`. `--lang` only goes with `--stdin`;
 files and directories take their language from the extension, so
-`zega fmt --lang json data.json` is an argument error (exit `2`).
+`zega-server fmt --lang json data.json` is an argument error (exit `2`).
 
 ```sh
-zega fmt --stdin < query.zql
-zega fmt --stdin --lang json < data.json
+zega-server fmt --stdin < query.zql
+zega-server fmt --stdin --lang json < data.json
 ```
 
 The explorer uses the same formatter, compiled to WASM. Press ⌘S / Ctrl-S or

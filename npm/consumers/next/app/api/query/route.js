@@ -1,4 +1,4 @@
-import { createDatabase } from 'zegadb';
+import { createDatabase } from '@zegadb/lib';
 
 export const dynamic = 'force-dynamic';
 

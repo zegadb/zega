@@ -6,7 +6,20 @@ Changes that affect code using the `zega` crate, newest first. File formats
 
 ## Unreleased
 
-- **`zega cloud`: a command line for Zega Cloud's public management API**
+- **The executable is renamed `zega` -> `zega-server`, and the npm library
+  `zegadb` -> `@zegadb/lib`.** The `zega` command is going to a new developer
+  command line (its own repository), so two programs would otherwise share the
+  name. Same flags and subcommands (`zega-server start|explorer|export|import|
+  fmt|bundle|schema-diff|cloud`); release artifacts are `zega-server-<platform>`
+  (was `zega-<platform>`); the Fly image runs `/usr/local/bin/zega-server`. The
+  headless linked-graph host that was also called `zega-server` is now
+  `zega-linked-host`. The embeddable library is `@zegadb/lib` on npm (the
+  `zegadb` placeholder was never a release); the executable ships as
+  `@zegadb/server-<os>-<cpu>` packages. `zega cloud` stays here for now as
+  `zega-server cloud`; it moves to the new command line later. No effect on the
+  `zega` crate.
+
+- **`zega-server cloud`: a command line for Zega Cloud's public management API**
   (`https://cloud.zega.dev`). `login`, `logout` and `whoami` for an API token
   made in the dashboard; `projects`, `graphs`, `buckets`, `functions`,
   `usage`, `regions` and `function logs` to read (a table, or `--json` for the
@@ -14,7 +27,7 @@ Changes that affect code using the `zega` crate, newest first. File formats
   `function secret set|unset` to change functions. Global flags `--api` and
   `--token-file`. No effect on the `zega` crate. README, "Manage Zega Cloud".
 
-- **`zega cloud` manages: every `manage` route of the API is a command.**
+- **`zega-server cloud` manages: every `manage` route of the API is a command.**
   `project`, `graph`, `bucket` and `function` take `rename` and `delete`;
   `bucket create` and `function create` make one in a project; `graph key`
   and `bucket key` (`list`, `create`, `revoke`), `graph domain` (`list`, `add`,

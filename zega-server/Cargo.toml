@@ -4,6 +4,12 @@ name = "zega-server"
 version.workspace = true
 edition.workspace = true
 
+# The headless linked-graph host. Named apart from zega-cli's `zega-server`
+# executable (the CLI), which would otherwise write the same output file.
+[[bin]]
+name = "zega-linked-host"
+path = "src/main.rs"
+
 [dependencies]
 axum = "0.7"
 futures-util = { version = "0.3", default-features = false }

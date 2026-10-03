@@ -22,8 +22,8 @@ export async function zql(base, query) {
 }
 
 export function startZega() {
-  const release = path.join(ROOT, ".target/release/zega");
-  const debug = path.join(ROOT, ".target/debug/zega");
+  const release = path.join(ROOT, ".target/release/zega-server");
+  const debug = path.join(ROOT, ".target/debug/zega-server");
   let exe;
   try {
     readFileSync(release);

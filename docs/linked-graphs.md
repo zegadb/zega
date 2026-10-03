@@ -26,7 +26,7 @@ APS 24 HIST remains the valid-time store for temporal fields and relationships. 
 
 ## Source, subscriber, and host configuration
 
-The headless `zega-server <config.json>` host binds to loopback for use behind a gateway. The existing `zega start` host remains available for other server uses. Configure a source as follows; paths and URLs are examples:
+The headless `zega-linked-host <config.json>` host binds to loopback for use behind a gateway. The existing `zega-server start` host remains available for other server uses. Configure a source as follows; paths and URLs are examples:
 
 ```json
 {

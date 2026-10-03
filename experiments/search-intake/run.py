@@ -449,8 +449,8 @@ def main():
     stages["classify_parse_save_seconds"]=round(time.monotonic()-linked_stage,3)
     # run local zega service bound to loopback with per-task data, record pid and stop only our Popen child
     data_dir=CACHE/f"database-{os.getpid()}"; data_dir.mkdir(exist_ok=True)
-    exe=ROOT/".target/release/zega"
-    if not exe.exists(): exe=ROOT/".target/debug/zega"
+    exe=ROOT/".target/release/zega-server"
+    if not exe.exists(): exe=ROOT/".target/debug/zega-server"
     if not exe.exists(): raise RuntimeError("build zega-cli first (cargo build --locked -p zega-cli)")
     server=subprocess.Popen([str(exe),"start","--data",str(data_dir),"--port","0"],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
     try:

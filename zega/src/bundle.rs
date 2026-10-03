@@ -61,7 +61,7 @@ pub const MAX_UNPACK_ENTRIES: u64 = 1_000_000;
 /// so the bytes must be refused as they are written). The defaults are
 /// finite but generous — a bundle can hold a photo or video library. A
 /// genuinely bigger bundle raises them explicitly through
-/// [`Bundle::unpack_with`] or `zega bundle unpack`'s `--max-*` flags; there
+/// [`Bundle::unpack_with`] or `zega-server bundle unpack`'s `--max-*` flags; there
 /// is deliberately no environment override.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UnpackLimits {
@@ -104,7 +104,7 @@ pub enum Error {
     Manifest(String),
     #[error("unsafe .zgz entry refused: {0}")]
     Unsafe(String),
-    #[error(".zgz expands past the unpack limit: {0}; a genuinely bigger bundle raises the limit explicitly (Bundle::unpack_with, or zega bundle unpack's --max-* flags)")]
+    #[error(".zgz expands past the unpack limit: {0}; a genuinely bigger bundle raises the limit explicitly (Bundle::unpack_with, or zega-server bundle unpack's --max-* flags)")]
     TooLarge(String),
     #[error(".graph error: {0}")]
     Graph(#[from] graph_file::Error),

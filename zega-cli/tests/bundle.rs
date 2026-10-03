@@ -1,9 +1,9 @@
-//! `zega bundle` subcommands (APS 34, docs/files.md), end to end through the
+//! `zega-server bundle` subcommands (APS 34, docs/files.md), end to end through the
 //! binary the user runs.
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
-const BIN: &str = env!("CARGO_BIN_EXE_zega");
+const BIN: &str = env!("CARGO_BIN_EXE_zega-server");
 const SCHEMA: &str = "type File { name: String mediaType: String size: Int hash: String<blake3> path?: String<file> width?: Int height?: Int duration?: Float source?: String<url> licence: String author?: String credit?: String fetchedAt?: String } display { graph { File(@shape: document, @image: &hash) } }";
 
 fn zega(dir: &Path, args: &[&str]) -> Output {
@@ -42,7 +42,7 @@ fn bundle_new_add_verify_pack_unpack_round_trip() {
     assert_eq!(hash.len(), 64, "{hash}");
     assert!(bundle.join("assets").join(&hash).is_file());
 
-    // `zega export` the graph into the bundle, with the File schema.
+    // `zega-server export` the graph into the bundle, with the File schema.
     let data = dir.join("db");
     let schema_file = dir.join("files.zql");
     std::fs::write(&schema_file, format!("schema {{ {SCHEMA} }}")).unwrap();

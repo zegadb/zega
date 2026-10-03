@@ -43,21 +43,21 @@ just like [cqx](https://cqx.dev) does for running queries without a server:
 ## Use the CLI
 
 Build the native executable with `cargo build --locked --release -p zega-cli`.
-The resulting binary is `.target/release/zega` when using the repository's
+The resulting binary is `.target/release/zega-server` when using the repository's
 `CARGO_TARGET_DIR=.target` convention (`.exe` on Windows).
 
 ```sh
-zega --help
-zega --version
-zega start --data ./data
+zega-server --help
+zega-server --version
+zega-server start --data ./data
 # http://127.0.0.1:9342
-zega explorer --data ./data
+zega-server explorer --data ./data
 # http://127.0.0.1:9343
-zega export graph.graph --data ./data
-zega import graph.graph --data ./other --replace
+zega-server export graph.graph --data ./data
+zega-server import graph.graph --data ./other --replace
 ```
 
-`zega export` and `zega import` move a whole graph as one `.graph` file, the
+`zega-server export` and `zega-server import` move a whole graph as one `.graph` file, the
 format every zega surface reads and writes ([spec](docs/graph-format.md)).
 Export streams and never leaves a partial file; `--schema s.zql` and
 `--meta key=value` carry a schema and metadata along. Import is all or
@@ -77,7 +77,7 @@ automatically or reseeds an existing database. Its editor currently loads Monaco
 from the same CDN used by the standalone explorer, so editor startup needs a
 network connection even though the application assets and wasm are embedded.
 
-`zega start --host 0.0.0.0 --token-file ./token --data ./data` enables an
+`zega-server start --host 0.0.0.0 --token-file ./token --data ./data` enables an
 explicit remote bind. The file must contain one nonempty bearer token (a final
 newline is fine). With a token file, every database route requires
 `Authorization: Bearer <token>`, including `/health`. Without one, only the exact
@@ -166,39 +166,39 @@ Requests execute on the blocking pool under a shared database gate; slow native
 loads do not block the HTTP health worker. See [data loading](docs/data-loading.md)
 for format, limits and WAL semantics.
 
-Release manifests contain `zega-darwin-arm64`, `zega-darwin-x64`, `zega-linux-x64`
-and `zega-windows-x64.exe`, with SHA-256 hashes. These are the artifact keys
+Release manifests contain `zega-server-darwin-arm64`, `zega-server-darwin-x64`,
+`zega-server-linux-x64` and `zega-server-windows-x64.exe`, with SHA-256 hashes. These are the artifact keys
 expected by the site's installer.
 
-### Manage Zega Cloud: `zega cloud`
+### Manage Zega Cloud: `zega-server cloud`
 
-`zega cloud` talks to Zega Cloud's public management API
+`zega-server cloud` talks to Zega Cloud's public management API
 (`https://cloud.zega.dev`, contract: `/openapi.json`). It needs an **API token**:
 make one in the dashboard at <https://dashboard.zega.dev/tokens>, with scope
 `read` (every GET) or `manage` (also creates, renames, deletes, deploys and
 settings), optionally for one project.
 
 ```sh
-zega cloud login                  # paste the token (hidden prompt, or pipe it in); checked, then saved
-zega cloud whoami                 # which token: name, scope, project, expiry
-zega cloud projects               # list; `zega cloud projects <id>` shows one with its graphs
-zega cloud graphs                 # also: buckets, functions (each takes an <id>)
-zega cloud usage                  # this month's usage and bill per graph
-zega cloud regions
-zega cloud function logs <id> --status 500 --limit 20
-zega cloud function deploy <id> worker.js
-zega cloud function var set <id> REGION yyz
-zega cloud function secret set <id> API_KEY < key.txt    # value from stdin or a hidden prompt
-zega cloud function code <id> --out worker.js            # the deployed code, exactly
-zega cloud function create <project> hello               # also: bucket create <project> <name>
-zega cloud function rename <id> greeter                  # also: project, graph, bucket rename
-zega cloud function logging <id> on                      # logs are off until turned on, and billed
-zega cloud graph key create <graph> --name ci            # prints the secret once; also: bucket key
-zega cloud graph key list <graph>                        # also: key revoke <graph> <key>
-zega cloud graph domain add <graph> graph.example.com    # prints the CNAME to set; also: list, remove
-zega cloud graph monitoring set <graph> --keep-query-text on    # also: monitoring show
-zega cloud project delete <id>    # also: graph, bucket, function delete; asks first
-zega cloud logout                 # forget the token (it stays valid until revoked in the dashboard)
+zega-server cloud login                  # paste the token (hidden prompt, or pipe it in); checked, then saved
+zega-server cloud whoami                 # which token: name, scope, project, expiry
+zega-server cloud projects               # list; `zega-server cloud projects <id>` shows one with its graphs
+zega-server cloud graphs                 # also: buckets, functions (each takes an <id>)
+zega-server cloud usage                  # this month's usage and bill per graph
+zega-server cloud regions
+zega-server cloud function logs <id> --status 500 --limit 20
+zega-server cloud function deploy <id> worker.js
+zega-server cloud function var set <id> REGION yyz
+zega-server cloud function secret set <id> API_KEY < key.txt    # value from stdin or a hidden prompt
+zega-server cloud function code <id> --out worker.js            # the deployed code, exactly
+zega-server cloud function create <project> hello               # also: bucket create <project> <name>
+zega-server cloud function rename <id> greeter                  # also: project, graph, bucket rename
+zega-server cloud function logging <id> on                      # logs are off until turned on, and billed
+zega-server cloud graph key create <graph> --name ci            # prints the secret once; also: bucket key
+zega-server cloud graph key list <graph>                        # also: key revoke <graph> <key>
+zega-server cloud graph domain add <graph> graph.example.com    # prints the CNAME to set; also: list, remove
+zega-server cloud graph monitoring set <graph> --keep-query-text on    # also: monitoring show
+zega-server cloud project delete <id>    # also: graph, bucket, function delete; asks first
+zega-server cloud logout                 # forget the token (it stays valid until revoked in the dashboard)
 ```
 
 Output is an aligned table; `--json` prints the API's JSON unchanged. The token
@@ -207,7 +207,7 @@ is read from stdin or a hidden prompt, never from an argument, and is stored in
 `%APPDATA%\zega` on Windows, together with the API address it belongs to
 (`--api https://cloud.zega.world` for staging); a stored token is never sent to
 another host. For CI, `--token-file <path>` uses the token in that file instead
-(one token, a final newline is fine), as `zega start --token-file` does. There
+(one token, a final newline is fine), as `zega-server start --token-file` does. There
 is no environment variable for the token.
 
 A delete (`project`, `graph`, `bucket` or `function delete <id>`) shows what it
@@ -220,7 +220,7 @@ code` prints the module byte for byte, or writes it to `--out <file>`.
 
 Creating a graph or project, resizing, spending caps, restoring a backup and
 managing tokens are money controls and are done in the dashboard: the API
-refuses them for any token (`session_required`) and `zega cloud` prints its
+refuses them for any token (`session_required`) and `zega-server cloud` prints its
 answer. A command that fails exits non-zero and prints the API's message and
 code; on a 429 or 503 it says how long to wait and does not retry.
 
@@ -252,10 +252,10 @@ let zega = Zega::open("./data")
 
 ## Embed the engine from npm
 
-The `zegadb` package is prepared for browser bundlers and Node:
+The `@zegadb/lib` package is prepared for browser bundlers and Node:
 
 ```js
-import { createDatabase } from 'zegadb';
+import { createDatabase } from '@zegadb/lib';
 
 const db = await createDatabase();
 try {
@@ -270,7 +270,7 @@ try {
 
 See the [package API and bundler notes](npm/README.md) and
 [build, consumer checks, and disabled release setup](npm/PUBLISHING.md).
-Registry publication is pending; local consumers install `artifacts/zegadb-0.1.0.tgz`.
+Registry publication is pending; local consumers install `artifacts/zegadb-lib-0.1.0.tgz`.
 The repository's own explorer stays in `browser/` and uses the WASM crate directly.
 
 ## Build the raw browser bindings
@@ -302,11 +302,11 @@ for anything else: use `exportGraph` / `importGraph`.
 
 ## Formatting ZQL and JSON
 
-`zega fmt paths…` formats files or directories recursively (`*.zql` and `*.json`).
-`zega fmt --check paths…` lists every file that would change and exits 1;
-`zega fmt --stdin` reads source from stdin and writes the canonical layout.
+`zega-server fmt paths…` formats files or directories recursively (`*.zql` and `*.json`).
+`zega-server fmt --check paths…` lists every file that would change and exits 1;
+`zega-server fmt --stdin` reads source from stdin and writes the canonical layout.
 Invalid or incomplete input is left unchanged. There are no style options.
-[Formatting with zega fmt](docs/fmt.md) shows the layout rules on real
+[Formatting with zega-server fmt](docs/fmt.md) shows the layout rules on real
 before/after examples.
 
 The explorer uses the same formatter through WASM. Press ⌘S / Ctrl-S or
@@ -325,7 +325,7 @@ block; discovery sub-blocks stay compact when they fit, and boolean chains over
 JSON objects with 1–2 members and scalar arrays stay inline when they fit 80
 columns. JSON key order, number spelling and string escapes are preserved;
 invalid input is returned unchanged. Directories include both `.zql` and `.json`.
-Use `zega fmt --stdin --lang json` for JSON on standard input. The explorer uses
+Use `zega-server fmt --stdin --lang json` for JSON on standard input. The explorer uses
 the same WASM formatter for its JSON import preview and result views.
 
 ## ZQL
@@ -385,7 +385,7 @@ never a mix. A checkpoint is the same thing for the database's own graph: it
 writes the graph as a `.graph` file in `graphs/` and starts the WAL over with
 one entry naming it plus the writes made since, so a restart reads that file
 and replays only the WAL after it. A disk database checkpoints on its own once
-the WAL reaches 16 MiB and the size of the graph it starts from (`zega start
+the WAL reaches 16 MiB and the size of the graph it starts from (`zega-server start
 --snapshot-every-mb`, `ZegaBuilder::snapshot_every`; 0 turns it off), and
 `Zega::snapshot()` takes one now. While the graph is written out, in one pass
 under the graph lock, every query waits, reads as well as writes: about 15-25
@@ -429,7 +429,7 @@ consumer that depends on `zega` by path and is never published:
 |---|---|
 | `zega` | the database: the only thing on crates.io |
 | `zega-server` | reusable ZQL HTTP service |
-| `zega-cli` | `zega start` and the embedded `zega explorer` |
+| `zega-cli` | `zega-server start` and the embedded `zega-server explorer` |
 | `zega-wasm` | wasm-bindgen wrapper for the browser (in-memory) |
 | `zega-bench` | the ZQL-vs-Neo4j benchmark |
 

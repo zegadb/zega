@@ -46,7 +46,7 @@ use crate::wal::{Operation, Wal};
 use crate::{Result, ZegaError};
 
 /// The smallest WAL a checkpoint is taken for, unless the builder says
-/// otherwise: `zega start --snapshot-every-mb` (default 16).
+/// otherwise: `zega-server start --snapshot-every-mb` (default 16).
 pub const DEFAULT_SNAPSHOT_EVERY_BYTES: u64 = 16 << 20;
 
 /// The most of a checkpoint's `.graph` file held in memory while the graph

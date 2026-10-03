@@ -673,7 +673,7 @@ fn a_lost_log_refuses_to_open_and_keeps_the_graph_file() {
         }
         for attempt in 0..2 {
             let error = open_error(dir.path());
-            assert!(error.contains(&files[0]) && error.contains("zega import"), "{lose} {attempt}: {error}");
+            assert!(error.contains(&files[0]) && error.contains("zega-server import"), "{lose} {attempt}: {error}");
             assert_eq!(graph_files(dir.path()), files, "{lose} {attempt}: the graph file was deleted");
         }
         // The recovery the error describes: move the file out, import it.

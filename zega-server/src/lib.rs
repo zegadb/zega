@@ -9,11 +9,11 @@ use std::time::Duration;
 use zega::Zega;
 
 /// How long one ZQL statement may run on a server before it is stopped with a
-/// `query_time_limit` error (APS 13: "2 second limit" per query). `zega start
+/// `query_time_limit` error (APS 13: "2 second limit" per query). `zega-server start
 /// --query-time-limit` changes it for a self-hosted server.
 pub const DEFAULT_QUERY_TIME_LIMIT: Duration = Duration::from_secs(2);
 
-/// The largest `.graph` upload `PUT /graph` takes unless `zega start
+/// The largest `.graph` upload `PUT /graph` takes unless `zega-server start
 /// --max-import-bytes` says otherwise: 64 MiB, the Pro graph cap. Decoding
 /// needs 12-22x a file's size in memory, so this also bounds an import.
 pub const DEFAULT_MAX_IMPORT_BYTES: u64 = 64 << 20;

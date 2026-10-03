@@ -3,14 +3,14 @@
 //!
 //! - Every block must parse (as a file, a statement or a query; a bare type or a
 //!   selection line is checked inside a schema or a selection) and be exactly
-//!   what `zega fmt` prints. A `before` block in docs/fmt.md is unformatted on
+//!   what `zega-server fmt` prints. A `before` block in docs/fmt.md is unformatted on
 //!   purpose; tests/fmt_docs.rs checks it against its `after` block.
 //! - The concept pages in RUNNABLE are also run, top to bottom, on a fresh
 //!   in-memory database, the way a reader would type them:
 //!   - a block that starts with `schema` is the page's schema (with any
 //!     `unique` and `index` blocks) and starts a new, empty database;
 //!   - every other block runs against the latest schema;
-//!   - a ```json block right after a ZQL block is its result, as `zega fmt`
+//!   - a ```json block right after a ZQL block is its result, as `zega-server fmt`
 //!     prints the JSON the engine returns;
 //!   - a ```zql error block must fail, and the ```text block after it is the
 //!     error, byte for byte.
@@ -120,7 +120,7 @@ fn every_zql_block_in_the_docs_parses_and_is_in_zega_fmt_layout() {
                 assert!(
                     format_zql(&format!("{}\n\n", fence.code)).unwrap()
                         == format!("{}\n\n", fence.code),
-                    "{at}: ZQL is not in zega fmt layout:\n{}",
+                    "{at}: ZQL is not in zega-server fmt layout:\n{}",
                     fence.code
                 );
             }

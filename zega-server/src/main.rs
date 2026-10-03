@@ -13,10 +13,10 @@ struct Host {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = std::env::args()
         .nth(1)
-        .ok_or("usage: zega-server <config.json>")?;
+        .ok_or("usage: zega-linked-host <config.json>")?;
     let host: Host = serde_json::from_reader(std::fs::File::open(path)?)?;
     // This host exposes public sources only. The existing authenticated host
-    // remains available through `zega start` for private graphs.
+    // remains available through `zega-server start` for private graphs.
     if !host.listen.ip().is_loopback() {
         return Err(
             "linked-graph host requires a loopback listener behind an authenticated gateway".into(),

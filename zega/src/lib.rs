@@ -154,7 +154,7 @@ impl ZegaBuilder {
     /// runs) that is still working after `limit`, with
     /// [`ZegaError::QueryTimeLimit`]; a mutation's writes are rolled back.
     /// Off by default, so an embedded or in-browser database has no limit
-    /// unless its host sets one. `zega start` sets two seconds.
+    /// unless its host sets one. `zega-server start` sets two seconds.
     pub fn query_time_limit(mut self, limit: std::time::Duration) -> Self {
         self.query_time_limit = Some(limit);
         self
@@ -848,7 +848,7 @@ fn refuse_lost_log(data: &std::path::Path) -> Result<()> {
     Err(ZegaError::Execution(format!(
         "{} holds no writes, but {} holds {}: the database's graph is in {} and the log \
          that named it is missing or empty. Refusing to open this as an empty database. \
-         To recover, move {} out of {}, then run `zega import <file> --data {}` with it. \
+         To recover, move {} out of {}, then run `zega-server import <file> --data {}` with it. \
          A file left by an import that never finished can be deleted instead",
         data.join("wal.bin").display(),
         data.join(IMPORTS_DIR).display(),

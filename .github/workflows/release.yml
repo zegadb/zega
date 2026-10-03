@@ -276,8 +276,8 @@ jobs:
         run: |
           # Only files git tracks: build output and test reports (Playwright's
           # test-results/, node_modules/, .target/) are not canonical sources.
-          git ls-files -z -- '*.zql' '*.json' | xargs -0 ".target/release/zega${EXTENSION}" fmt --check
-          python scripts/fmt-samples.py ".target/release/zega${EXTENSION}" --check --extract .tmp/samples
+          git ls-files -z -- '*.zql' '*.json' | xargs -0 ".target/release/zega-server${EXTENSION}" fmt --check
+          python scripts/fmt-samples.py ".target/release/zega-server${EXTENSION}" --check --extract .tmp/samples
       - uses: actions/checkout@v5
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
         with:
@@ -291,12 +291,12 @@ jobs:
           cp -R .tmp/testsuite/tests .tmp/corpus
           cargo test --locked -p zega --lib fmt:: -- --ignored --nocapture
       - name: Smoke test the built CLI
-        run: python scripts/smoke-cli.py ".target/release/zega${EXTENSION}"
+        run: python scripts/smoke-cli.py ".target/release/zega-server${EXTENSION}"
       - name: Prepare native artifact
         run: |
           mkdir -p artifacts/native
           artifact_name=$(python scripts/channels.py artifact-name "$PLATFORM")
-          cp ".target/release/zega${EXTENSION}" "artifacts/native/${artifact_name}"
+          cp ".target/release/zega-server${EXTENSION}" "artifacts/native/${artifact_name}"
       - uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.platform }}
@@ -359,23 +359,5 @@ jobs:
       - name: Upload, verify readback, advance canary only
         run: python3 scripts/channels.py publish-r2 "$CANARY" .tmp/release
 
-  npm:
-    # Sami configures trust, then Ava removes this literal hard stop in a PR.
-    if: ${{ false }}
-    needs: publish
-    runs-on: ubuntu-latest
-    environment: release
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          package-manager-cache: false
-      - run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
-      - uses: actions/download-artifact@v4
-        with:
-          name: npm-package
-          path: artifact
-      - run: npm publish artifact/package.tgz --tag canary --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org/
+  # npm publication is publish-npm.yml: one fixed workflow file and the `release`
+  # environment, for @zegadb/lib and the @zegadb/server-<platform> packages.

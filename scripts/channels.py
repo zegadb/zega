@@ -114,7 +114,7 @@ def repack(source, destination, expected, target):
             payload = before.extractfile(member).read()
             if member.name == "package/package.json":
                 data = json.loads(payload)
-                if data["name"] != "zegadb" or data["version"] != expected:
+                if data["name"] != "@zegadb/lib" or data["version"] != expected:
                     raise ValueError("npm archive identity does not match this channel")
                 data["version"] = target
                 payload = (json.dumps(data, indent=2) + "\n").encode()
@@ -128,7 +128,7 @@ def repack(source, destination, expected, target):
 def native_artifact(platform):
     if platform not in NATIVE_PLATFORMS:
         raise ValueError(f"Unsupported native platform: {platform}")
-    return f"zega-{platform}" + (".exe" if platform == "windows-x64" else "")
+    return f"zega-server-{platform}" + (".exe" if platform == "windows-x64" else "")
 
 
 def artifact_name(platform):
@@ -150,8 +150,8 @@ def prepare(tag, artifacts, destination):
         for path in (dest / "wasm").iterdir():
             if archive.extractfile(f"package/wasm/{path.name}").read() != path.read_bytes():
                 raise ValueError("R2 WASM must match the tested npm package bytes")
-    if package["name"] != "zegadb" or package["version"] != f"{base}-canary.{commit[:7]}":
-        raise ValueError("Release package must be the tested zegadb canary")
+    if package["name"] != "@zegadb/lib" or package["version"] != f"{base}-canary.{commit[:7]}":
+        raise ValueError("Release package must be the tested @zegadb/lib canary")
     data = dict(version=tag[1:], tag=tag, base_version=base, commit=commit,
                 channel="canary", promoted_from=None,
                 cargo_lock_sha256=digest("Cargo.lock"),

@@ -117,7 +117,7 @@ class HttpDatabase {
   }
 }
 
-/** `zega explorer`: the CLI serves this page and answers /zql and /graph itself, reading local files named in ZQL. */
+/** `zega-server explorer`: the CLI serves this page and answers /zql and /graph itself, reading local files named in ZQL. */
 class NativeDatabase extends HttpDatabase {
   resolvesSources = true;
 }

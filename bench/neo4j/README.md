@@ -46,7 +46,7 @@ by `parity` before any timing):
 
 ```sh
 # from the repo root, with the workspace built:
-cargo build --release -p zega-cli          # provides .target/release/zega
+cargo build --release -p zega-cli          # provides .target/release/zega-server
 (cd bench/neo4j && cargo build --release)  # provides the client
 docker pull neo4j:5.26-community
 

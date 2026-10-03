@@ -556,7 +556,7 @@ fn too_large(state: &AppState) -> Response {
     error(
         StatusCode::PAYLOAD_TOO_LARGE,
         format!(
-            "the upload is larger than this server's {} byte limit (zega start --max-import-bytes)",
+            "the upload is larger than this server's {} byte limit (zega-server start --max-import-bytes)",
             state.max_import_bytes
         ),
     )

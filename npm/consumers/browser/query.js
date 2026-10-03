@@ -1,4 +1,4 @@
-import { createDatabase } from 'zegadb';
+import { createDatabase } from '@zegadb/lib';
 
 export async function run(options) {
   try {

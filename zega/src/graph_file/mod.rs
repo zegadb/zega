@@ -36,7 +36,7 @@ pub const MAGIC: [u8; 8] = *b"\x89ZGRAPH\n";
 /// format changes only; it is independent of the engine version.
 pub const FORMAT_VERSION: u32 = 1;
 
-/// The media type `zega start` serves `GET /graph` with.
+/// The media type `zega-server start` serves `GET /graph` with.
 pub const MEDIA_TYPE: &str = "application/vnd.zega.graph";
 
 /// The deepest nesting of lists and maps inside one property value: ZQL's

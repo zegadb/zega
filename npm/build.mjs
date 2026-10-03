@@ -26,7 +26,7 @@ for (const file of ['browser.js', 'node.js', 'index.d.ts']) await cp(`npm/src/${
 await cp('npm/README.md', 'dist/README.md');
 await cp('LICENSE', 'dist/LICENSE');
 await writeFile('dist/package.json', JSON.stringify({
-  name: 'zegadb',
+  name: '@zegadb/lib',
   version: workspace.version,
   description: 'An embeddable graph database with ZQL v2, for browsers and Node.js',
   type: 'module',

@@ -33,7 +33,7 @@ NEO4J_PASS=${NEO4J_PASS:-benchpass123}
 ZPORT=${ZEGA_PORT:-9399}
 CELL=${CELL_SECONDS:-30}
 BENCH=${BENCH:-$ROOT/.target/release/bench}
-ZEGA=${ZEGA:-$ROOT/.target/release/zega}
+ZEGA=${ZEGA:-$ROOT/.target/release/zega-server}
 mkdir -p "$WORK" "$RESULTS"
 
 CONC="1 8 32"

@@ -11,7 +11,7 @@
 //! round-robin until `writes` node writes are done (default 1,000,000), 1,000
 //! writes per statement, and reports the WAL, the files, and statement
 //! latency (writes wait while a checkpoint writes the graph out).
-//! `snapshot-every-bytes` 0 never checkpoints, which is what `zega start`
+//! `snapshot-every-bytes` 0 never checkpoints, which is what `zega-server start`
 //! did before zega#52.
 //!
 //! `open` times a restart (open, then the first answered query); `checkpoint`

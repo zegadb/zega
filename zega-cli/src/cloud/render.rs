@@ -1,4 +1,4 @@
-//! Human-readable output for `zega cloud`: aligned tables and detail views
+//! Human-readable output for `zega-server cloud`: aligned tables and detail views
 //! built from the API's JSON (`--json` skips all of this and prints the API's
 //! own bytes).
 //!
@@ -715,7 +715,7 @@ pub fn domain_added(domain: &Value, graph: &str) -> String {
     );
     if let Some(record) = record(domain) {
         out.push_str(&format!(
-            "Set this DNS record at your DNS provider: {record}\nThe domain serves the graph when it and its certificate are active (`zega cloud graph domain list {}`).\n",
+            "Set this DNS record at your DNS provider: {record}\nThe domain serves the graph when it and its certificate are active (`zega-server cloud graph domain list {}`).\n",
             clean(graph)
         ));
     }

@@ -1,8 +1,8 @@
-//! `zega cloud` against a fake Zega Cloud API: a real HTTP server on 127.0.0.1
+//! `zega-server cloud` against a fake Zega Cloud API: a real HTTP server on 127.0.0.1
 //! (port 0) that records every request it gets and answers with bodies shaped
 //! like the OpenAPI document's schemas (https://cloud.zega.dev/openapi.json:
 //! `TokenInfo`, `Project`, `Graph`, `Bucket`, `Function`, `LogEntry`, `Error`).
-//! The tests run the real `zega` binary and assert what reached the server and
+//! The tests run the real `zega-server` binary and assert what reached the server and
 //! what came back out, not only what was printed.
 
 use serde_json::{json, Value};
@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 
-const BIN: &str = env!("CARGO_BIN_EXE_zega");
+const BIN: &str = env!("CARGO_BIN_EXE_zega-server");
 const TOKEN: &str = "zc_ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 // ---- the fake API -----------------------------------------------------------------------------
@@ -615,7 +615,7 @@ fn a_later_command_uses_the_stored_token_and_host_and_logout_forgets_them() {
     let before = fake.seen().len();
     let out = cloud.run(&["projects"], "");
     assert_eq!(out.code, Some(1));
-    assert!(out.stderr.contains("zega cloud login"), "{}", out.stderr);
+    assert!(out.stderr.contains("zega-server cloud login"), "{}", out.stderr);
     assert_eq!(fake.seen().len(), before, "no request without a token");
     // Logging out twice is not an error.
     assert!(cloud.run(&["logout"], "").success());
@@ -1967,7 +1967,7 @@ fn session_required_relays_the_apis_sentence_and_does_not_pretend() {
         out.stderr
     );
     assert!(
-        !out.stderr.contains("manage token") && !out.stderr.contains("zega cloud login"),
+        !out.stderr.contains("manage token") && !out.stderr.contains("zega-server cloud login"),
         "{}",
         out.stderr
     );
@@ -2009,7 +2009,7 @@ fn scope_required_says_to_make_a_manage_token() {
     );
     assert!(
         out.stderr.contains("https://dashboard.zega.dev/tokens")
-            && out.stderr.contains("zega cloud login"),
+            && out.stderr.contains("zega-server cloud login"),
         "{}",
         out.stderr
     );
@@ -2093,7 +2093,7 @@ fn a_rejected_token_in_a_token_file_points_at_the_file() {
         "names the file to fix: {}",
         out.stderr
     );
-    assert!(!out.stderr.contains("zega cloud login"), "{}", out.stderr);
+    assert!(!out.stderr.contains("zega-server cloud login"), "{}", out.stderr);
 }
 
 #[test]
