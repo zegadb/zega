@@ -7,7 +7,7 @@ import { renderTable } from './table.js';
 import { applyTheme } from './theme.js';
 import { createEditors } from './editor.js';
 import { openCsv, parseSchema } from './csv.js';
-import { connectDatabase, parseGraphTarget, RemoteDatabase } from './backend.js';
+import { connectDatabase, loadConfig, parseGraphTarget, RemoteDatabase } from './backend.js';
 import { formatEditor, hasMutation, mayWrite, typingAfterSpace } from './zql-edit.js';
 
 const LS_DB = 'zega.v2.since';
@@ -362,19 +362,26 @@ function setSample(key) {
 }
 
 
+// null on the standalone site; the CLI's own page says `ui: 'cli'` (backend.js).
+const config = await loadConfig();
+// The CLI's page opens on its user's own database, never on the hockey example.
+const CLI = config?.ui === 'cli';
+document.documentElement.dataset.ui = CLI ? 'cli' : 'site';
+
 const savedQuery = localStorage.getItem(LS_QUERY);
 const editorsReady = createEditors({
-  schema: localStorage.getItem(LS_SCHEMA) || SCHEMA,
-  query: savedQuery || QUERY,
+  schema: localStorage.getItem(LS_SCHEMA) || (CLI ? '' : SCHEMA),
+  query: savedQuery || (CLI ? '' : QUERY),
 });
 
 await init();
 // The page's own database: wasm in the browser, or the CLI's native backend.
 // `db` is what every operation uses; it becomes a RemoteDatabase while
 // connected to a Zega Cloud graph, and `localDb` again on Disconnect.
-const localDb = await connectDatabase(new ZegaWasm());
+const localDb = await connectDatabase(new ZegaWasm(), config);
 let db = localDb;
-const LOCAL_LABEL = localDb.native ? 'local · native' : 'local · wasm';
+const LOCAL_LABEL = CLI ? (config.local?.label ?? 'local server') : localDb.native ? 'local · native' : 'local · wasm';
+$('.conn').title = CLI ? (config.local?.detail ?? '') : '';
 $('#conn-label').textContent = LOCAL_LABEL;
 const EMPTY_DB = localDb.native ? null : localDb.export_base64();
 const saved = localDb.native ? null : localStorage.getItem(LS_DB);
@@ -668,8 +675,10 @@ $('#btn-csv').onclick = () => {
     onImported: hideTour,
   });
 };
-$('#btn-seed').onclick = () => reseed();
-$('#btn-calgary').onclick = async () => {
+// The sample buttons are not in the CLI's page (scripts/build.mjs --cli removes them).
+const onClick = (selector, handler) => { const element = $(selector); if (element) element.onclick = handler; };
+onClick('#btn-seed', () => reseed());
+onClick('#btn-calgary', async () => {
   try {
     const response = await fetch('./samples/calgary.zql');
     if (!response.ok) throw new Error(`Cannot load Calgary: HTTP ${response.status}`);
@@ -683,7 +692,7 @@ $('#btn-calgary').onclick = async () => {
     await execute({ apply: true, sources });
     persist();
   } catch (error) { showThrown(error); }
-};
+});
 // A sample with an example bar: validate, load its CSVs, run its first
 // example, and show the bar.
 async function loadTourSample(key, path, label) {
@@ -705,10 +714,10 @@ async function loadTourSample(key, path, label) {
     markTour();
   } catch (error) { showThrown(error); }
 }
-$('#btn-flights').onclick = () => loadTourSample('flights', './samples/flights.zql', 'Flights');
-$('#btn-cities').onclick = () => loadTourSample('cities', './samples/cities.zql', 'Cities');
-$('#btn-westeros').onclick = () => loadTourSample('westeros', './samples/westeros.zql', 'Westeros');
-$('#btn-tickets').onclick = async () => {
+onClick('#btn-flights', () => loadTourSample('flights', './samples/flights.zql', 'Flights'));
+onClick('#btn-cities', () => loadTourSample('cities', './samples/cities.zql', 'Cities'));
+onClick('#btn-westeros', () => loadTourSample('westeros', './samples/westeros.zql', 'Westeros'));
+onClick('#btn-tickets', async () => {
   try {
     const response = await fetch('./samples/tickets.zql');
     if (!response.ok) throw new Error(`Cannot load tickets: HTTP ${response.status}`);
@@ -719,9 +728,11 @@ $('#btn-tickets').onclick = async () => {
     setQuiet(queryEditor, source.slice(source.lastIndexOf('query {')).trim());
     await execute({ apply: true }); persist();
   } catch (error) { showThrown(error); }
-};
+});
 $('#btn-clear').onclick = async () => {
   pauseAutoplay();
+  // The CLI's page is open on somebody's real database: say what clear deletes.
+  if (CLI && !db.remote && !confirm('Delete every node and relationship in the local database? This cannot be undone.')) return;
   try { await clearDatabase(); } catch (error) { showThrown(error); return; }
   if (tour !== TOUR) { setTour(TOUR); hideTour(); }
   setQuiet(schemaEditor, '');
@@ -1088,7 +1099,39 @@ async function vectorView(kind, selected, k, threshold) {
   return vectorCache.get(key);
 }
 
+// The CLI's page opens on somebody's own database, so a database with nothing
+// in it, and one whose schema is not written down yet, are each said plainly.
+function emptyState(graph, { overlay = false } = {}) {
+  const box = document.createElement('div');
+  box.className = overlay ? 'empty-state overlay' : 'empty-state';
+  const title = document.createElement('h3');
+  const text = document.createElement('p');
+  const where = db.remote ? 'graph' : 'database';
+  if (graph.nodes.length) {
+    title.textContent = `This ${where} stores ${graph.nodes.length} nodes and ${graph.rels.length} relationships.`;
+    text.textContent = 'To see them here, write the schema that describes them in the schema pane. The raw pane shows what is stored.';
+    box.append(title, text);
+    return box;
+  }
+  title.textContent = `This ${where} is empty.`;
+  text.textContent = db.remote
+    ? 'Write its types in the schema pane and press Push schema, then add records with a mutation in the query pane and press Run.'
+    : 'Load data with Import (a CSV or JSON file), or in ZQL: describe it in the schema pane, add records in the query pane, and press Run.';
+  const example = document.createElement('pre');
+  example.textContent = 'schema pane\ntype Note { text: String }\n\nquery pane\nmutation { Note(text: "hello") }';
+  box.append(title, text, example);
+  return box;
+}
+
 function drawGraph() {
+  drawView();
+  if (CLI && !graphEl.querySelector('.empty-state')) {
+    const graph = JSON.parse(db.graph());
+    if (!graph.nodes.length) graphEl.append(emptyState(graph, { overlay: true }));
+  }
+}
+
+function drawView() {
   const raw = db.graph();
   const graph = JSON.parse(raw);
   const credit = sample()?.credit || '';
@@ -1098,7 +1141,7 @@ function drawGraph() {
   catch {
     resetView();
     $('#view-tabs').replaceChildren();
-    graphEl.textContent = schemaText().trim() ? 'Fix the schema error to display your data.' : 'No schema yet.';
+    graphEl.replaceChildren(schemaText().trim() ? 'Fix the schema error to display your data.' : (CLI ? emptyState(graph) : 'No schema yet.'));
     return;
   }
   const key = JSON.stringify(schema.display);
@@ -1327,8 +1370,10 @@ dragSplit(document.getElementById('split-rows'), (ev) => {
 
 // Connect to remote graph: a Zega Cloud graph by id and API key. The key is
 // held by the RemoteDatabase alone (backend.js), never stored anywhere, and
-// is wiped by Disconnect or a reload. The CLI's native mode serves this page
+// is wiped by Disconnect or a reload. `zega-server explorer` serves this page
 // from 127.0.0.1, which the cloud router does not allow, so it has no button.
+// The `zega` CLI's page has one: it passes the page's requests on to the graph
+// (config.remote.base), so the router sees a server, not a page.
 const remoteButton = $('#btn-remote');
 const pushButton = $('#btn-push-schema');
 const REMOTE_RUN_NOTE = 'On a remote graph, Run sends the query pane only. Push schema stores the schema pane on the graph, and writes its mutation blocks, after you confirm.';
@@ -1338,15 +1383,36 @@ const remoteId = $('#remote-id');
 const remoteKey = $('#remote-key');
 const remoteError = $('#remote-error');
 const remoteSubmit = $('#remote-connect');
+const remoteGraphs = $('#remote-graphs');
+// The graphs the signed-in account has, by name (the CLI offers the list); id to name.
+const graphNames = new Map();
 // These load a sample by clearing the graph first: never on a customer's graph.
 const SAMPLE_BUTTONS = ['#btn-flights', '#btn-tickets', '#btn-cities', '#btn-westeros', '#btn-calgary', '#btn-seed'];
 // Shown only now, with its handler attached (index.html has it hidden): a click
 // before this point would do nothing.
-remoteButton.hidden = Boolean(localDb.native);
+remoteButton.hidden = Boolean(localDb.native) && !config?.remote;
 
 function showRemoteError(message) {
   remoteError.textContent = message;
   remoteError.hidden = !message;
+}
+
+// The account's graphs, by name, when the CLI can list them (it is signed in); otherwise the id is typed.
+async function offerGraphs() {
+  if (!config?.remote?.graphs) return;
+  try {
+    const response = await fetch(config.remote.graphs, { headers: { Accept: 'application/json' } });
+    if (!response.ok) return;
+    const { graphs } = await response.json();
+    graphNames.clear();
+    remoteGraphs.replaceChildren(...graphs.map((graph) => {
+      graphNames.set(graph.id, graph.name);
+      const option = document.createElement('option');
+      option.value = graph.id;
+      option.label = graph.project ? `${graph.name} (${graph.project})` : graph.name;
+      return option;
+    }));
+  } catch { /* the id can still be typed */ }
 }
 
 remoteButton.onclick = () => {
@@ -1354,6 +1420,7 @@ remoteButton.onclick = () => {
   showRemoteError('');
   remoteDialog.showModal();
   remoteId.focus();
+  offerGraphs();
 };
 $('#remote-cancel').onclick = () => remoteDialog.close();
 // Pasting or leaving the field resolves a URL to its id right away; a bad one waits for Connect to explain.
@@ -1369,7 +1436,10 @@ $('#remote-form').addEventListener('submit', async (event) => {
   try {
     // A pasted URL becomes its id, shown in the field: what will be connected to.
     remoteId.value = parseGraphTarget(remoteId.value);
-    remote = new RemoteDatabase(localDb, remoteId.value, remoteKey.value.trim());
+    remote = new RemoteDatabase(localDb, remoteId.value, remoteKey.value.trim(), {
+      via: config?.remote?.base ?? null,
+      name: graphNames.get(remoteId.value) ?? null,
+    });
   } catch (error) {
     showRemoteError(plainError(error));
     return;
@@ -1439,10 +1509,11 @@ async function useDatabase(next) {
   const remote = Boolean(db.remote);
   const conn = $('.conn');
   conn.classList.toggle('remote', remote);
-  conn.title = remote ? `api.zega.dev/g/${db.graphId}` : '';
-  $('#conn-label').textContent = remote ? `connected to ${db.graphId}` : LOCAL_LABEL;
+  const remoteName = remote ? (db.graphName ? `${db.graphName} (${db.graphId})` : db.graphId) : '';
+  conn.title = remote ? (CLI ? remoteName : `api.zega.dev/g/${db.graphId}`) : (CLI ? (config.local?.detail ?? '') : '');
+  $('#conn-label').textContent = remote ? (CLI ? `cloud graph · ${db.graphName ?? db.graphId}` : `connected to ${db.graphId}`) : LOCAL_LABEL;
   remoteButton.textContent = remote ? 'Disconnect' : 'Connect to remote graph';
-  for (const selector of SAMPLE_BUTTONS) $(selector).hidden = remote;
+  for (const selector of SAMPLE_BUTTONS) { const button = $(selector); if (button) button.hidden = remote; }
   pushButton.hidden = !remote;
   lastValue = null;
   autorunPaused();

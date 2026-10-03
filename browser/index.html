@@ -12,7 +12,7 @@
 </head>
 <body>
 <header id="topbar">
-  <a class="brand" href="https://zega.dev" aria-label="zega">
+  <a class="brand" href="https://zega.dev" aria-label="zega" data-site-link>
     <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
       <path d="M8 7 H24 L8 25 H24" fill="none" stroke="currentColor" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round" />
       <circle cx="24" cy="7" r="4.2" fill="#0C8B43" />
@@ -24,17 +24,17 @@
   <button id="btn-remote" type="button" hidden>Connect to remote graph</button>
   <button id="btn-push-schema" type="button" hidden>Push schema</button>
   <span class="spacer"></span>
-  <a class="btn-link green" href="https://zega.dev">back to zega.dev</a>
-  <button id="btn-flights">Flights</button>
-  <button id="btn-tickets">Tickets</button>
-  <button id="btn-cities">Cities</button>
-  <button id="btn-westeros">Westeros</button>
-  <button id="btn-calgary">Calgary</button>
+  <a class="btn-link green" href="https://zega.dev" data-site-only>back to zega.dev</a>
+  <button id="btn-flights" data-site-only>Flights</button>
+  <button id="btn-tickets" data-site-only>Tickets</button>
+  <button id="btn-cities" data-site-only>Cities</button>
+  <button id="btn-westeros" data-site-only>Westeros</button>
+  <button id="btn-calgary" data-site-only>Calgary</button>
   <button id="btn-theme" aria-label="Switch theme">Dark</button>
   <button id="btn-csv">Import</button>
   <span id="autorun-note" class="autorun-note" role="status" hidden>auto-run paused: mutation</span>
   <button id="btn-run" class="primary">Run</button>
-  <button id="btn-seed">reset</button>
+  <button id="btn-seed" data-site-only>reset</button>
   <button id="btn-clear">clear</button>
 </header>
 <div id="panes">
@@ -69,7 +69,8 @@
   <form id="remote-form" method="dialog" autocomplete="off">
     <h2 id="remote-title">Connect to remote graph</h2>
     <p class="remote-note">A Zega Cloud graph, over api.zega.dev. The key stays in this tab's memory: it is never saved, and a reload or Disconnect forgets it.</p>
-    <label>Graph id or URL <input id="remote-id" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="u7bgg2k9q4xmh3ne5t"></label>
+    <label>Graph id or URL <input id="remote-id" list="remote-graphs" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="u7bgg2k9q4xmh3ne5t"></label>
+    <datalist id="remote-graphs"></datalist>
     <label>API key <input id="remote-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required placeholder="zk_…" data-1p-ignore data-lpignore="true"></label>
     <p id="remote-error" class="remote-error" role="alert" hidden></p>
     <div class="remote-actions">

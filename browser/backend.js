@@ -5,12 +5,28 @@
 // api.zega.dev/g/<id> with the graph's API key (RemoteDatabase below).
 import { mayWrite } from './zql-edit.js';
 
-export async function connectDatabase(parser) {
+//
+// `/explorer-config.json` says which of those this page is. No such file: the
+// standalone site (wasm, in the browser). Otherwise:
+//   { "backend": "native" }                  `zega-server explorer`
+//   { "backend": "native", "ui": "cli",      the `zega` CLI's own page: the same
+//     "local": { "label": "local server",    UI without the website's links and
+//                "detail": "./zega-data" },  samples; `local` names the database
+//     "remote": { "base": "/remote",         it serves, `remote` is where cloud
+//                 "graphs": "/graphs" } }    graphs are reached (the CLI passes
+//                                            the page's requests on, so no CORS)
+// and `graphs` is an optional list of the signed-in account's graphs by name.
+export async function loadConfig() {
   const response = await fetch('/explorer-config.json');
-  if (response.status === 404) return parser;
+  if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Cannot configure explorer: HTTP ${response.status}`);
   const config = await response.json();
   if (config.backend !== 'native') throw new Error('Unknown explorer backend');
+  return config;
+}
+
+export async function connectDatabase(parser, config) {
+  if (config === null) return parser;
   const db = new NativeDatabase(parser);
   await db.refresh();
   return db;
@@ -138,11 +154,18 @@ export class RemoteDatabase extends HttpDatabase {
   remote = true;
   resolvesSources = false;
   #key;
-  constructor(parser, graphId, key) {
+  /**
+   * `via` is where the requests go: nothing (the cloud router, from a page it
+   * allows), or the CLI's own `{ base: '/remote' }`, which passes them on to the
+   * graph. `name` is the graph's name, when it is known, for the page to show.
+   */
+  constructor(parser, graphId, key, { via = null, name = null } = {}) {
     if (!GRAPH_ID.test(graphId)) throw new Error(BAD_ID);
     if (!API_KEY.test(key)) throw new Error('An API key is zk_ followed by 32 characters.');
-    super(parser, `${REMOTE_API}/g/${graphId}`);
+    super(parser, via === null ? `${REMOTE_API}/g/${graphId}` : `${via}/${graphId}`);
     this.graphId = graphId;
+    this.graphName = name;
+    this.through = via !== null;
     this.#key = key;
   }
   get connected() { return this.#key !== null; }
@@ -172,7 +195,7 @@ export class RemoteDatabase extends HttpDatabase {
       return await super.request(path, method, body);
     } catch (error) {
       // fetch() rejects with a TypeError when the network or CORS stops it; the router's own errors arrive as JSON above.
-      if (error instanceof TypeError) throw new Error(`Cannot reach ${REMOTE_API}. Check the connection and try again.`);
+      if (error instanceof TypeError) throw new Error(this.through ? 'Cannot reach the zega command that serves this page.' : `Cannot reach ${REMOTE_API}. Check the connection and try again.`);
       throw error;
     }
   }
