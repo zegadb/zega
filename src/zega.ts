@@ -7,6 +7,7 @@ import * as core from '@/core'
 import type { Globals } from '@/handlers'
 import { describe, isZegaError, type ZegaError } from '@/utils/errors'
 import { write } from '@/utils'
+import { logo } from '@/utils/banner'
 
 const program = new Command()
 
@@ -18,6 +19,8 @@ program
     .option('--token-file <path>', 'use the token in this file instead of the stored one (CI, agents); one nonempty token')
     .option('--json', "print the API's JSON unchanged instead of a table; never ask questions")
     .showHelpAfterError()
+    // The mark above the help, on a terminal only: piped help stays plain text for scripts and agents.
+    .addHelpText('beforeAll', () => (process.stdout.isTTY ? `\n${logo()}\n` : ''))
 
 /** The options every command takes, from wherever on the command line they were written. */
 const globals = (): Globals => program.opts<Globals>()
@@ -204,6 +207,8 @@ fn.command('logs')
         ),
     )
 
+// `zega` alone shows the help (with the mark on a terminal) instead of doing nothing.
+if (process.argv.length <= 2) program.help()
 await program.parseAsync()
 // A prompt can leave stdin open: leave on purpose, once everything is written.
 process.exit(process.exitCode ?? 0)

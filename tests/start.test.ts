@@ -5,6 +5,7 @@ import path from 'node:path'
 import { FAKE_SERVER, recorded, startCli } from './cli_helpers'
 import { remove, run, scratch } from './helpers'
 import { runningBanner, runningJson } from '../src/core/start/start'
+import { LOGO, logo } from '../src/utils/banner'
 import { findInstalled, flagValue, resolveServer, searchRoots, serverPackage, takeStartFlags } from '../src/handlers/server_binary'
 
 const ENTRY = path.resolve(import.meta.dir, '..', 'src', 'zega.ts')
@@ -205,9 +206,17 @@ describe.skipIf(!posix)('zega start', () => {
 const strip = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, '')
 
 describe('what zega start says is running', () => {
+    test('the mark is two greens in true colour: body #55FF55, shaded edge #00AA00; plain without colour', () => {
+        const coloured = logo(true)
+        expect(coloured).toContain('\u001b[38;2;85;255;85m██████') // body
+        expect(coloured).toContain('\u001b[38;2;0;170;0m▐') // edge
+        expect(logo(false)).toBe(LOGO.map((row) => '  ' + row).join('\n'))
+    })
+
     test('the banner: the mark, the tagline, a rule, the server, and the explorer stopped with the command that starts it (no more)', () => {
         const banner = strip(runningBanner({ server: 'http://127.0.0.1:9342', explorer: null }, false))
-        expect(banner).toContain('/____||_____|\\____/_/   \\_\\') // the mark
+        expect(banner).toContain('▐██████▐██████▐██████▐██████') // the mark's top row
+        expect(banner).toContain('▐██████▐██████▐██████▐██ ▐██') // and its bottom row
         expect(banner).toContain('An embeddable graph database.')
         expect(banner).toContain('─'.repeat(20))
         const lines = banner.split('\n')
@@ -348,5 +357,19 @@ describe.skipIf(!posix)('zega start, running', () => {
         expect(await cli.exited).toBe(1)
         expect(cli.stderr()).toContain('data directory is locked')
         expect(cli.stdout()).toBe('')
+    })
+})
+
+describe('the mark in the help', () => {
+    test('piped help has no mark (scripts and agents read plain text); `zega` alone prints the help, exit 0', async () => {
+        const home = scratch()
+        const help = await run(['--help'], { home })
+        expect(help.code).toBe(0)
+        expect(help.stdout).not.toContain('▐██')
+        expect(help.stdout).toContain('Usage: zega')
+        const bare = await run([], { home })
+        remove(home)
+        expect(bare.code).toBe(0)
+        expect(bare.stdout).toContain('Usage: zega')
     })
 })

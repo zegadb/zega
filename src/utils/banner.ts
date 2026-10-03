@@ -27,22 +27,36 @@ export type BannerOptions = {
     color?: boolean
 }
 
-const LOGO = [
-    ' _____ _____  ____    _    ',
-    '|__  /| ____|/ ___|  / \\   ',
-    '  / / |  _| | |  _  / _ \\  ',
-    ' / /_ | |___| |_| |/ ___ \\ ',
-    '/____||_____|\\____/_/   \\_\\',
-]
-
 const WIDTH = 44
 const INDENT = '  '
+
+/** The zega mark: five rows of blocks, `█` the body and `▐` the shaded left edge (the look of TAAG's "Cfh 3" in green). */
+export const LOGO = [
+    '▐██████▐██████▐██████▐██████',
+    '   ▐██ ▐██    ▐██    ▐██ ▐██',
+    '  ▐██  ▐████  ▐██ ▐██▐██████',
+    ' ▐██   ▐██    ▐██  ▐█▐██ ▐██',
+    '▐██████▐██████▐██████▐██ ▐██',
+]
+
+/** The mark's two greens in true colour (VGA bright green and green); 16-colour terminals get greenBright and green. */
+const LOGO_MAIN = '#55FF55'
+const LOGO_SHADE = '#00AA00'
+
+/** The mark, coloured for this terminal (or plain), indented, without a trailing newline. */
+export function logo(color?: boolean): string {
+    const paint = color === undefined ? chalk : new Chalk({ level: color ? 3 : 0 })
+    const main = paint.level >= 3 ? paint.hex(LOGO_MAIN) : paint.greenBright
+    const shade = paint.level >= 3 ? paint.hex(LOGO_SHADE) : paint.green
+    return LOGO.map((row) => INDENT + row.replace(/█+|▐+/g, (run) => (run.startsWith('█') ? main(run) : shade(run)))).join('\n')
+}
+
 
 export function startBanner(options: BannerOptions): string {
     const paint = options.color === undefined ? chalk : new Chalk({ level: options.color ? 1 : 0 })
     const labelWidth = Math.max(...options.lines.map((line) => line.label.length)) + 1
     const out: string[] = ['']
-    for (const row of LOGO) out.push(INDENT + paint.green(row))
+    out.push(logo(options.color))
     out.push('')
     out.push(`${INDENT}${options.tagline}  ${paint.dim(`${options.name} v${options.version}`)}`)
     out.push(INDENT + paint.dim('─'.repeat(WIDTH)))
