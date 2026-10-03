@@ -27,6 +27,29 @@ echo "$TOKEN" | zega login      # or pipe it
 zega login --token-file ./token # or read it from a file
 ```
 
+It then says who you are, and nothing about the token beyond its name and what it may do (never any part of the secret, and not where it is kept):
+
+```
+$ zega login
+Logged in as Ada Lovelace (@ada)
+
+Token    ci-bot
+Scope    manage
+Project  all projects
+Expires  Dec 1, 2026
+
+$ zega whoami
+Logged in as Ada Lovelace (@ada)
+
+API      https://cloud.zega.dev
+Token    ci-bot
+Scope    manage
+Project  all projects
+Expires  never
+```
+
+An account with no full name shows as `Logged in as @ada`. `--json` prints the API's answer unchanged (it also has when the token was made and last used).
+
 The token is never an argument (arguments show in process listings) and never an environment variable. It is checked with `GET /v1/whoami` before it is saved, so a mistyped token never replaces a good one.
 
 Where it is kept: by default in `cloud.json` in your config directory (`$XDG_CONFIG_HOME/zega`, default `~/.config/zega`; `%APPDATA%\zega` on Windows), mode 0600 in a 0700 directory, together with the API host it belongs to. A stored token is only ever sent to that host. `zega login --store keychain` keeps the token in the OS keychain instead (macOS Keychain, libsecret, Windows Credential Manager); the file then holds only the host.
@@ -42,7 +65,7 @@ For CI and agents, skip login: pass `--token-file <path>` to any command.
 ```
 zega login [--store file|keychain]   store an API token
 zega logout                          remove the stored token
-zega whoami                          which token this is: name, scope, project, expiry
+zega whoami                          who you are, and the token: name, scope, project, expiry
 zega init                            write zega.json for a project here
 zega deploy [id]                     bundle and upload the functions zega.json lists
 zega function deploy <id> [entry]    bundle and upload one function

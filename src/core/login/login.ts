@@ -45,9 +45,9 @@ export async function login(options: LoginOptions): Promise<void> {
     })
 
     const reply = await new CloudClient(api, token).get('/v1/whoami')
-    const where = await credentials.save(api, token, store)
+    await credentials.save(api, token, store)
     if (options.json === true) return await show(options, reply, () => '')
-    await write('stdout', `logged in to ${api}\n${render.whoami(reply.json, null)}stored in ${where}\n`)
+    await write('stdout', render.login(reply.json))
 }
 
 function parseStore(value: string | undefined): Store {

@@ -68,19 +68,51 @@ function one<T, K extends keyof T>(body: T, key: K): NonNullable<T[K]> {
     return value as NonNullable<T[K]>
 }
 
-export function whoami(body: Answer<'/v1/whoami'>, api: string | null): string {
+const DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+
+/** `Oct 3, 2026` for a timestamp from the API (UTC, so the same text everywhere); anything that is not a date is shown as it came. */
+function date(value: string | null | undefined): string {
+    if (value === null || value === undefined) return NONE
+    const time = Date.parse(value)
+    return Number.isNaN(time) ? clean(value) : DATE.format(time)
+}
+
+/**
+ * Who the token belongs to: `Logged in as Ada Lovelace (@ada)`, or `Logged in as @ada` when the account has no full name.
+ * An older API has no `account` in the answer (or has nothing in it): then there is no line, and the token's name has to do.
+ */
+function person(body: Answer<'/v1/whoami'>): string | null {
+    const account = (body as { account?: Partial<Schemas['AccountInfo']> | null }).account
+    const name = typeof account?.name === 'string' && account.name.trim() !== '' ? clean(account.name.trim()) : null
+    const login = typeof account?.login === 'string' && account.login !== '' ? clean(account.login) : null
+    if (name !== null && login !== null) return `Logged in as ${name} (@${login})`
+    if (login !== null) return `Logged in as @${login}`
+    if (name !== null) return `Logged in as ${name}`
+    return null
+}
+
+/** The token's own facts; never any part of the secret. */
+function tokenRows(body: Answer<'/v1/whoami'>): [string, string][] {
     const token = one(body, 'token')
-    const rows: [string, string][] = []
-    if (api !== null) rows.push(['API', clean(api)])
-    rows.push(
-        ['Token', `${text(token.name)} (${text(token.prefix)}...)`],
+    return [
+        ['Token', text(token.name)],
         ['Scope', text(token.scope)],
         ['Project', token.projectId ? project(token) : 'all projects'],
-        ['Created', text(token.createdAt)],
-        ['Last used', text(token.lastUsedAt ?? 'never')],
-        ['Expires', text(token.expiresAt ?? 'never')],
-    )
-    return detail(rows)
+        ['Expires', token.expiresAt ? date(token.expiresAt) : 'never'],
+    ]
+}
+
+/** `zega whoami`: who you are, the API the token is for, and the token. */
+export function whoami(body: Answer<'/v1/whoami'>, api: string): string {
+    const rows = tokenRows(body)
+    rows.unshift(['API', clean(api)])
+    const who = person(body)
+    return (who === null ? '' : `${who}\n\n`) + detail(rows)
+}
+
+/** What `zega login` says once the API has accepted the token. */
+export function login(body: Answer<'/v1/whoami'>): string {
+    return `${person(body) ?? 'Logged in'}\n\n${detail(tokenRows(body))}`
 }
 
 function graphTable(graphs: Schemas['Graph'][]): Table {

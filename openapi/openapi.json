@@ -120,20 +120,24 @@
         "tags": [
           "API"
         ],
-        "description": "The token's name, scope, project restriction and expiry. Never the secret.",
+        "description": "Who is calling: the account's login and full name, and the token's name, scope, project restriction and expiry. Never the secret, and never an email.",
         "responses": {
           "200": {
-            "description": "The token.",
+            "description": "The account and the token.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "account": {
+                      "$ref": "#/components/schemas/AccountInfo"
+                    },
                     "token": {
                       "$ref": "#/components/schemas/TokenInfo"
                     }
                   },
                   "required": [
+                    "account",
                     "token"
                   ]
                 }
@@ -5673,6 +5677,29 @@
           "city",
           "country",
           "continent"
+        ]
+      },
+      "AccountInfo": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The account's sign-in name."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The account's full name, when it has one."
+          }
+        },
+        "required": [
+          "login",
+          "name"
         ]
       },
       "TokenInfo": {

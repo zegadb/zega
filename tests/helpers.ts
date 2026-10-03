@@ -117,7 +117,9 @@ export const tokenInfo = {
     expiresAt: '2026-12-01T00:00:00.000Z',
 } satisfies Schemas['TokenInfo']
 
-export const whoamiRoute = { 'GET /v1/whoami': { body: { token: tokenInfo } } }
+export const account = { login: 'ada', name: 'Ada Lovelace' } satisfies Schemas['AccountInfo']
+
+export const whoamiRoute = { 'GET /v1/whoami': { body: { account, token: tokenInfo } } }
 
 export const graph = {
     id: 'g0aaaaaaaaaaaaaaaa',
