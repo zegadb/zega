@@ -1,0 +1,7 @@
+{
+  "name": "@zegadb/lib",
+  "version": "0.0.0-stand-in",
+  "description": "A stand-in for @zegadb/lib's fetch-only /client entry, for the starters' tests, until that version is on npm. Only what the starters call.",
+  "type": "module",
+  "exports": { "./client": { "types": "./client.d.ts", "default": "./client.js" } }
+}

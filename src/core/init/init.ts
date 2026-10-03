@@ -1,7 +1,9 @@
+import fs from 'node:fs'
 import path from 'node:path'
 
 import { openSessionIfAny, projectConfig, regionChoices, type Globals } from '@/handlers'
 import * as questions from '@/questions'
+import { DEFAULT_TEMPLATE, TEMPLATES, starter, type Template } from '@/templates'
 import { LocalFailure } from '@/utils/errors'
 import { answer, canPrompt, result, welcome, write } from '@/utils'
 
@@ -11,24 +13,49 @@ export type InitOptions = Globals & {
     force?: boolean
     function?: string
     entry?: string
+    template?: string
 }
 
 /**
- * Write `zega.json` for a project in the current directory. It creates nothing
- * in Zega Cloud: creating a project or a graph costs money and is done in the
- * dashboard, signed in.
+ * Write a starter project and its `zega.json` in the current directory: a function (the default), a Next.js
+ * app or an Astro app (`--template`). It creates nothing in Zega Cloud: creating a project or a graph costs
+ * money and is done in the dashboard, signed in. It never overwrites a file without `--force`.
  */
 export async function init(options: InitOptions): Promise<void> {
     const dir = process.cwd()
     const prompt = canPrompt(options)
     if (prompt) await welcome('init', 'start a zega project here')
 
+    // Which starter is known before anything else: it decides which files are in the way.
+    const chosen = await answer({
+        flag: '--template',
+        given: options.template ?? (prompt ? undefined : DEFAULT_TEMPLATE),
+        hint: `one of ${TEMPLATES.join(', ')}`,
+        prompt,
+        validate: questions.validateTemplate,
+        ask: questions.template,
+    })
+    const template = chosen as Template
+    if (template !== 'function' && (options.function !== undefined || options.entry !== undefined)) {
+        throw new LocalFailure(`--function and --entry are for the function starter, not ${template}`, 'invalid_flag')
+    }
+    const entryFlag = options.entry
+    if (entryFlag !== undefined) {
+        const badEntry = questions.validateEntry(entryFlag)
+        if (badEntry !== null) throw new LocalFailure(`--entry: ${badEntry}`, 'invalid_flag')
+    }
+
+    // The files this starter writes, to see before asking anything what is already there.
+    const planned = starter(template, { name: 'x', entry: entryFlag ?? questions.DEFAULT_ENTRY })
+    const writes = [projectConfig.CONFIG_FILE, ...Object.keys(planned.files)]
+    const inTheWay = writes.filter((file) => fs.existsSync(path.join(dir, file)))
+
     // Nothing is asked without --human on a terminal: name every flag that is missing at once.
     if (!prompt) {
         const missing = [
             options.name === undefined ? '--name' : null,
             options.region === undefined ? '--region' : null,
-            projectConfig.exists(dir) && options.force !== true ? '--force' : null,
+            inTheWay.length > 0 && options.force !== true ? '--force' : null,
         ].filter((flag) => flag !== null)
         if (missing.length > 1) {
             throw new LocalFailure(
@@ -38,17 +65,16 @@ export async function init(options: InitOptions): Promise<void> {
         }
     }
 
-    if (projectConfig.exists(dir) && options.force !== true) {
-        const file = projectConfig.CONFIG_FILE
+    if (inTheWay.length > 0 && options.force !== true) {
         const replace = await answer({
             flag: '--force',
             given: undefined,
-            hint: `${file} exists already; --force replaces it`,
+            hint: `${inTheWay.join(', ')} ${inTheWay.length === 1 ? 'exists' : 'exist'} already; --force replaces ${inTheWay.length === 1 ? 'it' : 'them'}`,
             prompt,
             validate: () => null,
-            ask: () => questions.overwrite(file),
+            ask: () => questions.overwrite(inTheWay),
         })
-        if (!replace) throw new LocalFailure(`${file} exists already: left as it is`)
+        if (!replace) throw new LocalFailure(`${inTheWay.join(', ')} ${inTheWay.length === 1 ? 'exists' : 'exist'} already: left as they are`)
     }
 
     const name = await answer({
@@ -70,36 +96,54 @@ export async function init(options: InitOptions): Promise<void> {
         ask: () => questions.region(choices),
     })
 
-    // Optional: a function to deploy. Asked on a terminal, never required, never asked without one.
-    const functionId =
-        options.function ?? (prompt && options.entry === undefined ? (await questions.functionId()) || undefined : undefined)
-    if (functionId === undefined && options.entry !== undefined) {
-        throw new LocalFailure('--entry needs --function: the id of the function it is the source of', 'missing_flag')
-    }
-    let entry: string | undefined
-    if (functionId !== undefined) {
-        const badId = questions.validateFunctionId(functionId)
-        if (badId !== null) throw new LocalFailure(`--function: ${badId}`, 'invalid_flag')
-        if (options.entry !== undefined) {
-            const badEntry = questions.validateEntry(options.entry)
-            if (badEntry !== null) throw new LocalFailure(`--entry: ${badEntry}`, 'invalid_flag')
-            entry = options.entry
-        } else {
-            entry = prompt ? await questions.entry() : questions.DEFAULT_ENTRY
+    // The function starter: optionally the cloud function it is for. Asked on a terminal, never required, never asked without one.
+    let functionId: string | undefined
+    let entry = entryFlag ?? questions.DEFAULT_ENTRY
+    if (template === 'function') {
+        functionId =
+            options.function ?? (prompt && options.entry === undefined ? (await questions.functionId()) || undefined : undefined)
+        if (functionId === undefined && options.entry !== undefined) {
+            throw new LocalFailure('--entry needs --function: the id of the function it is the source of', 'missing_flag')
+        }
+        if (functionId !== undefined) {
+            const badId = questions.validateFunctionId(functionId)
+            if (badId !== null) throw new LocalFailure(`--function: ${badId}`, 'invalid_flag')
+            if (entryFlag === undefined && prompt) entry = await questions.entry()
         }
     }
 
-    const config: projectConfig.ProjectConfig = {
-        version: 1,
-        name: name.trim(),
-        region,
-        ...(functionId === undefined || entry === undefined ? {} : { functions: [{ id: functionId, entry }] }),
-    }
+    const projectName = name.trim()
+    const made = starter(template, { name: projectName, functionId, entry })
+    const config: projectConfig.ProjectConfig = { version: 1, name: projectName, region, ...made.config }
+
+    const written = writeFiles(dir, made.files)
     const file = projectConfig.write(dir, config)
+    written.unshift(projectConfig.CONFIG_FILE)
     if (options.human !== true) {
-        await result(options, { file, config })
+        await result(options, { template, file, config, files: written, next: made.next })
         return
     }
-    const deploys = (config.functions ?? []).map((item) => `Deploys  ${item.id} from ${item.entry}\n`).join('')
-    await write('stdout', `wrote ${file}\nName    ${config.name}\nRegion  ${config.region}\n${deploys}`)
+    const deploys = (config.functions ?? []).map((item) => `Deploys   ${item.id} from ${item.entry}\n`).join('')
+    await write(
+        'stdout',
+        `wrote ${file}\nTemplate  ${template}\nName      ${config.name}\nRegion    ${config.region}\n${deploys}` +
+            `Files     ${written.join(', ')}\n\nNext\n${made.next.map((step, index) => `  ${index + 1}. ${step}\n`).join('')}`,
+    )
+}
+
+/** Write each file (making its directories); the relative paths written, in order. Nothing outside `dir`. */
+function writeFiles(dir: string, files: Record<string, string>): string[] {
+    const written: string[] = []
+    for (const [relative, content] of Object.entries(files)) {
+        const target = path.resolve(dir, relative)
+        if (path.relative(dir, target).startsWith('..')) throw new LocalFailure(`${relative} is outside this directory`, 'invalid_flag')
+        try {
+            fs.mkdirSync(path.dirname(target), { recursive: true })
+            fs.writeFileSync(target, content)
+        } catch (error) {
+            throw new LocalFailure(`cannot write ${target}: ${(error as Error).message}`)
+        }
+        written.push(relative)
+    }
+    return written
 }

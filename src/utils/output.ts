@@ -25,3 +25,24 @@ export async function show<T>(globals: Mode, reply: Reply<T>, human: (body: T) =
     }
     await result(globals, reply.json)
 }
+
+/**
+ * What a child process prints on stdout, passed on: as it is with `--human`, otherwise one `output` event per line,
+ * so that everything on stdout is JSON.
+ */
+export function relay(human: boolean) {
+    let pending = ''
+    return {
+        async push(text: string): Promise<void> {
+            if (human) return await write('stdout', text)
+            pending += text
+            const lines = pending.split('\n')
+            pending = lines.pop() ?? ''
+            for (const line of lines) await write('stdout', event({ event: 'output', line }))
+        },
+        async end(): Promise<void> {
+            if (pending !== '') await write('stdout', event({ event: 'output', line: pending }))
+            pending = ''
+        },
+    }
+}
