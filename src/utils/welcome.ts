@@ -1,29 +1,8 @@
 import chalk from 'chalk'
 import pkg from '../../package.json'
+import { write } from '@/utils/output'
 
-export async function welcome(cmd: any) {
-    
-    const pkgVer = pkg.version
-
-    let greeting
-
-    switch (cmd) {
-        case 'add':
-            greeting = 'setup a new container'
-        break;
-
-        case 'config':
-            greeting = 'configure runtime settings'
-        break;
-
-        case 'status':
-            greeting = 'list all docker containers'
-        break;
-
-        default:
-            greeting = 'welcome!'
-        break;
-    }
-
-    console.log(chalk.bgBlue(' kebele ') +' ' + chalk.blue(pkgVer) + ' | ' + chalk.green(cmd) + ' - '+ greeting +' \n')
+/** The banner a wizard prints when it is about to ask questions on a terminal. */
+export async function welcome(command: string, about: string): Promise<void> {
+    await write('stdout', `${chalk.bgYellow.black(' zega ')} ${chalk.yellow(pkg.version)} | ${chalk.green(command)} - ${about}\n\n`)
 }
