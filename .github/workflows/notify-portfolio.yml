@@ -1,0 +1,24 @@
+name: Notify Portfolio
+
+on:
+  push:
+    branches: [main, master]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Portfolio Rebuild
+        run: |
+          REPO_NAME="${{ github.repository }}"
+          echo "📢 Notifying portfolio of changes to $REPO_NAME"
+
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.PORTFOLIO_REBUILD_TOKEN }}" \
+            https://api.github.com/repos/samifouad/website/dispatches \
+            -d "{\"event_type\":\"rebuild-portfolio\",\"client_payload\":{\"repo\":\"$REPO_NAME\"}}"
+
+          echo "✅ Portfolio notified successfully"
+
