@@ -74,7 +74,7 @@ zega explorer [graph]                the explorer for a local database; with a g
 
 zega build [id]                      bundle the functions zega.json lists into dist/<id>.js (no upload, no token); in an app, its framework build
 zega dev [id]                        serve them on localhost with Bun, rebuilt when a file changes; in an app, its dev server
-zega deploy [id]                     bundle and upload the functions zega.json lists
+zega deploy [id]                     deploy listed functions, or build and deploy a function or app
 zega function deploy <id> [entry]    bundle and upload one function
 zega projects [id]                   list projects, or show one with its graphs
 zega graphs [id]                     list graphs, or show one
@@ -89,7 +89,7 @@ Global options: `--api <url>`, `--token-file <path>`, `--human`, `--nopretty`.
 
 ### deploy
 
-`zega deploy` bundles each function `zega.json` lists into one ES module and uploads it (`PUT /v1/functions/{function}/code`, a manage token). `zega deploy <id>` deploys one; `zega function deploy <id> [entry]` takes the entry as an argument and needs no `zega.json`. `--minify` shrinks the bundle.
+`zega deploy` bundles each function `zega.json` lists into one ES module and uploads it (`PUT /v1/functions/{function}/code`, a manage token). `zega deploy <id>` deploys one; `zega function deploy <id> [entry]` takes the entry as an argument and needs no `zega.json`. In an app project, `zega deploy` runs its configured framework build and uploads the worker modules and assets through the app deploy API. `zega deploy <id>` can target an existing app function. `--minify` applies to function bundles.
 
 - The bundle is made with Bun.build (inside the compiled executable too): target `browser`, ES module, the conditions `workerd`, `worker` and `browser`, npm dependencies bundled from `node_modules`, `process.env.NODE_ENV` set to `"production"` (Bun's default is development), no source map (Zega Cloud takes one file and the runtime ignores an inline map; it would only count against the limit), `cloudflare:` imports left as they are.
 - The size is printed on stderr before the upload. A bundle over the API's limit of 1,000,000 bytes is refused with its size, before anything is sent. All entries are bundled before the first upload, so a function that cannot be bundled stops the deploy while nothing has changed.
@@ -255,7 +255,7 @@ Every starter depends on `@zegadb/lib` (pinned) and imports `connect` from `@zeg
   "kind": "app",
   "framework": "nextjs",
   "build": { "command": ["opennextjs-cloudflare", "build", "--skipWranglerConfigCheck"], "worker": ".open-next/worker.js", "assets": ".open-next/assets" },
-  "runtime": { "compatibilityDate": "2026-09-01", "compatibilityFlags": ["nodejs_compat", "global_fetch_strictly_public"] }
+  "runtime": { "compatibilityDate": "2026-09-01", "compatibilityFlags": ["nodejs_compat"] }
 }
 ```
 
@@ -263,7 +263,8 @@ Every starter depends on `@zegadb/lib` (pinned) and imports `connect` from `@zeg
 
 - `zega build` runs `build.command` from the project's `node_modules/.bin` (so install first), checks that `worker` and `assets` exist and prints `{ "kind", "framework", "command", "worker", "assets", "workerBytes" }`. The framework's own output goes to stderr.
 - `zega dev` runs the framework's dev server (`next dev`, `astro dev --ignore-lock`) with `.dev.vars` added to its environment. Unlike a function, the dev server gets the shell's environment too (it needs PATH). `--port` and `--local-graph`/`--cloud-graph` work. Its output is passed on as `output` events (as `zega start`), after a `starting` event with the env names.
-- `zega deploy` fails with `app deploys aren't supported yet` (code `app_deploy_unsupported`): `zega deploy` ships functions only.
+- `zega deploy` builds the app, sends the asset manifest, uploads only hashes Cloudflare does not already hold, and sends the worker modules and runtime config. The first deploy finds the unique Cloud project whose name matches `zega.json`; if needed it creates an app function there, then saves `projectId` and `appId` in `zega.json`. If project names are ambiguous, set `projectId` to the dashboard's project id. Later deploys reuse `appId`. A function id may also be passed as `zega deploy <id>`.
+- Progress is one JSON line per event by default; `--human` prints readable progress. The API's 413 error code and message name the module, asset, account or batch limit that was exceeded.
 
 ## develop
 
@@ -272,7 +273,7 @@ Bun 1.3.14 is pinned (`packageManager`, `engines`, CI).
 ```
 bun install
 bun run typecheck
-bun test
+bun test --timeout 600000
 bun run build
 ```
 

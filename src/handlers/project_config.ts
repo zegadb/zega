@@ -6,6 +6,8 @@
  *       "version": 1,
  *       "name": "my-app",
  *       "region": "yyz",
+ *       "projectId": "p0...",
+ *       "appId": "f0...",
  *       "functions": [
  *         { "id": "f0abcdefghjkmnpqrs", "entry": "src/index.ts" }
  *       ]
@@ -58,6 +60,10 @@ export type ProjectConfig = {
     framework?: Framework
     build?: AppBuild
     runtime?: AppRuntime
+    /** The Cloud project to deploy into; set by the first app deploy when a unique name match is found. */
+    projectId?: string
+    /** The Cloud app function created by the first app deploy. */
+    appId?: string
     functions?: FunctionEntry[]
 }
 
@@ -108,6 +114,10 @@ export function read(dir: string): ProjectConfig | null {
     if (typeof object.name !== 'string' || object.name === '') throw broken('`name` must be a nonempty string')
     if (typeof object.region !== 'string' || object.region === '') throw broken('`region` must be a nonempty string')
     const config: ProjectConfig = { version: 1, name: object.name, region: object.region }
+    if (object.projectId !== undefined) {
+        if (typeof object.projectId !== 'string' || object.projectId === '') throw broken('`projectId` must be a nonempty string')
+        config.projectId = object.projectId
+    }
     if (object.kind !== undefined) {
         if (object.kind !== 'function' && object.kind !== 'app') throw broken('`kind` must be "function" or "app"')
         config.kind = object.kind
@@ -144,6 +154,14 @@ export function read(dir: string): ProjectConfig | null {
             throw broken('`runtime` must have a `compatibilityDate` and a list of `compatibilityFlags`')
         }
         config.runtime = { compatibilityDate: runtime.compatibilityDate, compatibilityFlags: runtime.compatibilityFlags as string[] }
+        if (object.appId !== undefined) {
+            if (typeof object.appId !== 'string' || !isFunctionId(object.appId)) {
+                throw broken('`appId` must be a function id: "f0" and 16 characters')
+            }
+            config.appId = object.appId
+        }
+    } else if (object.appId !== undefined) {
+        throw broken('`appId` is only valid when `kind` is "app"')
     }
     if (object.functions !== undefined) {
         if (!Array.isArray(object.functions)) throw broken('`functions` must be a list')

@@ -82,7 +82,7 @@ program
 
 program
     .command('deploy')
-    .description('deploy your functions')
+    .description('deploy your functions or app')
     .helpGroup('Project:')
     .argument('[id]', 'only this function')
     .option('--minify', 'minify the bundle')
@@ -221,4 +221,3 @@ fn.command('logs')
 // Help lists the groups in this order (a stable sort keeps each group's own order).
 const GROUPS = ['Local:', 'Project:', 'Cloud:', 'Account:']
 ;(program.commands as Command[]).sort((a: Command, b: Command) => GROUPS.indexOf(a.helpGroup()) - GROUPS.indexOf(b.helpGroup()))
-

@@ -29,7 +29,8 @@ export const gitignore = (...more: string[]): string => text(['node_modules', '.
 /** What a worker on the Workers runtime needs, recorded in `zega.json` rather than in a wrangler file to keep. */
 export const RUNTIME = {
     compatibilityDate: '2026-09-01',
-    compatibilityFlags: ['nodejs_compat', 'global_fetch_strictly_public'],
+    // Cloud adds global_fetch_strictly_public itself when it compiles an app.
+    compatibilityFlags: ['nodejs_compat'],
 }
 
 /** One line in each app's README: where the auth package will go. It does not exist yet. */

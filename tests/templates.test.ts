@@ -6,7 +6,7 @@ import { read as readConfig } from '../src/handlers/project_config'
 import { TEMPLATES, packageName, starter } from '../src/templates'
 import { ZEGA_LIB } from '../src/templates/versions'
 import { eventually, startDev } from './dev_helpers'
-import { FIXTURES, errorOf, fakeApi, remove, run, scratch } from './helpers'
+import { FIXTURES, errorOf, remove, run, scratch } from './helpers'
 
 const home = scratch()
 afterAll(() => remove(home))
@@ -90,7 +90,7 @@ describe('the starters', () => {
                 const config = readJson(path.join(dir, 'zega.json'))
                 expect(config).toMatchObject({ kind: 'app', framework: template, build: { worker, assets } })
                 expect(config.build.command.length).toBeGreaterThan(1)
-                expect(config.runtime).toEqual({ compatibilityDate: '2026-09-01', compatibilityFlags: ['nodejs_compat', 'global_fetch_strictly_public'] })
+                expect(config.runtime).toEqual({ compatibilityDate: '2026-09-01', compatibilityFlags: ['nodejs_compat'] })
                 expect(config.functions).toBeUndefined()
                 // `npm run build` is the same command, so the script and zega.json cannot differ.
                 expect(readJson(path.join(dir, 'package.json')).scripts.build).toBe(config.build.command.join(' '))
@@ -186,31 +186,29 @@ describe('the function starter builds', () => {
     })
 })
 
-describe('app starters: zega deploy says it is not supported yet', () => {
-    test('in a nextjs and an astro project it fails clearly, sends nothing, and zega build is the way to the output', async () => {
-        const api = fakeApi({})
-        const tokenFile = path.join(home, 'token')
-        fs.writeFileSync(tokenFile, 'zc_test_0123456789abcdef0123456789abcdef\n', { mode: 0o600 })
+describe('app config', () => {
+    test('reads and retains the project and app ids written by app deploy', () => {
+        const dir = scratch()
         try {
-            for (const template of ['nextjs', 'astro']) {
-                const { dir } = await init(template)
-                try {
-                    const deployed = await run(['deploy', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
-                    expect(deployed.code).toBe(1)
-                    expect(deployed.stdout).toBe('')
-                    expect(errorOf(deployed)).toMatchObject({ code: 'app_deploy_unsupported' })
-                    expect(errorOf(deployed).message).toContain("app deploys aren't supported yet")
-                    // Not installed: building says what to do, rather than half-working.
-                    const built = await run(['build'], { home, cwd: dir })
-                    expect(built.code).toBe(1)
-                    expect(errorOf(built)).toMatchObject({ code: 'not_installed' })
-                } finally {
-                    remove(dir)
-                }
-            }
-            expect(api.seen).toHaveLength(0)
+            fs.writeFileSync(
+                path.join(dir, 'zega.json'),
+                JSON.stringify({
+                    version: 1,
+                    name: 'x',
+                    region: 'yyz',
+                    kind: 'app',
+                    framework: 'astro',
+                    build: { command: ['astro', 'build'], worker: 'dist/server/entry.mjs', assets: 'dist/client' },
+                    runtime: { compatibilityDate: '2026-09-01', compatibilityFlags: ['nodejs_compat'] },
+                    projectId: 'p0project',
+                    appId: FN,
+                }),
+            )
+            expect(readConfig(dir)).toMatchObject({ projectId: 'p0project', appId: FN })
+            fs.writeFileSync(path.join(dir, 'zega.json'), JSON.stringify({ version: 1, name: 'x', region: 'yyz', appId: FN }))
+            expect(() => readConfig(dir)).toThrow('`appId` is only valid when `kind` is "app"')
         } finally {
-            api.stop()
+            remove(dir)
         }
     })
 

@@ -105,7 +105,7 @@ npm run dev                      # next dev, with .dev.vars in its environment
 npm run build                    # the worker (.open-next/worker.js) and its static assets (.open-next/assets)
 \`\`\`
 
-What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Deploying an app with \`zega deploy\` is not supported yet.
+What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Cloud project.
 
 ${AUTH_LINE}
 `),

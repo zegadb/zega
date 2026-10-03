@@ -68,7 +68,7 @@ npm run dev                      # astro dev, with .dev.vars in its environment
 npm run build                    # the worker (dist/server/entry.mjs) and its static assets (dist/client)
 \`\`\`
 
-What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Deploying an app with \`zega deploy\` is not supported yet.
+What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Cloud project.
 
 ${AUTH_LINE}
 `),
