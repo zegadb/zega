@@ -62,6 +62,9 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
             await session.waitFor('ams  Amsterdam, Netherlands')
             session.type('\u001b[B') // down: the second choice
             session.type('\r')
+            // The function is optional: an empty answer is none.
+            await session.waitFor('Function id to deploy')
+            session.type('\r')
             expect(await session.exited).toBe(0)
             expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))).toEqual({
                 version: 1,
@@ -80,8 +83,33 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
             await session.waitFor('Region:')
             expect(session.output).not.toContain('Project name:')
             session.type('\r')
+            await session.waitFor('Function id to deploy')
+            session.type('\r')
             expect(await session.exited).toBe(0)
             expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8')).name).toBe('flagged')
+        } finally {
+            remove(dir)
+        }
+    })
+
+    test('init can tie a function to its entry file, asking for the entry with a default', async () => {
+        const dir = scratch()
+        try {
+            const session = await onTerminal(['init', '--name', 'fn-app', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
+                home,
+                cwd: dir,
+            })
+            await session.waitFor('Function id to deploy')
+            session.type('f0bbbbbbbbbbbbbbbb\r')
+            await session.waitFor('Entry file to bundle:')
+            session.type('\r') // the default
+            expect(await session.exited).toBe(0)
+            expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))).toEqual({
+                version: 1,
+                name: 'fn-app',
+                region: 'yyz',
+                functions: [{ id: 'f0bbbbbbbbbbbbbbbb', entry: 'src/index.ts' }],
+            })
         } finally {
             remove(dir)
         }

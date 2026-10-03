@@ -5,7 +5,13 @@ import * as questions from '@/questions'
 import { LocalFailure } from '@/utils/errors'
 import { answer, canPrompt, welcome, write } from '@/utils'
 
-export type InitOptions = Globals & { name?: string; region?: string; force?: boolean }
+export type InitOptions = Globals & {
+    name?: string
+    region?: string
+    force?: boolean
+    function?: string
+    entry?: string
+}
 
 /**
  * Write `zega.json` for a project in the current directory. It creates nothing
@@ -63,11 +69,36 @@ export async function init(options: InitOptions): Promise<void> {
         ask: () => questions.region(choices),
     })
 
-    const config: projectConfig.ProjectConfig = { version: 1, name: name.trim(), region }
+    // Optional: a function to deploy. Asked on a terminal, never required, never asked without one.
+    const functionId =
+        options.function ?? (prompt && options.entry === undefined ? (await questions.functionId()) || undefined : undefined)
+    if (functionId === undefined && options.entry !== undefined) {
+        throw new LocalFailure('--entry needs --function: the id of the function it is the source of')
+    }
+    let entry: string | undefined
+    if (functionId !== undefined) {
+        const badId = questions.validateFunctionId(functionId)
+        if (badId !== null) throw new LocalFailure(`--function: ${badId}`)
+        if (options.entry !== undefined) {
+            const badEntry = questions.validateEntry(options.entry)
+            if (badEntry !== null) throw new LocalFailure(`--entry: ${badEntry}`)
+            entry = options.entry
+        } else {
+            entry = prompt ? await questions.entry() : questions.DEFAULT_ENTRY
+        }
+    }
+
+    const config: projectConfig.ProjectConfig = {
+        version: 1,
+        name: name.trim(),
+        region,
+        ...(functionId === undefined || entry === undefined ? {} : { functions: [{ id: functionId, entry }] }),
+    }
     const file = projectConfig.write(dir, config)
     if (options.json === true) {
         await write('stdout', JSON.stringify({ file, config }, null, 2) + '\n')
         return
     }
-    await write('stdout', `wrote ${file}\nName    ${config.name}\nRegion  ${config.region}\n`)
+    const deploys = (config.functions ?? []).map((item) => `Deploys  ${item.id} from ${item.entry}\n`).join('')
+    await write('stdout', `wrote ${file}\nName    ${config.name}\nRegion  ${config.region}\n${deploys}`)
 }

@@ -23,6 +23,7 @@ export type Seen = {
     target: string
     pathname: string
     authorization: string | null
+    contentType: string | null
     body: string
 }
 
@@ -44,6 +45,7 @@ export function fakeApi(routes: Record<string, Canned>) {
                 target: url.pathname + url.search,
                 pathname: url.pathname,
                 authorization: request.headers.get('authorization'),
+                contentType: request.headers.get('content-type'),
                 body: await request.text(),
             })
             const canned = routes[`${request.method} ${url.pathname}`]
@@ -148,3 +150,34 @@ export const regionsBody = {
         { id: 'ams', city: 'Amsterdam', country: 'Netherlands', continent: 'Europe' },
     ],
 } satisfies { regions: Schemas['Region'][] }
+
+export const FIXTURES = path.join(ROOT, 'tests', 'fixtures')
+
+export const FUNCTION_ID = 'f0bbbbbbbbbbbbbbbb'
+
+export const deployedFunction = {
+    id: FUNCTION_ID,
+    name: 'hello',
+    projectId: 'p1',
+    projectName: 'Atlas',
+    url: `https://${FUNCTION_ID}.zegadb.com`,
+    capCents: 300,
+    deployed: true,
+    version: 4,
+    etag: 'abc',
+    deployedAt: '2026-10-03T09:00:00.000Z',
+    vars: {},
+    secrets: [],
+    limits: { cpuMs: 50, subRequests: 50 },
+    logs: 'off',
+    logsStoppedAt: null,
+    createdAt: '2026-09-22T08:00:00.000Z',
+    updatedAt: '2026-10-03T09:00:00.000Z',
+} satisfies Schemas['Function']
+
+/** Load a bundle the way a runtime would: as an ES module, and call its default fetch handler. */
+export async function callBundle(code: string, url: string): Promise<string> {
+    const module = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+    const response = await module.default.fetch(new Request(url))
+    return await response.text()
+}

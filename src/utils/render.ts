@@ -220,6 +220,14 @@ export function functionOne(body: Answer<'/v1/functions/{function}'>): string {
     return out
 }
 
+export function deployResult(body: Answer<'/v1/functions/{function}/code', 'put'>): string {
+    const f = one(body, 'function')
+    return detail([
+        ['Deployed', `${text(f.id)} (${text(f.name)}) as v${text(f.version)}`],
+        ['Address', text(f.url)],
+    ])
+}
+
 export function regions(body: Answer<'/v1/regions'>): string {
     const table = new Table([{ header: 'ID' }, { header: 'CITY' }, { header: 'COUNTRY' }, { header: 'CONTINENT' }])
     for (const r of items(body, 'regions')) table.row([text(r.id), text(r.city), text(r.country), text(r.continent)])

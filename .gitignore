@@ -3,3 +3,4 @@ node_modules/
 .tmp/
 .bun-cache/
 dist/
+!tests/fixtures/**/node_modules/

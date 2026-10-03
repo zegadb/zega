@@ -7,26 +7,33 @@ import { ApiFailure, LocalFailure, NetworkFailure } from '@/utils/errors'
 const MAX_ANSWER_BYTES = 32 << 20
 const TIMEOUT_MS = 60_000
 
-/** Every path of the OpenAPI document that has a GET. */
-export type GetPath = {
-    [P in keyof paths]: paths[P] extends { get: object } ? P : never
+type Method = 'get' | 'put'
+
+/** Every path of the OpenAPI document that has this method. */
+type PathWith<M extends Method> = {
+    [P in keyof paths]: paths[P] extends { [K in M]: object } ? P : never
 }[keyof paths]
 
-type GetOperation<P extends GetPath> = paths[P] extends { get: infer O } ? O : never
+export type GetPath = PathWith<'get'>
+export type PutPath = PathWith<'put'>
+
+type Operation<P extends keyof paths, M extends Method> = paths[P] extends { [K in M]: infer O } ? O : never
 
 /** What a 200 answers, typed from the OpenAPI document. */
-export type Answer<P extends GetPath> = GetOperation<P> extends {
+export type Answer<P extends keyof paths, M extends Method = 'get'> = Operation<P, M> extends {
     responses: { 200: { content: { 'application/json': infer Body } } }
 }
     ? Body
     : never
 
-type OperationParameters<P extends GetPath> = GetOperation<P> extends { parameters: infer Q } ? Q : never
+type OperationParameters<P extends keyof paths, M extends Method> = Operation<P, M> extends { parameters: infer Q }
+    ? Q
+    : never
 
-export type PathParams<P extends GetPath> =
-    OperationParameters<P> extends { path?: infer X } ? Exclude<X, undefined> : never
-export type QueryParams<P extends GetPath> =
-    OperationParameters<P> extends { query?: infer X } ? Exclude<X, undefined> : never
+export type PathParams<P extends keyof paths, M extends Method = 'get'> =
+    OperationParameters<P, M> extends { path?: infer X } ? Exclude<X, undefined> : never
+export type QueryParams<P extends keyof paths, M extends Method = 'get'> =
+    OperationParameters<P, M> extends { query?: infer X } ? Exclude<X, undefined> : never
 
 /** A 2xx answer: the text as sent (for `--json`) and its parse. */
 export type Reply<T> = { raw: string; json: T }
@@ -49,21 +56,44 @@ export class CloudClient {
         path: P,
         args: { path?: PathParams<P>; query?: QueryParams<P> } = {},
     ): Promise<Reply<Answer<P>>> {
-        const filled = fillPath(path, (args.path ?? {}) as Record<string, string>)
-        const url = new URL(this.base + filled)
-        for (const [name, value] of Object.entries((args.query ?? {}) as Record<string, unknown>)) {
+        return (await this.send('GET', path, (args.path ?? {}) as Record<string, string>, args.query)) as Reply<Answer<P>>
+    }
+
+    /** A PUT whose body is sent as it is, with the content type the OpenAPI document names for it. */
+    async put<P extends PutPath>(
+        path: P,
+        args: { path?: PathParams<P, 'put'>; body: string; contentType: string },
+    ): Promise<Reply<Answer<P, 'put'>>> {
+        const body = { text: args.body, contentType: args.contentType }
+        return (await this.send('PUT', path, (args.path ?? {}) as Record<string, string>, undefined, body)) as Reply<
+            Answer<P, 'put'>
+        >
+    }
+
+    private async send(
+        method: 'GET' | 'PUT',
+        template: string,
+        params: Record<string, string>,
+        query?: unknown,
+        body?: { text: string; contentType: string },
+    ): Promise<Reply<unknown>> {
+        const url = new URL(this.base + fillPath(template, params))
+        for (const [name, value] of Object.entries((query ?? {}) as Record<string, unknown>)) {
             if (value !== undefined && value !== null) url.searchParams.append(name, String(value))
         }
+        const headers: Record<string, string> = {
+            authorization: `Bearer ${this.token}`,
+            accept: 'application/json',
+            'user-agent': `zega-cli/${pkg.version}`,
+        }
+        if (body !== undefined) headers['content-type'] = body.contentType
         let response: Response
         let raw: string
         try {
             response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    authorization: `Bearer ${this.token}`,
-                    accept: 'application/json',
-                    'user-agent': `zega-cli/${pkg.version}`,
-                },
+                method,
+                headers,
+                body: body?.text,
                 // An API that redirects is not this API; never follow a redirect with a bearer token attached.
                 redirect: 'manual',
                 signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -87,7 +117,7 @@ export class CloudClient {
             if (json === undefined) {
                 throw new LocalFailure(`${this.host} answered HTTP ${response.status} with something that is not JSON`)
             }
-            return { raw, json: json as Answer<P> }
+            return { raw, json }
         }
         throw apiFailure(response.status, json, response.headers.get('retry-after'), this.host)
     }

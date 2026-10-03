@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import pkg from '../package.json'
-import { TOKEN, fakeApi, regionsBody, remove, scratch } from './helpers'
+import { FIXTURES, FUNCTION_ID, TOKEN, callBundle, deployedFunction, fakeApi, regionsBody, remove, scratch } from './helpers'
 
 /**
  * The compiled single-file executable, not the TypeScript: what ships is what
@@ -29,10 +29,10 @@ afterAll(() => {
     remove(dir)
 })
 
-async function run(args: string[]) {
+async function run(args: string[], options: { cwd?: string; path?: string } = {}) {
     const child = Bun.spawn([exe, ...args], {
-        cwd: dir,
-        env: { PATH: process.env.PATH ?? '', HOME: dir, XDG_CONFIG_HOME: path.join(dir, '.config') },
+        cwd: options.cwd ?? dir,
+        env: { PATH: options.path ?? process.env.PATH ?? '', HOME: dir, XDG_CONFIG_HOME: path.join(dir, '.config') },
         stdin: 'ignore',
         stdout: 'pipe',
         stderr: 'pipe',
@@ -71,5 +71,40 @@ describe('the compiled executable', () => {
         const result = await run(['init', '--force'])
         expect(result.code).toBe(1)
         expect(result.stderr).toContain('missing --name, --region')
+    })
+
+    test('bundles a function with an npm dependency INSIDE the executable (no bun on the PATH) and uploads one ES module', async () => {
+        const tokenFile = path.join(dir, 'token')
+        fs.writeFileSync(tokenFile, TOKEN + '\n', { mode: 0o600 })
+        const functionApi = fakeApi({ [`PUT /v1/functions/${FUNCTION_ID}/code`]: { body: { function: deployedFunction } } })
+        try {
+            const result = await run(
+                ['function', 'deploy', FUNCTION_ID, 'src/index.ts', '--api', functionApi.url, '--token-file', tokenFile],
+                // A PATH with no bun in it: the bundler is the executable's own.
+                { cwd: path.join(FIXTURES, 'hello'), path: '/nonexistent' },
+            )
+            expect(result.stderr).not.toContain('could not')
+            expect(result.code).toBe(0)
+            expect(functionApi.seen).toHaveLength(1)
+            const request = functionApi.seen[0]!
+            expect(request).toMatchObject({ method: 'PUT', authorization: `Bearer ${TOKEN}`, contentType: 'application/javascript' })
+            // One ES module that exports a default fetch handler and contains the dependency's code.
+            expect(request.body).toMatch(/\bas default\b|\bexport default\b/)
+            expect(request.body).toContain('useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict')
+            expect(request.body).toContain('hello from workerd')
+            expect(request.body).not.toMatch(/^import /m)
+            expect(await callBundle(request.body, 'https://f.example/abc')).toMatch(/^HELLO FROM WORKERD \/ABC [A-Za-z0-9_-]{12}$/)
+        } finally {
+            functionApi.stop()
+        }
+    })
+
+    test('refuses a Node built-in inside the executable too', async () => {
+        const result = await run(['function', 'deploy', FUNCTION_ID, 'src/crypto.ts'], {
+            cwd: path.join(FIXTURES, 'builtins'),
+            path: '/nonexistent',
+        })
+        expect(result.code).toBe(1)
+        expect(result.stderr).toContain('Node built-ins are not available in Zega Cloud functions yet: node:crypto in src/crypto.ts')
     })
 })
