@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { FAKE_QUERY_SERVER, callTool, connectMcp, newHome, toolNames } from './mcp_helpers'
+import { startCli } from './cli_helpers'
+import { CLIENTS, connect } from '../src/mcp/clients'
 import { FIXTURES, FUNCTION_ID, TOKEN, account, deployedFunction, fakeApi, graph, project, regionsBody, remove, tokenInfo } from './helpers'
 
 const MADE_KEY = 'zk_abcdefghijklmnopqrstuvwxyz234567'
@@ -71,6 +73,40 @@ const LOCAL_READ = ['zega_local_query', 'zega_local_status']
 const home = newHome()
 afterAll(() => remove(home))
 const hello = path.join(FIXTURES, 'hello')
+
+describe('mcp config formats', () => {
+    test('prints the documented command or native config format for every client, including read-only and spaced token paths', async () => {
+        expect(CLIENTS).toEqual(['claude-code', 'codex', 'cursor', 'vscode', 'windsurf', 'zed'])
+        const common = { name: 'zega', groups: ['account', 'graphs'] }
+        const configured = Object.fromEntries(CLIENTS.map((client) => [client, connect({ client, ...common }).snippets]))
+        expect(configured['claude-code']![0]!.text).toBe('claude mcp add --scope project zega -- zega mcp --groups account,graphs')
+        expect(JSON.parse(configured['claude-code']![2]!.text)).toEqual({ mcpServers: { zega: { type: 'stdio', command: 'zega', args: ['mcp', '--groups', 'account,graphs'] } } })
+        expect(configured.codex![0]!.text).toBe('codex mcp add zega -- zega mcp --groups account,graphs')
+        expect(configured.codex![1]!.text).toContain('[mcp_servers.zega]\ncommand = "zega"\nargs = ["mcp", "--groups", "account,graphs"]')
+        expect(JSON.parse(configured.cursor![0]!.text)).toEqual({ mcpServers: { zega: { command: 'zega', args: ['mcp', '--groups', 'account,graphs'] } } })
+        expect(JSON.parse(configured.vscode![0]!.text)).toEqual({ servers: { zega: { type: 'stdio', command: 'zega', args: ['mcp', '--groups', 'account,graphs'] } } })
+        expect(JSON.parse(configured.vscode![1]!.text.match(/\{.*\}/)![0]!)).toEqual({ name: 'zega', command: 'zega', args: ['mcp', '--groups', 'account,graphs'] })
+        expect(JSON.parse(configured.windsurf![0]!.text)).toEqual({ mcpServers: { zega: { command: 'zega', args: ['mcp', '--groups', 'account,graphs'] } } })
+        expect(JSON.parse(configured.zed![0]!.text)).toEqual({ context_servers: { zega: { command: 'zega', args: ['mcp', '--groups', 'account,graphs'], env: {} } } })
+
+        for (const client of CLIENTS) {
+            const tokenFile = path.join(home, 'Ada Lovelace', 'zega token')
+            const [first] = connect({ client, ...common, readOnly: true, tokenFile }).snippets
+            expect(first!.text).toContain('--read-only')
+            expect(first!.text).toContain(tokenFile)
+            for (const snippet of connect({ client, ...common, readOnly: true, tokenFile }).snippets) {
+                expect(snippet.text).not.toContain('zk_')
+            }
+            const cli = startCli(
+                ['mcp', 'config', '--client', client, '--groups', 'account,graphs', '--read-only', '--token-file', tokenFile],
+                { cwd: home, home },
+            )
+            expect(await cli.exited).toBe(0)
+            expect(JSON.parse(cli.stdout())).toEqual(connect({ client, ...common, readOnly: true, tokenFile }))
+            expect(cli.stdout()).not.toContain('zk_')
+        }
+    }, 30_000)
+})
 
 describe('which tools a server offers', () => {
     test('by default every group except storage, with the write tools for a manage token', async () => {

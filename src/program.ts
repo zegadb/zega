@@ -153,11 +153,9 @@ const mcp = program
 mcp.command('config')
     .description('print how to add zega mcp to an agent')
     .requiredOption('--client <name>', 'claude-code, codex, cursor, vscode, windsurf or zed')
-    .option('--groups <list>', 'tool groups to serve')
-    .option('--read-only', 'serve only tools that read')
     .option('--name <name>', 'the server\'s name in the agent (default zega)')
     .option('--command <command>', 'how the agent starts zega (default zega)')
-    .action(action(async (options: Omit<core.ConfigOptions, keyof Globals>) => core.mcpConfig({ ...globals(), ...options })))
+    .action(action(async (options: Omit<core.ConfigOptions, keyof Globals>) => core.mcpConfig({ ...globals(), ...mcp.opts(), ...options })))
 
 program
     .command('projects')
@@ -239,4 +237,3 @@ fn.command('logs')
 // Help lists the groups in this order (a stable sort keeps each group's own order).
 const GROUPS = ['Local:', 'Project:', 'Cloud:', 'Account:']
 ;(program.commands as Command[]).sort((a: Command, b: Command) => GROUPS.indexOf(a.helpGroup()) - GROUPS.indexOf(b.helpGroup()))
-
