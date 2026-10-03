@@ -67,7 +67,16 @@ program
     .option('--name <name>', 'the project name, 1 to 64 characters')
     .option('--region <id>', 'a region id (see `zega regions`)')
     .option('--force', 'replace zega.json if it exists')
-    .action(action(async (options: { name?: string; region?: string; force?: boolean }) => core.init({ ...globals(), ...options })))
+    .option('--function <id>', 'a cloud function this project deploys (see `zega deploy`)')
+    .option('--entry <path>', 'the source file to bundle for --function (default src/index.ts)')
+    .action(action(async (options: { name?: string; region?: string; force?: boolean; function?: string; entry?: string }) => core.init({ ...globals(), ...options })))
+
+program
+    .command('deploy')
+    .description('bundle the functions zega.json lists (or only <id>) into one ES module each and upload them; needs a manage token')
+    .argument('[id]', 'deploy only this function id')
+    .option('--minify', 'minify the bundle (smaller, harder to read in logs)')
+    .action(action(async (id: string | undefined, options: { minify?: boolean }) => core.deploy(id, { ...globals(), ...options })))
 
 program
     .command('projects')
@@ -114,7 +123,17 @@ function integer(name: string, min: number, max: number) {
     }
 }
 
-const fn = program.command('function').description("a function's logs")
+const fn = program.command('function').description("a function's code and logs")
+fn.command('deploy')
+    .description('bundle a function into one ES module and upload it; needs a manage token')
+    .argument('<id>', 'a function id')
+    .argument('[entry]', 'the source file to bundle (default: the entry zega.json lists for this id)')
+    .option('--minify', 'minify the bundle (smaller, harder to read in logs)')
+    .action(
+        action(async (id: string, entry: string | undefined, options: { minify?: boolean }) =>
+            core.functionDeploy(id, entry, { ...globals(), ...options }),
+        ),
+    )
 fn.command('logs')
     .description("a page of a function's requests, newest first, with their console lines")
     .argument('<id>', 'a function id')

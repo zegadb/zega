@@ -144,4 +144,45 @@ describe('zega init', () => {
             remove(dir)
         }
     })
+
+    test('--function ties a function to its entry (src/index.ts unless --entry); nothing is asked without a terminal', async () => {
+        const dir = project()
+        try {
+            const first = await run(['init', '--name', 'a', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb'], { home, cwd: dir, stdin: null })
+            expect(first.code).toBe(0)
+            expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))).toEqual({
+                version: 1,
+                name: 'a',
+                region: 'yyz',
+                functions: [{ id: 'f0bbbbbbbbbbbbbbbb', entry: 'src/index.ts' }],
+            })
+            expect(first.stdout).toContain('Deploys  f0bbbbbbbbbbbbbbbb from src/index.ts')
+
+            const second = await run(
+                ['init', '--name', 'a', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb', '--entry', 'worker/main.ts', '--force'],
+                { home, cwd: dir, stdin: null },
+            )
+            expect(second.code).toBe(0)
+            expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8')).functions).toEqual([
+                { id: 'f0bbbbbbbbbbbbbbbb', entry: 'worker/main.ts' },
+            ])
+        } finally {
+            remove(dir)
+        }
+    })
+
+    test('a function id that is not one, and --entry without --function, are refused and write nothing', async () => {
+        const dir = project()
+        try {
+            const bad = await run(['init', '--name', 'a', '--region', 'yyz', '--function', 'hello'], { home, cwd: dir, stdin: null })
+            expect(bad.code).toBe(1)
+            expect(bad.stderr).toContain('--function: a function id is "f0" and 16 characters')
+            const orphan = await run(['init', '--name', 'a', '--region', 'yyz', '--entry', 'x.ts'], { home, cwd: dir, stdin: null })
+            expect(orphan.code).toBe(1)
+            expect(orphan.stderr).toContain('--entry needs --function')
+            expect(fs.existsSync(path.join(dir, 'zega.json'))).toBe(false)
+        } finally {
+            remove(dir)
+        }
+    })
 })

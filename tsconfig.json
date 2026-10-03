@@ -25,5 +25,5 @@
     "noUnusedParameters": true
   },
   "include": ["./src/**/*", "./tests/**/*", "./scripts/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "tests/fixtures"]
 }

@@ -44,6 +44,8 @@ zega login [--store file|keychain]   store an API token
 zega logout                          remove the stored token
 zega whoami                          which token this is: name, scope, project, expiry
 zega init                            write zega.json for a project here
+zega deploy [id]                     bundle and upload the functions zega.json lists
+zega function deploy <id> [entry]    bundle and upload one function
 zega projects [id]                   list projects, or show one with its graphs
 zega graphs [id]                     list graphs, or show one
 zega buckets [id]                    list storage buckets, or show one
@@ -54,6 +56,15 @@ zega regions                         the regions a graph can run in
 ```
 
 Global options: `--api <url>`, `--token-file <path>`, `--json`.
+
+### deploy
+
+`zega deploy` bundles each function `zega.json` lists into one ES module and uploads it (`PUT /v1/functions/{function}/code`, a manage token). `zega deploy <id>` deploys one; `zega function deploy <id> [entry]` takes the entry as an argument and needs no `zega.json`. `--minify` shrinks the bundle.
+
+- The bundle is made with Bun.build (inside the compiled executable too): target `browser`, ES module, the conditions `workerd`, `worker` and `browser`, npm dependencies bundled from `node_modules`, `process.env.NODE_ENV` set to `"production"`, no source map (Zega Cloud takes one file and the runtime ignores an inline map; it would only count against the limit), `cloudflare:` imports left as they are.
+- The size is printed on stderr before the upload. A bundle over the API's limit of 1,000,000 bytes is refused with its size, before anything is sent. All entries are bundled before the first upload, so a function that cannot be bundled stops the deploy while nothing has changed.
+- **Node built-ins are not available in Zega Cloud functions yet** (no `nodejs_compat`). An import of `node:crypto`, `node:buffer`, a bare `path` and the rest, in your code or in a dependency, is an error naming the import and the file. (Bun's browser target would otherwise swap in a polyfill: `node:crypto` alone is about 925 KB.)
+- With `--json` stdout is the API's answer unchanged, one per function; the size line is on stderr.
 
 `zega function logs <id>` takes `--from`, `--to`, `--limit` (1 to 200), `--status`, `--search` and `--cursor`.
 
@@ -82,7 +93,20 @@ writes `zega.json` in the current directory:
 }
 ```
 
-`version` is the file's own format, `name` the project's display label (1 to 64 characters), `region` a Zega Cloud region id (`zega regions`). It holds no secret and no cloud id.
+`version` is the file's own format, `name` the project's display label (1 to 64 characters), `region` a Zega Cloud region id (`zega regions`). It holds no secret.
+
+To deploy functions it lists them, each with its cloud id and the source file to bundle (relative to `zega.json`):
+
+```json
+{
+  "version": 1,
+  "name": "my-app",
+  "region": "yyz",
+  "functions": [{ "id": "f0abcdefghjkmnpqrs", "entry": "src/index.ts" }]
+}
+```
+
+`zega init --function <id> [--entry <path>]` writes that (the entry defaults to `src/index.ts`; on a terminal init asks for both, and an empty function id means none). `init` never creates the function: that is done in the dashboard.
 
 ## develop
 

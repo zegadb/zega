@@ -1,17 +1,24 @@
 /**
  * The project file `zega init` writes: `zega.json` in the project's directory.
- * Later commands (deploy, the local server) read it.
+ * `zega deploy` and, later, the local server read it.
  *
  *     {
  *       "version": 1,
  *       "name": "my-app",
- *       "region": "yyz"
+ *       "region": "yyz",
+ *       "functions": [
+ *         { "id": "f0abcdefghjkmnpqrs", "entry": "src/index.ts" }
+ *       ]
  *     }
  *
  * `version` is the file's own format. `name` is the project's display label
  * (1 to 64 characters, as in Zega Cloud). `region` is a Zega Cloud region id,
- * where the project's graph will live. The file holds no secret and no cloud
- * resource id: it is safe to commit, and it does not say a cloud project exists.
+ * where the project's graph will live. `functions` is optional: each item ties
+ * a cloud function (made in the dashboard or with the API) to the source file
+ * `zega deploy` bundles for it, `entry`, a path relative to this file. The file
+ * holds no secret: it is safe to commit, and it does not say a cloud project
+ * exists. Keys are only ever added to version 1; `version` changes only if the
+ * meaning of an existing key does.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -20,7 +27,14 @@ import { LocalFailure } from '@/utils/errors'
 
 export const CONFIG_FILE = 'zega.json'
 
-export type ProjectConfig = { version: 1; name: string; region: string }
+export type FunctionEntry = { id: string; entry: string }
+
+export type ProjectConfig = { version: 1; name: string; region: string; functions?: FunctionEntry[] }
+
+/** A function id: `f0` and 16 characters (the API's own rule, checked here only to catch a typo early). */
+export function isFunctionId(value: string): boolean {
+    return /^f0[A-Za-z0-9]{16}$/.test(value)
+}
 
 export function configPath(dir: string): string {
     return path.join(dir, CONFIG_FILE)
@@ -39,4 +53,48 @@ export function write(dir: string, config: ProjectConfig): string {
         throw new LocalFailure(`cannot write ${file}: ${(error as Error).message}`)
     }
     return file
+}
+
+/** Read and check the file. Null when there is none. */
+export function read(dir: string): ProjectConfig | null {
+    const file = path.resolve(configPath(dir))
+    let text: string
+    try {
+        text = fs.readFileSync(file, 'utf8')
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+        throw new LocalFailure(`cannot read ${file}: ${(error as Error).message}`)
+    }
+    const broken = (why: string) => new LocalFailure(`${file} is not a valid zega.json: ${why}`)
+    let value: unknown
+    try {
+        value = JSON.parse(text)
+    } catch (error) {
+        throw broken((error as Error).message)
+    }
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) throw broken('it must be a JSON object')
+    const object = value as Record<string, unknown>
+    if (object.version !== 1) throw broken('`version` must be 1 (this zega understands version 1)')
+    if (typeof object.name !== 'string' || object.name === '') throw broken('`name` must be a nonempty string')
+    if (typeof object.region !== 'string' || object.region === '') throw broken('`region` must be a nonempty string')
+    const config: ProjectConfig = { version: 1, name: object.name, region: object.region }
+    if (object.functions !== undefined) {
+        if (!Array.isArray(object.functions)) throw broken('`functions` must be a list')
+        config.functions = object.functions.map((item: unknown, index): FunctionEntry => {
+            const at = `functions[${index}]`
+            const entry = item as Record<string, unknown> | null
+            if (typeof entry !== 'object' || entry === null) throw broken(`${at} must be an object with an \`id\` and an \`entry\``)
+            if (typeof entry.id !== 'string' || !isFunctionId(entry.id)) {
+                throw broken(`${at}.id must be a function id: "f0" and 16 characters`)
+            }
+            if (typeof entry.entry !== 'string' || entry.entry === '') {
+                throw broken(`${at}.entry must be the path of the source file to bundle`)
+            }
+            return { id: entry.id, entry: entry.entry }
+        })
+        const ids = config.functions.map((f) => f.id)
+        const twice = ids.find((id, index) => ids.indexOf(id) !== index)
+        if (twice !== undefined) throw broken(`function ${twice} is listed twice`)
+    }
+    return config
 }
