@@ -7,7 +7,9 @@
  * with the conditions `workerd`, `worker` and `browser` so a package that ships a
  * Workers build gets it. npm dependencies are bundled in from the project's
  * `node_modules`. One file out, no code splitting: the API takes exactly one
- * module.
+ * module. (Bun's build already replaces `process.env.NODE_ENV` with
+ * "production", which matters: the Workers runtime has no `process`; a test
+ * asserts the bundle never reads it.)
  *
  * No source map. Zega Cloud uploads the module as `worker.js` with nothing beside
  * it, the runtime ignores an inline map, and an inline map would count against
@@ -64,8 +66,6 @@ export async function bundle(options: { dir: string; entry: string; minify: bool
             minify: options.minify,
             // `cloudflare:` modules are the runtime's own, not files to bundle.
             external: ['cloudflare:*'],
-            // Libraries branch on it; the Workers runtime has no `process` to read it from.
-            define: { 'process.env.NODE_ENV': '"production"' },
             throw: false,
             plugins: [
                 {
