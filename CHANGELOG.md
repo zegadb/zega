@@ -6,6 +6,12 @@ Changes that affect code using the `zega` crate, newest first. File formats
 
 ## Unreleased
 
+- **`zega-server explorer` is removed.** The explorer is part of the `zega` command
+  (zegadb/cli: `zega explorer`, `zega start --explorer`), which bundles this server
+  and serves the page in front of `zega-server start`. This executable no longer embeds the
+  explorer's files, so it is smaller and `zega-cli` has no build script. The page's
+  source stays in `browser/`; `npm run build:cli` builds the page for that command.
+  The data directory is held by `zega-server start`, as before.
 - **The executable is renamed `zega` -> `zega-server`, and the npm library
   `zegadb` -> `@zegadb/lib`.** The `zega` command is going to a new developer
   command line (its own repository), so two programs would otherwise share the
