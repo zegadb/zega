@@ -270,6 +270,11 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm run test:cli
+      - name: Test the npm client against the real zega-server
+        if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
+        # npm/check-client.mjs needs only Node: the client has no dependencies, and
+        # --server makes a missing or unstartable binary a failure, not a skip.
+        run: node npm/check-client.mjs --server .target/debug/zega-server
       - name: Build CLI with embedded explorer
         run: cargo build --locked --release -p zega-cli
       - name: Check canonical ZQL/JSON files and embedded samples
