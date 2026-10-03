@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Globals } from '@/handlers'
 import { prepare, selectTargets } from '@/handlers/deploy'
 import { LocalFailure } from '@/utils/errors'
-import { json, write } from '@/utils'
+import { result, write } from '@/utils'
 
 export type BuildOptions = Globals & { minify?: boolean; out?: string }
 
@@ -38,7 +38,7 @@ export async function build(id: string | undefined, options: BuildOptions): Prom
         return { id: item.id, entry: item.entry, file: relative.startsWith('..') ? file : relative, bytes: item.bytes }
     })
     if (options.human !== true) {
-        await write('stdout', json(built))
+        await result(options, built)
         return
     }
     await write(

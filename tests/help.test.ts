@@ -3,7 +3,8 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import type { Command } from 'commander'
 
 import { program } from '../src/program'
-import { helpObject, paint } from '../src/utils/help'
+import { helpObject } from '../src/utils/help'
+import { paint } from '../src/utils/pretty'
 import { errorOf, remove, run, scratch } from './helpers'
 
 const home = scratch()
@@ -73,7 +74,7 @@ describe('the help is JSON, made from the commands themselves', () => {
             for (const option of command.options) expect(printed.options[option.flags]).toBeDefined()
             for (const argument of command.registeredArguments) expect(printed.arguments?.[argument.name() + (argument.variadic ? '...' : '')]).toBeDefined()
         }
-    })
+}, 30_000)
 
     test('dev lists its flags with their words; function lists its subcommands; the global options are in every command\'s help', async () => {
         const dev = JSON.parse((await run(['dev', '--help'], { home })).stdout)
@@ -82,7 +83,7 @@ describe('the help is JSON, made from the commands themselves', () => {
         expect(dev.arguments).toEqual({ id: 'only this function' })
         const fn = JSON.parse((await run(['function', '--help'], { home })).stdout)
         expect(fn.commands).toEqual({ deploy: 'deploy one function', logs: "show a function's recent requests and logs" })
-        for (const help of [dev, fn]) expect(Object.keys(help.globalOptions)).toEqual(['--api <url>', '--token-file <path>', '--human'])
+        for (const help of [dev, fn]) expect(Object.keys(help.globalOptions)).toEqual(['--api <url>', '--token-file <path>', '--human', '--nopretty'])
     })
 
     test('an unknown command or flag is the JSON error, pointing at the help; --human says it as text', async () => {

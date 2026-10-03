@@ -4,7 +4,11 @@
  * questions need a terminal on both ends, the logo (and colour, which chalk leaves to the terminal)
  * needs one on stdout. Nothing here, or anywhere, picks JSON or text from whether a terminal is attached.
  */
-export type Mode = { human?: boolean }
+export type Mode = {
+    human?: boolean
+    /** `--nopretty`: compact JSON even on a terminal. */
+    nopretty?: boolean
+}
 
 /** `--human`: tables, banners, readable errors and, on a terminal, questions. */
 export function isHuman(globals: Mode): boolean {

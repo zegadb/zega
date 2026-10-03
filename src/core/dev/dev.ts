@@ -5,7 +5,7 @@ import { DevFunction, load, type Env } from '@/handlers/dev_server'
 import { readDevVars } from '@/handlers/dev_vars'
 import { watchProject } from '@/handlers/dev_watch'
 import { humanLine, type DevEvent } from '@/handlers/dev_events'
-import { json, showLogo, write } from '@/utils'
+import { event as eventLine, showLogo, write } from '@/utils'
 import { logo } from '@/utils/banner'
 
 export type DevOptions = Globals &
@@ -40,7 +40,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
     const targets = id === undefined ? all : selectTargets(dir, id)
     const human = options.human === true
     /** An event: a JSON line on stdout, or with --human the line it always was, on stderr. */
-    const say = (event: DevEvent): Promise<void> => write(human ? 'stderr' : 'stdout', human ? `${humanLine(event)}\n` : json(event))
+    const say = (event: DevEvent): Promise<void> => write(human ? 'stderr' : 'stdout', human ? `${humanLine(event)}\n` : eventLine(event))
     const base = options.port ?? DEFAULT_PORT
     const urlVar = options.graphUrlVar ?? DEFAULT_URL_VAR
     const keyVar = options.graphKeyVar ?? DEFAULT_KEY_VAR
@@ -107,7 +107,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
     if (!human) {
         await write(
             'stdout',
-            json({
+            eventLine({
                 event: 'ready',
                 functions: described.map(({ files: _files, ...rest }) => rest),
                 graph: graph.kind === 'none' ? null : { ...graph, urlVar },

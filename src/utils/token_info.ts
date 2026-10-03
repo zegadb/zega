@@ -13,5 +13,5 @@ export function withoutPrefix(reply: Reply<Whoami>): Reply<Whoami> {
     if (typeof token !== 'object' || token === null) return reply
     const { prefix: _prefix, ...kept } = token
     const json = { ...rest, token: kept } as unknown as Whoami
-    return { raw: JSON.stringify(json) + '\n', json }
+    return { json }
 }

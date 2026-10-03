@@ -4,8 +4,9 @@
  * there is in the help and nothing is written twice. `zega` and `zega --help` describe the whole CLI
  * (the commands grouped as the code groups them); `zega <command> --help` describes one command.
  */
-import chalk from 'chalk'
 import type { Command, Help } from 'commander'
+
+import { formatJson } from '@/utils/pretty'
 
 type Described = Record<string, string>
 
@@ -55,19 +56,7 @@ export function helpObject(cmd: Command, helper: Help): Record<string, unknown> 
     return out
 }
 
-/**
- * Colour as an editor shows a package.json: keys, strings and punctuation each in a muted colour of
- * their own. Only the pretty-printed text this file makes goes through it (strings and braces).
- */
-export function paint(text: string): string {
-    return text.replace(/("(?:[^"\\]|\\.)*")(\s*:)?|[{}[\],:]/g, (token, string: string | undefined, colon: string | undefined) => {
-        if (string === undefined) return chalk.dim(token)
-        return colon === undefined ? chalk.green(string) : chalk.cyan(string) + chalk.dim(colon)
-    })
-}
-
-/** What `--help` prints: 2-space pretty JSON, coloured on a terminal and plain (what `JSON.parse` takes) anywhere else. */
+/** What `--help` prints: pretty JSON (also piped, so `JSON.parse` takes it), coloured on a terminal. */
 export function helpJson(cmd: Command, helper: Help): string {
-    const text = JSON.stringify(helpObject(cmd, helper), null, 2)
-    return (process.stdout.isTTY === true ? paint(text) : text) + '\n'
+    return formatJson(helpObject(cmd, helper), { stream: 'stdout', always: true })
 }
