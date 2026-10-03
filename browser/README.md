@@ -80,7 +80,7 @@ connection; the same spec fails if a policy is added without api.zega.dev in
 
 ## Native CLI mode
 
-`zega explorer --data ./data` serves the same static application embedded in the
+`zega-server explorer --data ./data` serves the same static application embedded in the
 binary at `http://127.0.0.1:9343`. It opens nothing automatically. The CLI provides
 `/explorer-config.json`, selecting the native `/zql` and `/graph` backend. File
 picker imports still pass raw text to Rust; normal ZQL URL/path loads use the

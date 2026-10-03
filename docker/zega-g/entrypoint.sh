@@ -7,7 +7,7 @@
 #
 # `chown` is non-recursive: only /data's own ownership needs to change once;
 # `zega` then owns every file it creates under it (including /data/zega, the
-# data directory `zega start` is given), so this stays a fixed-cost startup
+# data directory `zega-server start` is given), so this stays a fixed-cost startup
 # check, not an O(data size) walk on every restart.
 set -eu
 
@@ -25,4 +25,4 @@ if [ -f /etc/zega/token ]; then
 fi
 
 exec setpriv --reuid=zega --regid=zega --clear-groups --no-new-privs \
-  /usr/local/bin/zega "$@"
+  /usr/local/bin/zega-server "$@"

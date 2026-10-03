@@ -3,7 +3,8 @@
 `registry.fly.io/zega-g:latest` is the image Zega Cloud's control plane
 (zegadb/cloud, `FlyMachines.create` in `src/machines/fly.ts`) runs one Fly
 Machine of per Pro graph. The Dockerfile lives here, in zegadb/zega, because
-the image is just the `zega` CLI (`zega-cli`, `[[bin]] name = "zega"`) with a
+the image is just the `zega-server` executable (crate `zega-cli`, `[[bin]] name =
+"zega-server"`) with a
 non-root entrypoint — no code that belongs to the control plane repo.
 
 Build inputs, both fixed by the control plane's machine config
@@ -11,19 +12,19 @@ Build inputs, both fixed by the control plane's machine config
 
 - **Command**: Fly's `init.cmd` supplies the container's argv directly
   (replacing CMD, not ENTRYPOINT) —
-  `zega start --host :: --port 8080 --data /data/zega --token-file
+  `zega-server start --host :: --port 8080 --data /data/zega --token-file
   /etc/zega/token`. `--token-file` is `zega-cli`'s existing flag
   (`zega-cli/src/main.rs`, `Command::Start`); nothing to add there.
 - **Port**: `services[0].internal_port` is `8080`; the container must listen
   on `0.0.0.0`/`::` on that port, which `--host ::` on Linux's dual-stack
   default already satisfies.
-- **Data**: the Fly volume is mounted at `/data`; `zega` is told to use
+- **Data**: the Fly volume is mounted at `/data`; `zega-server` is told to use
   `/data/zega` so the mount root itself (owned by Fly, not this image) is
   never written to directly.
 - **Token**: Fly writes the per-graph token to `/etc/zega/token` as a file
   (`files: [{ guest_path: "/etc/zega/token", raw_value: base64(token) }]`)
-  before the machine starts; `zega start --token-file` reads it. There is no
-  environment variable in this path — `zega`'s rule is that product behaviour
+  before the machine starts; `zega-server start --token-file` reads it. There is no
+  environment variable in this path — `zega-server`'s rule is that product behaviour
   is configured by explicit flags/config, never env vars.
 - **Health / auth**: `GET /health` (zega-server's existing route) requires
   the same bearer token as every other route
@@ -32,6 +33,25 @@ Build inputs, both fixed by the control plane's machine config
   separate unauthenticated health path; the control plane's `services[]`
   config does not (yet) declare a Fly-level `checks` entry, so this endpoint
   is for the router/operator, not Fly's own health checker.
+
+## The executable was renamed `zega` -> `zega-server` (safe order)
+
+The binary inside the image is `/usr/local/bin/zega-server` (it was
+`/usr/local/bin/zega`). Nothing outside this repository names that path:
+zegadb/cloud's machine config (`src/machines/fly.ts`, `init.cmd`) is only the
+arguments `start --host :: --port 8080 --data /data/zega --token-file
+/etc/zega/token`, and the image's ENTRYPOINT is `entrypoint.sh`, which `exec`s
+the binary with whatever arguments it is given. The Dockerfile (the COPY) and
+`entrypoint.sh` (the `exec`) change together in one image, so the image is
+consistent with itself, and cloud's config works with the old image and the new
+one. **There is therefore no ordering constraint between the image and
+zegadb/cloud**, and no `zega` symlink is left in the image for compatibility.
+The order that matters is only: build and push the image from a commit that has
+both files changed (never edit one of them alone), then verify it with the
+runbook below. Existing Fly machines keep running the image digest they were
+created with; only machines created or updated after the push get the new one. Anything
+that was running `fly ssh console` and typing `zega ...` inside a machine
+uses `zega-server ...` after the next machine is created.
 
 ## Non-root and the Fly volume
 
@@ -43,7 +63,7 @@ starts as root (the container's default), `chown`s `/data` to the `zega`
 user once (non-recursive — `zega` then owns everything it creates under
 `/data`, so this stays O(1), not O(data size), on every restart), and then
 uses `setpriv` (already in `bookworm-slim`, no extra package) to drop to
-`zega` (uid 10001) before `exec`ing the real `zega` binary. The server itself
+`zega` (uid 10001) before `exec`ing the real `zega-server` binary. The server itself
 always runs as non-root; only the one-line ownership fixup runs as root.
 
 ## Build

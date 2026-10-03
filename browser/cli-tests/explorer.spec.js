@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 
 async function start(directory) {
-  const child = spawn(resolve('../.target/debug/zega'), ['explorer', '--port', '0', '--data', directory], { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(resolve('../.target/debug/zega-server'), ['explorer', '--port', '0', '--data', directory], { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] });
   let stderr = '';
   child.stderr.on('data', (data) => { stderr += data; });
   const url = await new Promise((resolve, reject) => {

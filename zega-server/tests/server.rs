@@ -461,7 +461,7 @@ async fn readers_never_observe_half_a_zql_document() {
     }
 }
 
-/// zegadb/zega#63: the server's own limit, as `zega start` sets it. The
+/// zegadb/zega#63: the server's own limit, as `zega-server start` sets it. The
 /// traversal budget is lifted so that the limit, not the budget, is what
 /// stops the slow reads below.
 async fn start_limited_server() -> TestServer {

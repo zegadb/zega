@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-const BIN: &str = env!("CARGO_BIN_EXE_zega");
+const BIN: &str = env!("CARGO_BIN_EXE_zega-server");
 const SCHEMA: &str = "type Player { name: String salary: Int }";
 struct Running {
     child: Child,
@@ -284,7 +284,7 @@ fn help_version_and_defaults_are_available_without_starting_a_server() {
     assert!(version.status.success());
     assert_eq!(
         String::from_utf8(version.stdout).unwrap().trim(),
-        format!("zega {}", env!("CARGO_PKG_VERSION"))
+        format!("zega-server {}", env!("CARGO_PKG_VERSION"))
     );
     for args in [
         vec!["--help"],
@@ -326,7 +326,7 @@ fn only_one_cli_process_owns_a_data_directory() {
 }
 
 // ---------------------------------------------------------------------------
-// `zega export` / `zega import`: the .graph file on the command line.
+// `zega-server export` / `zega-server import`: the .graph file on the command line.
 
 const GOLDEN: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../zega/tests/fixtures/golden-v1.graph");
 
@@ -419,7 +419,7 @@ fn import_refuses_to_overwrite_without_replace_and_a_damaged_file_changes_nothin
     std::fs::write(dir.join("cut.graph"), &golden[..golden.len() / 2]).unwrap();
     let output = zega(&["import", "cut.graph", "--data", "db", "--replace"], dir);
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).starts_with("zega import: truncated .graph file"), "{output:?}");
+    assert!(String::from_utf8_lossy(&output.stderr).starts_with("zega-server import: truncated .graph file"), "{output:?}");
     assert_eq!(succeeds(&["export", "-", "--data", "db"], dir).stdout, before);
 
     succeeds(&["import", GOLDEN, "--data", "db", "--replace"], dir);
@@ -476,7 +476,7 @@ struct Load {
     counter_tried: std::collections::BTreeMap<usize, i64>,
 }
 
-/// zega#52: `kill -9` a real `zega start` while four writers keep it busy
+/// zega#52: `kill -9` a real `zega-server start` while four writers keep it busy
 /// and it checkpoints (every MiB here), six times over one data directory.
 /// Half the writes create nodes, half rewrite one big node per writer, so
 /// the WAL grows much faster than the graph and checkpoints come often.

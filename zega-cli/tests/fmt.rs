@@ -3,7 +3,7 @@ use std::{
     io::Write,
     process::{Command, Stdio},
 };
-const BIN: &str = env!("CARGO_BIN_EXE_zega");
+const BIN: &str = env!("CARGO_BIN_EXE_zega-server");
 const INPUT: &str = "query{Player{name salary}}";
 const OUTPUT: &str = "query {\n  Player { name salary }\n}\n";
 #[test]
@@ -140,7 +140,7 @@ fn a_path_that_cannot_be_read_exits_2_and_names_it_not_1_like_check() {
             );
             let stderr = String::from_utf8(output.stderr).unwrap();
             assert!(
-                stderr.starts_with("zega fmt: ")
+                stderr.starts_with("zega-server fmt: ")
                     && stderr.contains(&path.display().to_string())
                     && stderr.contains(reason),
                 "{stderr}"

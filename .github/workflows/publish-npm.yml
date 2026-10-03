@@ -1,0 +1,160 @@
+# Fixed filename: npm trusted publishing is bound to publish-npm.yml and the
+# `release` environment, for every package below. Do not rename or split it.
+#
+# Publishes, from one release already stored in R2 (never rebuilt here):
+#   @zegadb/lib                    the embeddable engine (WASM + JS API)
+#   @zegadb/server-darwin-arm64    the zega-server executable, one package per
+#   @zegadb/server-darwin-x64      platform, no install scripts; the `zegadb`
+#   @zegadb/server-linux-x64       CLI package (its own repository) depends on
+#   @zegadb/server-win32-x64       them as optionalDependencies, exact versions
+#
+# Same shape as create-deka-app's publish-runtime.yml: OIDC trusted publishing
+# (id-token: write, no npm token secret), `release` environment, every byte
+# checked against the release's own manifest before the first publish, then
+# publish, skipping whatever npm already has so a rerun resumes.
+#
+# Manual only: Sami or Ava dispatches it with a tag after the Release (canary)
+# or Promote workflow has stored it in R2. Nothing dispatches it automatically
+# until trust is configured on npmjs.com (npm/PUBLISHING.md); a later PR can
+# add the dispatch step to release.yml.
+name: publish-npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'A release already in R2: vX.Y.Z-canary-<7-char-sha> (npm dist-tag canary) or vX.Y.Z (promoted; npm dist-tag latest)'
+        required: true
+        type: string
+  # Pull requests only prove the packaging offline; they cannot publish.
+  pull_request:
+    paths:
+      - '.github/workflows/publish-npm.yml'
+      - 'npm/pack-server.mjs'
+      - 'npm/check-server-packs.mjs'
+      - 'scripts/channels.py'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    # Light: packs fixture binaries, no compilation.
+    runs-on: ubuntu-latest
+    environment: public-ci
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: node npm/check-server-packs.mjs
+
+  publish:
+    needs: proof
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
+    runs-on: ubuntu-latest
+    environment: release
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # OIDC: trusted publishing, no npm token
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_SCCACHE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SCCACHE_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/release-credentials
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      # Trusted publishing needs npm >= 11.5.1; pinned on purpose, as in
+      # release.yml and create-deka-app.
+      - run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Which release, which version, which dist-tag
+        id: release
+        run: |
+          set -euo pipefail
+          if [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-canary-([0-9a-f]{7})$ ]]; then
+            echo "version=${BASH_REMATCH[1]}-canary.${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+            echo "dist_tag=canary" >> "$GITHUB_OUTPUT"
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+            echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+            echo "stable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::tag must be vX.Y.Z-canary-<7-char-sha> or vX.Y.Z, got '$TAG'"; exit 1
+          fi
+
+      - name: Download the release from R2
+        run: |
+          mkdir -p .tmp/release
+          aws s3 cp --recursive "s3://zega-releases/${TAG}/" .tmp/release/ --endpoint-url "$R2_ENDPOINT" --only-show-errors
+          test -f .tmp/release/manifest.json
+
+      - name: The release names this tag, and every byte is the manifest's
+        env:
+          STABLE: ${{ steps.release.outputs.stable }}
+        run: |
+          set -euo pipefail
+          jq -e --arg tag "$TAG" '.tag == $tag' .tmp/release/release.json >/dev/null
+          jq -e --arg tag "$TAG" '.tag == $tag' .tmp/release/manifest.json >/dev/null
+          jq -r '.artifacts | to_entries[] | "\(.value)  \(.key)"' .tmp/release/manifest.json > .tmp/release.sha256
+          (cd .tmp/release && sha256sum --check --strict ../release.sha256)
+
+      - name: Pack the server packages and the library, before anything is published
+        env:
+          NPM_VERSION: ${{ steps.release.outputs.version }}
+          STABLE: ${{ steps.release.outputs.stable }}
+        run: |
+          set -euo pipefail
+          node npm/pack-server.mjs .tmp/release "$NPM_VERSION" .tmp/npm
+          # R2's package.tgz is always the canary build. A stable publish
+          # repacks it with only the version changed (scripts/channels.py).
+          if [ "$STABLE" = true ]; then
+            CANARY_TAG=$(jq -r '.promoted_from' .tmp/release/release.json)
+            [[ "$CANARY_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-canary-([0-9a-f]{7})$ ]]
+            python3 scripts/channels.py repack .tmp/release/package.tgz .tmp/npm/lib.tgz "${BASH_REMATCH[1]}-canary.${BASH_REMATCH[2]}" "$NPM_VERSION"
+          else
+            cp .tmp/release/package.tgz .tmp/npm/lib.tgz
+          fi
+          tar -xzOf .tmp/npm/lib.tgz package/package.json | jq -e --arg v "$NPM_VERSION" '.name == "@zegadb/lib" and .version == $v' >/dev/null
+
+      - name: Publish the platform packages first, the library last
+        env:
+          NPM_VERSION: ${{ steps.release.outputs.version }}
+          DIST_TAG: ${{ steps.release.outputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          publish() {
+            local name="$1" file="$2"
+            if [ "$(npm view "${name}@${NPM_VERSION}" version 2>/dev/null || true)" = "$NPM_VERSION" ]; then
+              echo "${name}@${NPM_VERSION} is already on npm; skipping."
+              return
+            fi
+            npm publish "$file" --tag "$DIST_TAG" --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org/
+          }
+          while IFS=$'\t' read -r name filename; do
+            publish "$name" ".tmp/npm/$filename"
+          done < <(jq -r '.[] | [.name, .filename] | @tsv' .tmp/npm/server-packs.json)
+          publish '@zegadb/lib' .tmp/npm/lib.tgz

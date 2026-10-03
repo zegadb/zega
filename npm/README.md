@@ -1,4 +1,4 @@
-# zegadb
+# @zegadb/lib
 
 An embeddable graph database with ZQL v2. One package contains
 the JavaScript API, TypeScript declarations and WebAssembly engine. It has no
@@ -6,11 +6,11 @@ runtime npm dependencies or install scripts. Requires an ES module environment
 and, on the server, Node 22.14 or later.
 
 ```sh
-npm install zegadb
+npm install @zegadb/lib
 ```
 
 ```js
-import { createDatabase } from 'zegadb';
+import { createDatabase } from '@zegadb/lib';
 
 const db = await createDatabase();
 try {
@@ -26,16 +26,16 @@ try {
 
 The same code works in Node and Vite. Initialization is asynchronous and shared;
 each call creates an independent database. Queries are synchronous. In CommonJS,
-use `await import('zegadb')`. For large workloads use a Web Worker or worker thread.
+use `await import('@zegadb/lib')`. For large workloads use a Web Worker or worker thread.
 
 ## Exports
 
-- `zegadb`: `createDatabase(options?)`, `ZegaWasm`, and the `DatabaseOptions` and
+- `@zegadb/lib`: `createDatabase(options?)`, `ZegaWasm`, and the `DatabaseOptions` and
   `InitInput` types. `ZegaWasm` is the generated class; initialize via
   `createDatabase()` before constructing it directly.
-- `zegadb/wasm`: the unmodified wasm-bindgen API and declarations, including
+- `@zegadb/lib/wasm`: the unmodified wasm-bindgen API and declarations, including
   default async `init` and `initSync`, for callers managing initialization.
-- `zegadb/zega_wasm_bg.wasm`: the binary asset for bundler loaders or custom hosting.
+- `@zegadb/lib/zega_wasm_bg.wasm`: the binary asset for bundler loaders or custom hosting.
 
 `db.run(schema, source)` executes ZQL v2 against a schema string.
 `db.apply(source)` executes a complete `.zql` file containing schema, mutation
@@ -64,8 +64,8 @@ loader or copy the exported binary to your public assets:
 
 ```js
 // esbuild: loader: { '.wasm': 'file' }, publicPath matching your asset server
-import wasmURL from 'zegadb/zega_wasm_bg.wasm';
-import { createDatabase } from 'zegadb';
+import wasmURL from '@zegadb/lib/zega_wasm_bg.wasm';
+import { createDatabase } from '@zegadb/lib';
 const db = await createDatabase({ wasm: wasmURL });
 ```
 

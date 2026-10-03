@@ -111,7 +111,7 @@ name.zga/
 ```
 
 Assets are stored flat — the hash is the whole name, so a bundle's assets map
-one-to-one onto object-storage keys. `zega bundle add` writes an asset
+one-to-one onto object-storage keys. `zega-server bundle add` writes an asset
 atomically (a temp file, then a rename) and deduplicates: the same bytes twice
 are stored once.
 
@@ -126,7 +126,7 @@ locally — never credentials:
 }
 ```
 
-`zega bundle verify` fails when:
+`zega-server bundle verify` fails when:
 
 - an asset's bytes don't hash to its name;
 - a `String<blake3>` value in the graph has no matching local path, no local
@@ -137,7 +137,7 @@ locally — never credentials:
 A local path whose bytes no longer hash to its reference is reported as
 stale, not counted.
 
-When the graph carries its schema (the standard case — `zega export
+When the graph carries its schema (the standard case — `zega-server export
 --schema`), exactly the fields declared `String<blake3>` are checked. Without
 a schema, every string shaped like a blake3 hash is treated as a reference.
 
@@ -151,7 +151,7 @@ packs can be cached and compared by hash.
 A `.zgz` never ships local paths (APS 34 amendment): `String<file>` values
 are stripped from the packed graph — they reveal usernames and folder layout.
 A reference whose bytes exist only at a local path refuses to pack;
-`zega bundle pack --include-local` copies those bytes into `assets/` first.
+`zega-server bundle pack --include-local` copies those bytes into `assets/` first.
 Either way the archive contains no `file://` value.
 
 Unpack is safe by construction: it refuses path traversal (`..`), absolute
@@ -162,7 +162,7 @@ cannot fill the disk: at most **32 GiB decompressed in total**, **16 GiB in
 any one entry**, and **1,000,000 entries** — refused before the write passes
 the cap. A genuinely bigger bundle raises the caps explicitly:
 `Bundle::unpack_with(input, dir, &limits)` or
-`zega bundle unpack --max-total-bytes/--max-entry-bytes/--max-entries`.
+`zega-server bundle unpack --max-total-bytes/--max-entry-bytes/--max-entries`.
 There is no environment override.
 
 A `.zgz` made without zega — `tar -czf photos.zgz photos.zga`, the APS 34
@@ -179,18 +179,18 @@ application/vnd.zega.zgz`, `Content-Disposition: attachment`), never with
 ## CLI
 
 ```text
-zega bundle new photos.zga
-zega bundle add photos.zga photo.jpg        # prints the asset's blake3 hash
-zega bundle verify photos.zga
-zega bundle pack photos.zga [photos.zgz]    # default: <dir>.zgz
-zega bundle pack photos.zga --include-local # copy local file:// bytes into assets/ first
-zega bundle unpack photos.zgz photos.zga
-zega bundle unpack photos.zgz photos.zga --max-total-bytes 68719476736  # raise a cap for a big bundle
+zega-server bundle new photos.zga
+zega-server bundle add photos.zga photo.jpg        # prints the asset's blake3 hash
+zega-server bundle verify photos.zga
+zega-server bundle pack photos.zga [photos.zgz]    # default: <dir>.zgz
+zega-server bundle pack photos.zga --include-local # copy local file:// bytes into assets/ first
+zega-server bundle unpack photos.zgz photos.zga
+zega-server bundle unpack photos.zgz photos.zga --max-total-bytes 68719476736  # raise a cap for a big bundle
 ```
 
 `add` only stores the bytes; the graph still needs a `File` node whose `hash`
 is the printed value. A typical intake is: `new`, then per file `add` plus a
-mutation, then `zega export --schema files.zql photos.zga/graph.graph`, then
+mutation, then `zega-server export --schema files.zql photos.zga/graph.graph`, then
 `verify` and `pack`.
 
 ## Rust API

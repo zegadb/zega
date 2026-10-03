@@ -1,4 +1,4 @@
-//! `zega cloud`: the command line for Zega Cloud's public management API
+//! `zega-server cloud`: the command line for Zega Cloud's public management API
 //! (`https://cloud.zega.dev/openapi.json`).
 //!
 //! The API takes an account API token, made in the dashboard, and nothing
@@ -407,7 +407,7 @@ struct Session {
     api: String,
 }
 
-/// Run a `zega cloud` command. Returns the process exit code: 0, or 1 after a
+/// Run a `zega-server cloud` command. Returns the process exit code: 0, or 1 after a
 /// message on stderr.
 pub fn run(args: CloudArgs) -> i32 {
     let api_for_hints = args.api.clone();
@@ -587,7 +587,7 @@ fn bucket_command(client: &Client, json: bool, command: BucketCommand) -> Result
             )?;
             done(json, reply, "bucket", |bucket| {
                 format!(
-                    "created bucket {}\nAddress {}\nMake a key with `zega cloud bucket key create {}`\n",
+                    "created bucket {}\nAddress {}\nMake a key with `zega-server cloud bucket key create {}`\n",
                     name_of(bucket, ""),
                     render_field(bucket, "url"),
                     render_field(bucket, "id")
@@ -768,7 +768,7 @@ fn function(client: &Client, json: bool, command: FunctionCommand) -> Result<(),
             )?;
             done(json, reply, "function", |function| {
                 format!(
-                    "created function {}\nAddress {} (404 until you deploy: `zega cloud function deploy {} <file>`)\n",
+                    "created function {}\nAddress {} (404 until you deploy: `zega-server cloud function deploy {} <file>`)\n",
                     name_of(function, ""),
                     render_field(function, "url"),
                     render_field(function, "id")
@@ -806,7 +806,7 @@ fn function(client: &Client, json: bool, command: FunctionCommand) -> Result<(),
                 .json
                 .get("code")
                 .and_then(Value::as_str)
-                .ok_or_else(|| format!("function {} has no deployed code yet: `zega cloud function deploy {} <file>`", render::clean(&id), render::clean(&id)))?;
+                .ok_or_else(|| format!("function {} has no deployed code yet: `zega-server cloud function deploy {} <file>`", render::clean(&id), render::clean(&id)))?;
             match out {
                 // Written only now, so a failed request never empties an existing file.
                 Some(path) => {
@@ -941,7 +941,7 @@ fn done(
     print_bytes(line(&item).as_bytes(), false)
 }
 
-/// Write to stdout. A closed pipe (`zega cloud projects | head`) ends the
+/// Write to stdout. A closed pipe (`zega-server cloud projects | head`) ends the
 /// output quietly.
 fn print_bytes(bytes: &[u8], newline_if_missing: bool) -> Result<(), CloudError> {
     let mut out = io::stdout().lock();
@@ -1000,11 +1000,11 @@ fn session(args: &CloudArgs) -> Result<Session, CloudError> {
             api,
         });
     }
-    let stored = credentials::load()?.ok_or("not logged in: run `zega cloud login` (the token is made at https://dashboard.zega.dev/tokens), or pass --token-file")?;
+    let stored = credentials::load()?.ok_or("not logged in: run `zega-server cloud login` (the token is made at https://dashboard.zega.dev/tokens), or pass --token-file")?;
     let api = normalize_api(&stored.api)?;
     if let Some(requested) = requested.filter(|requested| *requested != api) {
         return Err(CloudError::Local(format!(
-            "you are logged in to {api}, not {requested}: run `zega cloud login --api {requested}` first, or pass --token-file"
+            "you are logged in to {api}, not {requested}: run `zega-server cloud login --api {requested}` first, or pass --token-file"
         )));
     }
     Ok(Session {
@@ -1017,9 +1017,9 @@ fn session(args: &CloudArgs) -> Result<Session, CloudError> {
 /// first, then what to do about it.
 fn describe(error: &CloudError, api: Option<&str>, token_file: Option<&std::path::Path>) -> String {
     match error {
-        CloudError::Local(message) => format!("zega cloud: {message}\n"),
+        CloudError::Local(message) => format!("zega-server cloud: {message}\n"),
         CloudError::Network { host, detail } => {
-            let mut text = format!("zega cloud: could not reach {host}: {detail}\n");
+            let mut text = format!("zega-server cloud: could not reach {host}: {detail}\n");
             if api.is_some() {
                 text.push_str("Check the address given to --api.\n");
             }
@@ -1027,7 +1027,7 @@ fn describe(error: &CloudError, api: Option<&str>, token_file: Option<&std::path
         }
         CloudError::Api(error) => {
             let mut text = format!(
-                "zega cloud: {} (code: {}, HTTP {})\n",
+                "zega-server cloud: {} (code: {}, HTTP {})\n",
                 render::clean(&error.message),
                 render::clean(&error.code),
                 error.status
@@ -1045,7 +1045,7 @@ fn guidance(error: &ApiError, token_file: Option<&std::path::Path>) -> Vec<Strin
     let mut lines = Vec::new();
     let new_token = match token_file {
         Some(path) => format!("put a new token in {}", path.display()),
-        None => "run `zega cloud login`".to_string(),
+        None => "run `zega-server cloud login`".to_string(),
     };
     match (error.status, error.code.as_str()) {
         (401, "wrong_credential") => lines.push(format!(
@@ -1075,8 +1075,8 @@ fn guidance(error: &ApiError, token_file: Option<&std::path::Path>) -> Vec<Strin
     }
     match error.effect.as_deref() {
         Some("nothing") => lines.push("The change did not take effect.".to_string()),
-        Some("partly") => lines.push("The change took effect in part: look at what you changed (`zega cloud projects|graphs|buckets|functions <id>`) before you repeat it.".to_string()),
-        Some("unknown") => lines.push("It is not known whether the change took effect: look at what you changed (`zega cloud projects|graphs|buckets|functions <id>`); repeating it is safe.".to_string()),
+        Some("partly") => lines.push("The change took effect in part: look at what you changed (`zega-server cloud projects|graphs|buckets|functions <id>`) before you repeat it.".to_string()),
+        Some("unknown") => lines.push("It is not known whether the change took effect: look at what you changed (`zega-server cloud projects|graphs|buckets|functions <id>`); repeating it is safe.".to_string()),
         _ => {}
     }
     lines
@@ -1113,6 +1113,6 @@ mod tests {
         let expired = error(401, "token_expired", "The token has expired.");
         let path = std::path::Path::new("ci/token");
         assert!(guidance(&expired, Some(path))[0].contains("ci/token"));
-        assert!(guidance(&expired, None)[0].contains("zega cloud login"));
+        assert!(guidance(&expired, None)[0].contains("zega-server cloud login"));
     }
 }

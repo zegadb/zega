@@ -70,32 +70,9 @@ jobs:
       # No Rust toolchain, cargo, wasm-pack, npm install, or build scripts.
       - name: Verify commit, copy and read back bytes, tag, then advance latest
         run: python3 scripts/channels.py promote "$CANARY" .tmp/promotion
-      - uses: actions/upload-artifact@v4
-        with:
-          name: npm-stable
-          path: .tmp/promotion/package.tgz
-          if-no-files-found: error
 
-  npm:
-    # Sami configures trust, then Ava removes this literal hard stop in a PR.
-    if: ${{ false }}
-    needs: promote
-    runs-on: ubuntu-latest
-    environment: release
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          package-manager-cache: false
-      - run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
-      - uses: actions/download-artifact@v4
-        with:
-          name: npm-stable
-          path: artifact
-      - run: npm publish artifact/package.tgz --tag latest --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org/
+  # npm publication is publish-npm.yml: one fixed workflow file and the `release`
+  # environment, for @zegadb/lib and the @zegadb/server-<platform> packages.
 
   crates:
     # Stable only: a crates.io version can never be replaced, so canaries never go there.

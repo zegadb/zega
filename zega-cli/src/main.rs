@@ -21,7 +21,7 @@ use zega_server::AppState;
 static EXPLORER: Dir<'_> = include_dir!("$OUT_DIR/explorer");
 
 #[derive(Parser)]
-#[command(name = "zega", version, about = "Zega graph database and explorer")]
+#[command(name = "zega-server", version, about = "Zega graph database and explorer")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -139,13 +139,13 @@ enum Command {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     if let Command::Fmt { paths, check, stdin, lang } = cli.command {
-        // 1 means `--check` found a file to reformat; 2 means zega fmt could not
+        // 1 means `--check` found a file to reformat; 2 means zega-server fmt could not
         // do its job, the same code clap uses for bad arguments (zegadb/zega#66).
         match fmt::run(paths, check, stdin, lang) {
             Ok(true) => return Ok(()),
             Ok(false) => std::process::exit(1),
             Err(error) => {
-                eprintln!("zega fmt: {error}");
+                eprintln!("zega-server fmt: {error}");
                 std::process::exit(2);
             }
         }
@@ -272,28 +272,28 @@ fn schema_diff(old: &Path, new: &Path, data: &Path) -> ! {
     let (_lock, db) = match open_data(data) {
         Ok(pair) => pair,
         Err(error) => {
-            eprintln!("zega schema-diff: {error}");
+            eprintln!("zega-server schema-diff: {error}");
             std::process::exit(1);
         }
     };
     let old_src = match std::fs::read_to_string(old) {
         Ok(src) => src,
         Err(error) => {
-            eprintln!("zega schema-diff: {error}");
+            eprintln!("zega-server schema-diff: {error}");
             std::process::exit(1);
         }
     };
     let new_src = match std::fs::read_to_string(new) {
         Ok(src) => src,
         Err(error) => {
-            eprintln!("zega schema-diff: {error}");
+            eprintln!("zega-server schema-diff: {error}");
             std::process::exit(1);
         }
     };
     let report = match db.schema_diff(&old_src, &new_src) {
         Ok(report) => report,
         Err(error) => {
-            eprintln!("zega schema-diff: {error}");
+            eprintln!("zega-server schema-diff: {error}");
             std::process::exit(1);
         }
     };
@@ -303,25 +303,25 @@ fn schema_diff(old: &Path, new: &Path, data: &Path) -> ! {
             std::process::exit(0);
         }
         Err(error) => {
-            eprintln!("zega schema-diff: {error}");
+            eprintln!("zega-server schema-diff: {error}");
             std::process::exit(1);
         }
     }
 }
 
-/// `zega export: <message>` and exit 1, rather than the debug dump `main`
+/// `zega-server export: <message>` and exit 1, rather than the debug dump `main`
 /// would print: these errors are for the person at the terminal.
 fn report(command: &str, result: Result<(), Box<dyn std::error::Error>>) -> ! {
     match result {
         Ok(()) => std::process::exit(0),
         Err(error) => {
-            eprintln!("zega {command}: {error}");
+            eprintln!("zega-server {command}: {error}");
             std::process::exit(1);
         }
     }
 }
 
-/// Take the data directory's lock, the one `zega start` and `zega explorer`
+/// Take the data directory's lock, the one `zega-server start` and `zega-server explorer`
 /// hold for as long as they run: two processes never share a WAL.
 fn lock_data(data: &Path) -> Result<std::fs::File, Box<dyn std::error::Error>> {
     std::fs::create_dir_all(data)?;

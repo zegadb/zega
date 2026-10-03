@@ -1,6 +1,6 @@
 # Files the formatter and its checks compare byte-for-byte stay LF on every
 # checkout (Windows runners default to core.autocrlf=true): the syntax goldens,
-# every ZQL/JSON file `zega fmt --check` walks, and the Markdown and explorer
+# every ZQL/JSON file `zega-server fmt --check` walks, and the Markdown and explorer
 # script whose embedded samples scripts/fmt-samples.py checks.
 zega/src/fmt/goldens/** text eol=lf
 *.zql text eol=lf

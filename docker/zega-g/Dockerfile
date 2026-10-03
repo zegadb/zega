@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 #
 # Zega Cloud's Pro graph image (registry.fly.io/zega-g:latest): one Fly
-# Machine per graph, running `zega start` (crate zega-cli, [[bin]] name =
-# "zega") as an HTTP server. Data lives on the Fly volume the control plane
+# Machine per graph, running `zega-server start` (crate zega-cli, [[bin]] name =
+# "zega-server") as an HTTP server. Data lives on the Fly volume the control plane
 # mounts at /data; the per-graph bearer token is the file Fly's `files`
 # (raw_value) writes at /etc/zega/token before the machine ever starts.
 # Source of truth for both: zegadb/cloud src/machines/fly.ts (FlyMachines),
@@ -11,7 +11,7 @@
 #              "--data", "/data/zega", "--token-file", "/etc/zega/token"]
 #   services: [{ internal_port: 8080, ... }]
 # Fly's `init.cmd` replaces CMD, not ENTRYPOINT, so ENTRYPOINT here (via
-# entrypoint.sh) must accept that exact argv and end up running the `zega`
+# entrypoint.sh) must accept that exact argv and end up running the `zega-server`
 # binary with it unchanged — mirrors zega-cloud/fly-bench/server.Dockerfile's
 # shape, with the same crate substitution documented in
 # zegadb/cloud scripts/setup-fly-test.sh's header.
@@ -27,7 +27,7 @@ COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/.target \
     cargo build --locked --release -p zega-cli --target-dir /src/.target \
- && install -m 0755 /src/.target/release/zega /zega
+ && install -m 0755 /src/.target/release/zega-server /zega-server
 
 # debian-slim, not distroless: a fresh Fly volume mounts at /data owned
 # root:root 0755 (community-documented:
@@ -46,10 +46,10 @@ RUN apt-get update \
  # existing regular file reliably; a target path with no file there yet has
  # been observed to come up as a directory instead (Docker Desktop bind
  # mounts, verified while writing this image), which then fails
- # `zega start --token-file` with "Is a directory".
+ # `zega-server start --token-file` with "Is a directory".
  && touch /etc/zega/token
 
-COPY --from=build /zega /usr/local/bin/zega
+COPY --from=build /zega-server /usr/local/bin/zega-server
 COPY docker/zega-g/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh
 

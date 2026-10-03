@@ -1,4 +1,4 @@
-//! The HTTP side of `zega cloud`: one client for the Zega Cloud public
+//! The HTTP side of `zega-server cloud`: one client for the Zega Cloud public
 //! management API (`https://cloud.zega.dev/openapi.json`) and the error type
 //! every command returns.
 

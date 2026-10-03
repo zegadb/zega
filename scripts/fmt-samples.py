@@ -1,6 +1,6 @@
 """Apply/check canonical ZQL and JSON in Markdown and the explorer's static examples.
 
-All formatting goes through `zega fmt --stdin`; this script only extracts source
+All formatting goes through `zega-server fmt --stdin`; this script only extracts source
 from its host document. Interpolated JS templates are formatted at generation.
 """
 import argparse

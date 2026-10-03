@@ -1,8 +1,8 @@
-//! docs/fmt.md shows `zega fmt` on real input (zegadb/zega#65). Each example is a
+//! docs/fmt.md shows `zega-server fmt` on real input (zegadb/zega#65). Each example is a
 //! fence tagged `before` followed by one tagged `after`; this test formats every
 //! `before` and requires its `after` byte for byte, so the page cannot drift from
 //! the formatter. To change an example, edit its `before` and paste in what
-//! `zega fmt --stdin` (add `--lang json` for JSON) prints for it.
+//! `zega-server fmt --stdin` (add `--lang json` for JSON) prints for it.
 use zega::fmt::{format_json, format_zql};
 
 const DOC: &str = include_str!("../../docs/fmt.md");
@@ -87,13 +87,13 @@ fn every_after_block_is_what_zega_fmt_prints_for_its_before_block() {
         assert_eq!(
             format(&before.lang, &before.code),
             after.code,
-            "docs/fmt.md:{}: the after block is not what zega fmt prints",
+            "docs/fmt.md:{}: the after block is not what zega-server fmt prints",
             after.line
         );
         assert_eq!(
             format(&after.lang, &after.code),
             after.code,
-            "docs/fmt.md:{}: the after block is not stable under zega fmt",
+            "docs/fmt.md:{}: the after block is not stable under zega-server fmt",
             after.line
         );
         langs.push(before.lang.clone());

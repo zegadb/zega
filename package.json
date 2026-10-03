@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node npm/build.mjs",
     "pack:package": "node npm/pack.mjs",
-    "test": "node npm/check-consumers.mjs && node npm/check-next.mjs",
+    "test": "node npm/check-server-packs.mjs && node npm/check-consumers.mjs && node npm/check-next.mjs",
     "test:exports": "node npm/check-consumers.mjs --break-exports"
   },
   "devDependencies": {

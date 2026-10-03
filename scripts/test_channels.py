@@ -133,7 +133,7 @@ with open(os.environ['FIXTURE_LOG'], 'a') as f: f.write(json.dumps(sys.argv[1:])
         (dest / "zega.wasm").write_bytes(b"\0asm-fixture-payload")
         with tarfile.open(dest / "package.tgz", "w:gz") as archive:
             for name, payload in {
-                "package/package.json": json.dumps({"name": "zegadb", "version": f"1.2.3-canary.{self.commit[:7]}", "exports": "./index.js"}).encode(),
+                "package/package.json": json.dumps({"name": "@zegadb/lib", "version": f"1.2.3-canary.{self.commit[:7]}", "exports": "./index.js"}).encode(),
                 "package/index.js": b"export const answer = 42;\n",
                 "package/engine.wasm": b"\0asm-fixture-payload",
             }.items():
@@ -345,7 +345,7 @@ class Publication(Fixture):
         for bucket in channels.BUCKETS:
             stale = self.store / bucket / "canary"
             stale.mkdir(parents=True)
-            (stale / "zega-server-old").write_bytes(b"stale binary")
+            (stale / "zega-old-binary").write_bytes(b"stale binary")
             # Same-size stale content with a newer mtime is the case `s3 sync` can skip.
             (stale / "zega.wasm").write_bytes(b"X" * (release / "zega.wasm").stat().st_size)
             os.utime(stale / "zega.wasm", (2_000_000_000, 2_000_000_000))
@@ -365,7 +365,7 @@ class Publication(Fixture):
             self.assertEqual((self.repo / local_source).resolve(), release.resolve())
             deletes = [operation for operation in operations if operation[:2] == ["s3", "rm"]
                        and f"s3://{bucket}/canary/" in operation[2]]
-            self.assertEqual([operation[2] for operation in deletes], [f"s3://{bucket}/canary/zega-server-old"])
+            self.assertEqual([operation[2] for operation in deletes], [f"s3://{bucket}/canary/zega-old-binary"])
             readback = next(i for i, operation in enumerate(operations)
                             if operation[:2] == ["s3", "cp"] and "--recursive" in operation
                             and f"s3://{bucket}/canary/" in operation)
@@ -400,11 +400,11 @@ class Publication(Fixture):
         for platform in ("linux-x64", "darwin-arm64", "darwin-x64", "windows-x64"):
             native = artifacts / f"native-{platform}"
             native.mkdir()
-            name = f"zega-{platform}" + (".exe" if platform == "windows-x64" else "")
+            name = f"zega-server-{platform}" + (".exe" if platform == "windows-x64" else "")
             (native / name).write_bytes(platform.encode())
         with tarfile.open(artifacts / "npm-package/package.tgz", "w:gz") as archive:
             for name, payload in {
-                "package/package.json": json.dumps({"name": "zegadb", "version": f"1.2.3-canary.{self.commit[:7]}"}).encode(),
+                "package/package.json": json.dumps({"name": "@zegadb/lib", "version": f"1.2.3-canary.{self.commit[:7]}"}).encode(),
                 "package/wasm/engine.wasm": b"\0asm-fixture",
             }.items():
                 member = tarfile.TarInfo(name)
@@ -415,9 +415,10 @@ class Publication(Fixture):
         channels.verify(self.repo / "release", self.tag, self.commit)
         self.assertEqual(len(channels.read_json(self.repo / "release/release.json")["artifacts"]), 6)
         inventory = channels.read_json(self.repo / "release/manifest.json")["artifacts"]
-        for name in ("zega-linux-x64", "zega-darwin-arm64", "zega-darwin-x64", "zega-windows-x64.exe"):
+        for name in ("zega-server-linux-x64", "zega-server-darwin-arm64", "zega-server-darwin-x64", "zega-server-windows-x64.exe"):
             self.assertEqual(inventory[name], channels.digest(self.repo / "release" / name))
-        self.assertFalse(any(name.startswith("zega-server-") for name in inventory))
+        # The binary used to ship as zega-<platform>; nothing may still carry that name.
+        self.assertFalse(any(name.startswith("zega-") and not name.startswith("zega-server-") for name in inventory))
         (wasm / "engine.wasm").write_bytes(b"different-from-tested-package")
         result = self.command("prepare", self.tag, "artifacts", "bad-release")
         self.assertNotEqual(result.returncode, 0)

@@ -1,8 +1,12 @@
-# Releasing zegadb
+# Releasing @zegadb/lib
 
-The unscoped npm package is **zegadb**. The name zega is unavailable (npm's
-similarity filter matched egg); npm organizations do not own unscoped names.
-The repository and Rust crate names remain zega.
+The embeddable graph database library is published as **@zegadb/lib**, a
+scoped package in the `@zegadb` npm organization. The unscoped name **zegadb**
+belongs to the separate developer CLI (its own repository), so this package
+does not use it, and the name zega is unavailable (npm's similarity filter
+matched egg). Only a `zegadb@0.0.0` placeholder was ever published from here;
+nothing depended on it. The repository and Rust crate names remain zega. The
+native server executable is named `zega-server`; it is not an npm package.
 
 ## Build once, promote the tested payload
 
@@ -20,9 +24,9 @@ tag, otherwise pushes the tag and explicitly dispatches `release.yml` against
 it. GitHub's built-in token does not trigger workflows from its own tag pushes.
 A user-pushed canary tag also triggers the build; a plain stable tag never does.
 
-Release builds zega-server on Linux x64, macOS arm64/x64, and Windows x64. It
+Release builds the `zega-server` executable on Linux x64, macOS arm64/x64, and Windows x64. It
 starts each resulting binary and executes an authenticated HTTP query. The
-npm branch's builder compiles WASM once, stamps zegadb's canary version, packs,
+npm branch's builder compiles WASM once, stamps @zegadb/lib's canary version, packs,
 and runs installed-tarball consumers in Node, Chromium, Vite, esbuild and Next.
 The same WASM files and tested npm tarball, plus native binaries, are stored in
 both `zega-releases/<CANARY>/` and `zega-wasm/<CANARY>/`. Each has a checksum
@@ -37,13 +41,13 @@ are checked before any writes. It copies objects to `v<V>/`, rewrites only
 `version`, `tag`, `channel`, and `promoted_from` in both metadata files, verifies
 readback, creates the stable tag at the canary commit, then advances `latest/`
 and `latest.json` in both buckets. No compilation or dependency installation
-occurs in the promotion job. The npm publishing job only installs the npm CLI.
+occurs in the promotion job.
 
 **R2 payload artifacts are byte-identical between canary and stable.** The two
 JSON bookkeeping files intentionally differ. Even R2's `package.tgz` remains
 the original canary archive, with unchanged checksum. **npm tarballs differ by
-their package.json version string.** Promotion repacks that R2 archive locally
-for npm, preserving every other file byte and package field. It never uploads
+their package.json version string.** publish-npm repacks that R2 archive locally
+for a stable npm publish, preserving every other file byte and package field. It never uploads
 the repacked archive over the original R2 payload or pretends the tarballs are
 byte-identical. Tar/gzip container encoding can also change during repacking.
 
@@ -75,37 +79,69 @@ The endpoint is always composed from the account ID:
 Cache buckets: `zega-sccache-{linux-x64,darwin-arm64,darwin-x64,windows-x64}`.
 There is no stored npm credential or crates.io publisher.
 
-## Sami's npm clicks, before enabling publication
+## What is published to npm, and from where
 
-Both npm jobs have a literal `if: ${{ false }}`. Keep them disabled until Sami
-has configured trust. Existing npm settings from the old npm branch, if any,
-need replacing: the package is zegadb, the environment is release, and there
-is no longer an npm-release.yml workflow.
+One workflow publishes everything: `.github/workflows/publish-npm.yml`
+(workflow name `publish-npm`; the filename is fixed because npm trusted
+publishing keys on it, as with create-deka-app's `publish-runtime.yml`). It
+runs in the GitHub environment **release** with `id-token: write` (OIDC) and
+no npm token secret. It never compiles: it downloads a release that Release
+(canary) or Promote already stored in `zega-releases/<tag>/`, checks every file
+against that release's `manifest.json`, packs, and publishes.
 
-1. Sign in to npmjs.com → profile → **Packages** → **zegadb** → **Settings** →
-   **Trusted publishing** → **Add trusted publisher** → **GitHub Actions**.
-   The package must already exist under Sami's user account. If it does not,
-   stop at this step and resolve package creation with npm; this task does not
-   bootstrap by publishing a placeholder or adding credentials.
-2. Add a connection with **Organization or user: zegadb**, **Repository: zega**,
-   **Workflow filename: release.yml**, **Environment name: release**. Under
-   **Allowed actions**, allow direct **npm publish**. Save and complete 2FA.
-3. Add another connection with the same fields except **Workflow filename:
-   promote.yml**. This covers stable publication. npm currently supports
-   multiple trusted publishers. OIDC's caller identity on the automatically
-   dispatched canary path must be confirmed by the first real publish; if npm
-   reports `tag-canary.yml` as caller, configure that exact additional identity
-   in the same release environment before retrying the failed npm job.
-4. **Settings → Publishing access → Require two-factor authentication and
-   disallow tokens → Update Package Settings**.
-5. Ava reviews a PR removing the two literal false guards only after that setup.
-   npm 11.16.0 (>=11.5.1), Node 24 and `id-token: write` are already wired in
-   both GitHub-hosted publishing jobs. The next main merge creates a canary.
-6. Test `npm install zegadb@canary`. After acceptance use the Promote button
-   above. Confirm `npm install zegadb@latest`, provenance, versions, and R2
-   readback hashes on that first actual release.
+| Package | What it is |
+| --- | --- |
+| `@zegadb/lib` | The embeddable engine: WASM + JS API, built by `build.mjs`. |
+| `@zegadb/server-darwin-arm64`, `-darwin-x64`, `-linux-x64`, `-win32-x64` | The `zega-server` executable, one binary per package, `os`/`cpu` restricted, no install scripts, no dependencies (`pack-server.mjs`). |
 
-The field names, npm requirements and multiple-publisher support were checked
+The server packages exist for the future `zegadb` CLI package (its own
+repository, owned by Sami): it lists them as `optionalDependencies` at the
+exact same version, and npm installs the one that matches the machine. All five
+packages always have the same version: `<V>-canary.<sha7>` under dist-tag
+`canary`, `<V>` under `latest`.
+
+**Dispatching it** (Actions -> publish-npm -> Run workflow -> Branch: main ->
+tag): a canary tag `v<V>-canary-<sha7>` after Release finished for it, or a
+stable `v<V>` after Promote finished. Nothing dispatches it automatically yet;
+once trust works, a later PR can add the dispatch to `release.yml`. The run
+packs and verifies all five tarballs before the first publish, publishes the
+four server packages and then `@zegadb/lib`, and skips any package@version npm
+already has, so re-running after a partial failure resumes. A stable publish
+repacks R2's canary-built `package.tgz` with only the version changed
+(`scripts/channels.py repack`).
+
+## Sami's npm clicks, before the first publish
+
+Trusted publishing can only be attached to a package that already exists, so
+every package that was never published needs a one-time **manual placeholder
+publish** first (create-deka-app and every `@dekaruntime/*` package started the
+same way: a `0.0.0` published by hand, then trusted publishing for everything
+after). Placeholders: a directory with a `package.json` that has only
+`name` and `version: "0.0.0"`, then `npm publish --access public` signed in
+with 2FA. A scoped package is private unless `--access public` is given on that
+first publish. Never put a token in this repository or its secrets.
+
+| Package | Placeholder needed? |
+| --- | --- |
+| `@zegadb/lib` | yes, never published |
+| `@zegadb/server-darwin-arm64`, `@zegadb/server-darwin-x64`, `@zegadb/server-linux-x64`, `@zegadb/server-win32-x64` | yes, never published |
+| `zegadb` (the CLI, other repository) | no, `0.0.0` is already there |
+
+Then, for each of the five packages in this repository, on npmjs.com ->
+**Packages** -> the package -> **Settings** -> **Trusted publishing** ->
+**GitHub Actions**: **Organization or user: zegadb**, **Repository: zega**,
+**Workflow filename: publish-npm.yml**, **Environment name: release**. Allow
+direct **npm publish**, save, complete 2FA. One workflow file and one
+environment for all five: there is no second connection (the old design had
+`release.yml` and `promote.yml`; their disabled npm jobs are gone). Then
+**Settings -> Publishing access -> Require two-factor authentication and
+disallow tokens** on each. The `@zegadb` organization already exists.
+
+Then dispatch publish-npm with a canary tag, test `npm install
+@zegadb/lib@canary`, and after Promote dispatch it with the stable tag and
+confirm `npm install @zegadb/lib@latest`, provenance, and versions.
+
+The field names and npm requirements were checked
 against [npm's trusted-publisher documentation](https://docs.npmjs.com/trusted-publishers/).
 Saving trust settings does not verify an OIDC publish. This change performs no
 npm/crates.io publication, live canary tagging, stable promotion or R2 writes.

@@ -1,4 +1,4 @@
-//! Where `zega cloud login` keeps the token, and how secrets are read.
+//! Where `zega-server cloud login` keeps the token, and how secrets are read.
 //!
 //! One JSON file, `cloud.json`, in the user's config directory:
 //! `$XDG_CONFIG_HOME/zega` (default `~/.config/zega`) on Linux and macOS,
@@ -57,7 +57,7 @@ pub fn load() -> Result<Option<Stored>, CloudError> {
     };
     let broken = |why: &str| {
         CloudError::Local(format!(
-            "{} is not a zega cloud credentials file ({why}); run `zega cloud login` to write it again",
+            "{} is not a zega-server cloud credentials file ({why}); run `zega-server cloud login` to write it again",
             path.display()
         ))
     };
@@ -148,7 +148,7 @@ fn open_private(path: &Path) -> io::Result<std::fs::File> {
         .open(path)
 }
 
-/// Read a token from `--token-file`, the way `zega start --token-file` does:
+/// Read a token from `--token-file`, the way `zega-server start --token-file` does:
 /// one nonempty token, a final newline is fine.
 pub fn read_token_file(path: &Path) -> Result<String, CloudError> {
     let text = std::fs::read_to_string(path)

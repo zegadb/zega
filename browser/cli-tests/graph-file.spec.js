@@ -1,4 +1,4 @@
-// One .graph file, three surfaces: the native CLI, `zega start` over HTTP and
+// One .graph file, three surfaces: the native CLI, `zega-server start` over HTTP and
 // the wasm build the explorer ships (browser/pkg, run here in Node). A graph
 // exported by any of them imports into any other and exports again as the
 // same bytes (docs/graph-format.md).
@@ -10,7 +10,7 @@ import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
 import init, { ZegaWasm } from '../pkg/zega_wasm.js';
 
-const ZEGA = resolve('../.target/debug/zega');
+const ZEGA = resolve('../.target/debug/zega-server');
 // Every Value type, float edge cases and unicode names (zega/tests/fixtures).
 const GOLDEN = resolve('../zega/tests/fixtures/golden-v1.graph');
 const SCHEMA = 'type Player { name: String salary: Int rating?: Float active?: Bool }';
