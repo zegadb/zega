@@ -1,11 +1,13 @@
 import type { Globals } from '@/handlers'
+import { devCommand, isApp } from '@/handlers/app'
+import * as projectConfig from '@/handlers/project_config'
 import { prepare, selectTargets, type Target } from '@/handlers/deploy'
 import { chooseGraph, DEFAULT_KEY_VAR, DEFAULT_URL_VAR, type GraphChoice, type GraphFlags } from '@/handlers/dev_graph'
 import { DevFunction, load, type Env } from '@/handlers/dev_server'
 import { readDevVars } from '@/handlers/dev_vars'
 import { watchProject } from '@/handlers/dev_watch'
 import { humanLine, type DevEvent } from '@/handlers/dev_events'
-import { event as eventLine, showLogo, write } from '@/utils'
+import { event as eventLine, relay, showLogo, write } from '@/utils'
 import { logo } from '@/utils/banner'
 
 export type DevOptions = Globals &
@@ -36,6 +38,8 @@ function envFor(dir: string, target: Target, graph: GraphChoice, urlVar: string)
  */
 export async function dev(id: string | undefined, options: DevOptions): Promise<void> {
     const dir = process.cwd()
+    const config = projectConfig.read(dir)
+    if (isApp(config)) return await devApp(dir, config, options)
     const all = selectTargets(dir, undefined)
     const targets = id === undefined ? all : selectTargets(dir, id)
     const human = options.human === true
@@ -169,4 +173,51 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
         process.once('SIGTERM', leave)
     })
     stopAll()
+}
+
+/**
+ * `zega dev` in an app: the framework's own dev server (`next dev`, `astro dev`) with `.dev.vars` in its
+ * environment (the framework does not read that file itself). Its output is passed on, and its exit code is ours.
+ */
+async function devApp(dir: string, config: Parameters<typeof devCommand>[1], options: DevOptions): Promise<void> {
+    const human = options.human === true
+    const urlVar = options.graphUrlVar ?? DEFAULT_URL_VAR
+    const graph = await chooseGraph(options, options)
+    const server = devCommand(dir, config, {
+        port: options.port,
+        graph: graph.kind === 'none' ? undefined : { urlVar, url: graph.url },
+    })
+    const shown = server.command.map((word, index) => (index === 0 ? word.split(/[\\/]/).pop()! : word))
+    if (human) {
+        await write(
+            'stdout',
+            `zega dev: ${config.framework} app, running \`${shown.join(' ')}\`\n` +
+                `  env: ${server.names.length === 0 ? 'nothing added (no .dev.vars here)' : `${server.names.join(', ')}  (${server.files.join(' + ') || 'graph flag'})`}\n`,
+        )
+    } else {
+        await write('stdout', eventLine({ event: 'starting', framework: config.framework, command: shown, env: server.names }))
+    }
+    const child = Bun.spawn(server.command, { cwd: dir, env: server.env, stdin: 'ignore', stdout: 'pipe', stderr: 'inherit' })
+    const forward = (signal: NodeJS.Signals) => () => child.kill(signal)
+    const signals = (['SIGINT', 'SIGTERM'] as const).map((signal) => [signal, forward(signal)] as const)
+    for (const [signal, listener] of signals) process.on(signal, listener)
+    const out = relay(human)
+    try {
+        const reader = child.stdout.getReader()
+        for (;;) {
+            const next = await reader.read()
+            if (next.done) break
+            await out.push(new TextDecoder().decode(next.value))
+        }
+        await out.end()
+        const code = await child.exited
+        const signal = child.signalCode
+        process.exitCode = signal === null ? code : 128 + (signal === 'SIGINT' ? 2 : 15)
+    } finally {
+        for (const [signal, listener] of signals) process.off(signal, listener)
+        if (child.exitCode === null) {
+            child.kill('SIGTERM')
+            await child.exited
+        }
+    }
 }

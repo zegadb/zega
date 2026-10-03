@@ -1,5 +1,5 @@
 export { answer } from './answer'
 export { canPrompt, isHuman, showLogo } from './tty'
 export type { Mode } from './tty'
-export { event, result, show, write } from './output'
+export { event, relay, result, show, write } from './output'
 export { welcome } from './welcome'

@@ -70,14 +70,15 @@ program
 
 program
     .command('init')
-    .description('create zega.json here')
+    .description('start a project here')
     .helpGroup('Project:')
     .option('--name <name>', 'project name')
     .option('--region <id>', 'region (see `zega regions`)')
-    .option('--force', 'overwrite zega.json')
+    .option('--force', 'overwrite existing files')
     .option('--function <id>', 'a function id to deploy')
     .option('--entry <path>', 'its source file (default src/index.ts)')
-    .action(action(async (options: { name?: string; region?: string; force?: boolean; function?: string; entry?: string }) => core.init({ ...globals(), ...options })))
+    .option('--template <name>', 'function (default), nextjs or astro')
+    .action(action(async (options: { name?: string; region?: string; force?: boolean; function?: string; entry?: string; template?: string }) => core.init({ ...globals(), ...options })))
 
 program
     .command('deploy')
@@ -119,7 +120,7 @@ program
 
 program
     .command('build')
-    .description('bundle your functions into dist/')
+    .description('build your project')
     .helpGroup('Local:')
     .argument('[id]', 'only this function')
     .option('--minify', 'minify the bundle')
@@ -128,7 +129,7 @@ program
 
 program
     .command('dev')
-    .description('run your functions locally')
+    .description('run your project locally')
     .helpGroup('Local:')
     .argument('[id]', 'only this function')
     .option('--port <n>', `first port (default ${core.DEFAULT_PORT})`, integer('--port', 1, 65535))

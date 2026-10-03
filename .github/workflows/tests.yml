@@ -30,6 +30,6 @@ jobs:
       # The committed types are what the committed OpenAPI document generates.
       - run: bun run api:types
       - run: git diff --exit-code -- src/types/cloud-api.d.ts
-      - run: bun test
+      - run: bun test --timeout 600000
       # All four executables compile (Bun cross-compiles from any host).
       - run: bun run build

@@ -73,11 +73,11 @@ function value(rest: string, at: string): string {
 
 export type DevVars = { vars: Record<string, string>; files: string[] }
 
-/** The values for one function: `.dev.vars`, then `.dev.vars.<id>` over it. */
-export function readDevVars(dir: string, functionId: string): DevVars {
+/** The values for one function: `.dev.vars`, then `.dev.vars.<id>` over it (an app has no function: `.dev.vars` alone). */
+export function readDevVars(dir: string, functionId?: string): DevVars {
     const vars: Record<string, string> = {}
     const files: string[] = []
-    for (const name of [VARS_FILE, `${VARS_FILE}.${functionId}`]) {
+    for (const name of functionId === undefined ? [VARS_FILE] : [VARS_FILE, `${VARS_FILE}.${functionId}`]) {
         const file = path.join(dir, name)
         let text: string
         try {

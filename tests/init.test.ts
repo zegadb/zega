@@ -135,7 +135,9 @@ describe('zega init', () => {
             expect(first.code).toBe(0)
             const again = await run(['init', '--name', 'two', '--region', 'ams'], { home, cwd: dir, stdin: null })
             expect(again.code).toBe(1)
-            expect(again.stderr).toContain('exists already')
+            // zega.json is in the way, and so are the starter's own files.
+            expect(again.stderr).toContain('zega.json, package.json')
+            expect(again.stderr).toContain('exist already')
             expect(again.stderr).toContain('--force')
             expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8')).name).toBe('one')
 
@@ -162,7 +164,7 @@ describe('zega init', () => {
                 region: 'yyz',
                 functions: [{ id: 'f0bbbbbbbbbbbbbbbb', entry: 'src/index.ts' }],
             })
-            expect(first.stdout).toContain('Deploys  f0bbbbbbbbbbbbbbbb from src/index.ts')
+            expect(first.stdout).toContain('Deploys   f0bbbbbbbbbbbbbbbb from src/index.ts')
 
             const second = await run(
                 ['init', '--name', 'a', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb', '--entry', 'worker/main.ts', '--force'],
