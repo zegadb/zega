@@ -5,6 +5,7 @@ import { DevFunction, load, type Env } from '@/handlers/dev_server'
 import { readDevVars } from '@/handlers/dev_vars'
 import { watchProject } from '@/handlers/dev_watch'
 import { write } from '@/utils'
+import { logo } from '@/utils/banner'
 
 export type DevOptions = Globals &
     GraphFlags & {
@@ -115,6 +116,8 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
         }
         lines.push(`  graph: ${graphLine}`)
         lines.push(options.watch === false ? '  not watching for changes' : '  watching for changes; Ctrl-C to stop')
+        // The mark on a terminal only: piped output stays the same plain lines for scripts and agents.
+        if (process.stdout.isTTY) lines.unshift('', logo(), '')
         await write('stdout', lines.join('\n') + '\n')
     }
 
