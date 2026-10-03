@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { TOKEN, credentialsFile, fakeApi, remove, run, scratch, whoamiRoute } from './helpers'
+import { TOKEN, account, credentialsFile, fakeApi, remove, run, scratch, tokenInfo, whoamiRoute } from './helpers'
 
 const home = scratch()
 afterAll(() => remove(home))
@@ -31,19 +31,45 @@ describe('zega login', () => {
             expect(fs.statSync(path.dirname(file)).mode & 0o777).toBe(0o700)
         }
 
-        // The person is told who they are and where it went, not the secret.
-        expect(result.stdout).toContain(`logged in to ${api.url}`)
-        expect(result.stdout).toContain('ci-bot')
-        expect(result.stdout).toContain(file)
+        // The person is told who they are, not the secret and not where it went.
+        expect(result.stdout).toBe(
+            [
+                'Logged in as Ada Lovelace (@ada)',
+                '',
+                'Token    ci-bot',
+                'Scope    read',
+                'Project  all projects',
+                'Expires  Dec 1, 2026',
+                '',
+            ].join('\n'),
+        )
         secrets(result.stdout, result.stderr)
+        expect(result.stdout).not.toContain('zc_')
+        expect(result.stdout).not.toContain(file)
+        expect(result.stdout).not.toContain(home)
+        expect(result.stderr).toBe('')
     })
 
     test('a later command uses the stored token and its host', async () => {
         const result = await run(['whoami'], { home })
         expect(result.code).toBe(0)
         expect(api.seen.at(-1)).toMatchObject({ pathname: '/v1/whoami', authorization: `Bearer ${TOKEN}` })
-        expect(result.stdout).toContain('Scope')
+        expect(result.stdout).toBe(
+            [
+                'Logged in as Ada Lovelace (@ada)',
+                '',
+                `API      ${api.url}`,
+                'Token    ci-bot',
+                'Scope    read',
+                'Project  all projects',
+                'Expires  Dec 1, 2026',
+                '',
+            ].join('\n'),
+        )
         secrets(result.stdout, result.stderr)
+        expect(result.stdout).not.toContain('zc_')
+        expect(result.stdout).not.toContain(credentialsFile(home))
+        expect(result.stdout).not.toMatch(/Created|Last used/)
     })
 
     test('a stored token is never sent to another host', async () => {
@@ -181,5 +207,81 @@ describe('zega login reading the token', () => {
         const result = await run(['login', '--api', api.url, '--store', 'cloud'], { home: dir, stdin: TOKEN })
         expect(result.code).toBe(1)
         expect(result.stderr).toContain('`file` (the default) or `keychain`')
+    })
+})
+
+describe('who the output says you are', () => {
+    const dir = scratch()
+    afterAll(() => remove(dir))
+    const withBody = (body: unknown) => fakeApi({ 'GET /v1/whoami': { body } })
+
+    test('an account with no full name is just its login', async () => {
+        const api = withBody({ account: { login: 'ada', name: null }, token: tokenInfo })
+        try {
+            const login = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
+            expect(login.code).toBe(0)
+            expect(login.stdout.split('\n')[0]).toBe('Logged in as @ada')
+            const whoami = await run(['whoami'], { home: dir })
+            expect(whoami.stdout.split('\n')[0]).toBe('Logged in as @ada')
+        } finally {
+            api.stop()
+        }
+    })
+
+    test('a token for one project, and one that never expires, say so; dates are readable, not ISO', async () => {
+        const api = withBody({
+            account,
+            token: { ...tokenInfo, scope: 'manage', projectId: 'p1', projectName: 'Atlas', expiresAt: null, lastUsedAt: '2026-10-03T12:00:00.000Z' },
+        })
+        try {
+            const result = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
+            expect(result.code).toBe(0)
+            expect(result.stdout).toContain('Scope    manage')
+            expect(result.stdout).toContain('Project  Atlas (p1)')
+            expect(result.stdout).toContain('Expires  never')
+            expect(result.stdout).not.toMatch(/\d{4}-\d{2}-\d{2}T/)
+            expect(result.stdout).not.toContain('Oct 3, 2026') // "last used" is not shown at all
+        } finally {
+            api.stop()
+        }
+    })
+
+    test('an API that does not say who the account is yet: the token name, and nothing fails', async () => {
+        const api = withBody({ token: tokenInfo })
+        try {
+            const login = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
+            expect(login.code).toBe(0)
+            expect(login.stdout).toBe(['Logged in', '', 'Token    ci-bot', 'Scope    read', 'Project  all projects', 'Expires  Dec 1, 2026', ''].join('\n'))
+            const whoami = await run(['whoami'], { home: dir })
+            expect(whoami.code).toBe(0)
+            expect(whoami.stdout).toBe([`API      ${api.url}`, 'Token    ci-bot', 'Scope    read', 'Project  all projects', 'Expires  Dec 1, 2026', ''].join('\n'))
+            for (const out of [login.stdout, whoami.stdout]) expect(out).not.toContain('zc_')
+        } finally {
+            api.stop()
+        }
+    })
+
+    test('control characters in a name never reach the terminal', async () => {
+        const api = withBody({ account: { login: 'ada', name: 'Ada\u001b[31m Lovelace' }, token: tokenInfo })
+        try {
+            const result = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
+            expect(result.stdout).not.toContain('\u001b')
+        } finally {
+            api.stop()
+        }
+    })
+
+    test('--json on whoami is the API answer unchanged, account included', async () => {
+        const api = fakeApi({ ...whoamiRoute })
+        try {
+            const tokenFile = path.join(dir, 'token')
+            fs.writeFileSync(tokenFile, TOKEN, { mode: 0o600 })
+            const result = await run(['whoami', '--api', api.url, '--token-file', tokenFile, '--json'], { home: dir })
+            expect(result.code).toBe(0)
+            expect(result.stdout).toBe(JSON.stringify(whoamiRoute['GET /v1/whoami'].body) + '\n')
+            expect(JSON.parse(result.stdout).account).toEqual(account)
+        } finally {
+            api.stop()
+        }
     })
 })
