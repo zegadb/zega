@@ -17,7 +17,8 @@
     "test": "bun test",
     "api:types": "openapi-typescript openapi/openapi.json -o src/types/cloud-api.d.ts",
     "build": "bun run scripts/build-all.ts",
-    "api:update": "bun run scripts/update-api.ts"
+    "api:update": "bun run scripts/update-api.ts",
+    "explorer:update": "bun run scripts/update-explorer.ts"
   },
   "keywords": [
     "zega",

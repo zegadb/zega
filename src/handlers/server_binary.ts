@@ -89,26 +89,66 @@ export function resolveServer(options: Resolve = {}): string {
     return found
 }
 
-/** `--server <path>` or `--server=<path>` taken out of the arguments meant for zega-server (it has no such flag of its own). */
-export function takeServerFlag(args: string[]): { override: string | undefined; rest: string[] } {
-    const rest: string[] = []
-    let override: string | undefined
+export type StartFlags = {
+    /** `--server <path>`: another zega-server build (development). */
+    server: string | undefined
+    /** `--explorer`: serve the explorer as well. */
+    explorer: boolean
+    /** `--explorer-port <n>`: its port (default 9343). */
+    explorerPort: number | undefined
+    /** `--json`: say what is running as one JSON line instead of the banner. */
+    json: boolean
+    /** Everything else, for `zega-server start`, in the order it was typed. */
+    rest: string[]
+}
+
+/**
+ * What `zega start` takes for itself out of the arguments meant for `zega-server start`: `--server`, `--explorer`,
+ * `--explorer-port` and `--json` (the server has none of them). Everything else, and everything after `--`, is the
+ * server's, untouched.
+ */
+export function takeStartFlags(args: string[]): StartFlags {
+    const flags: StartFlags = { server: undefined, explorer: false, explorerPort: undefined, json: false, rest: [] }
+    const value = (name: string, at: number): string => {
+        const given = args[at + 1]
+        if (given === undefined) throw new LocalFailure(`${name} needs a value`)
+        return given
+    }
     for (let i = 0; i < args.length; i++) {
         const arg = args[i]!
         if (arg === '--') {
-            rest.push(...args.slice(i))
+            flags.rest.push(...args.slice(i))
             break
         }
         if (arg === '--server') {
-            const value = args[i + 1]
-            if (value === undefined) throw new LocalFailure('--server needs a path')
-            override = value
+            flags.server = value('--server', i)
             i++
         } else if (arg.startsWith('--server=')) {
-            override = arg.slice('--server='.length)
+            flags.server = arg.slice('--server='.length)
+        } else if (arg === '--explorer') {
+            flags.explorer = true
+        } else if (arg === '--json') {
+            flags.json = true
+        } else if (arg === '--explorer-port' || arg.startsWith('--explorer-port=')) {
+            const given = arg === '--explorer-port' ? value('--explorer-port', i) : arg.slice('--explorer-port='.length)
+            if (arg === '--explorer-port') i++
+            if (!/^\d+$/.test(given) || Number(given) > 65535) throw new LocalFailure('--explorer-port is a whole number from 0 to 65535')
+            flags.explorerPort = Number(given)
         } else {
-            rest.push(arg)
+            flags.rest.push(arg)
         }
     }
-    return { override, rest }
+    return flags
+}
+
+/** The value of a `--name value` or `--name=value` flag of the server's arguments (the last one wins, as the server's own parser has it). */
+export function flagValue(args: string[], name: string): string | undefined {
+    let found: string | undefined
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i]!
+        if (arg === '--') break
+        if (arg === name) found = args[i + 1]
+        else if (arg.startsWith(`${name}=`)) found = arg.slice(name.length + 1)
+    }
+    return found
 }

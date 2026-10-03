@@ -2,8 +2,10 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { FAKE_SERVER, recorded, startCli } from './cli_helpers'
 import { remove, run, scratch } from './helpers'
-import { findInstalled, resolveServer, searchRoots, serverPackage, takeServerFlag } from '../src/handlers/server_binary'
+import { runningBanner, runningJson } from '../src/core/start/start'
+import { findInstalled, flagValue, resolveServer, searchRoots, serverPackage, takeStartFlags } from '../src/handlers/server_binary'
 
 const ENTRY = path.resolve(import.meta.dir, '..', 'src', 'zega.ts')
 const posix = process.platform !== 'win32'
@@ -22,7 +24,7 @@ echo "fake-server $#"
 for a in "$@"; do echo "arg:$a"; done
 for a in "$@"; do case "$a" in
   --exit=*) echo "complaint on stderr" >&2; exit "\${a#--exit=}" ;;
-  --wait) trap 'echo got-term; exit 7' TERM; echo ready; while :; do sleep 0.05; done ;;
+  --wait) trap 'echo got-term; exit 7' TERM; echo http://127.0.0.1:9342; echo ready; while :; do sleep 0.05; done ;;
   --die-by-term) kill -TERM $$ ;;
 esac; done
 `,
@@ -102,12 +104,23 @@ describe('which zega-server', () => {
         expect(roots.every((root) => !root.includes('$bunfs'))).toBe(true)
     })
 
-    test('--server is ours and nothing else is', () => {
-        expect(takeServerFlag(['--data', './d', '--server', '/x/zs', '--port', '0'])).toEqual({ override: '/x/zs', rest: ['--data', './d', '--port', '0'] })
-        expect(takeServerFlag(['--server=/y', '--token-file', 't'])).toEqual({ override: '/y', rest: ['--token-file', 't'] })
-        expect(takeServerFlag(['--', '--server', 'z'])).toEqual({ override: undefined, rest: ['--', '--server', 'z'] })
-        expect(() => takeServerFlag(['--server'])).toThrow('--server needs a path')
+    test('--server, --explorer, --explorer-port and --json are ours and nothing else is', () => {
+        const none = { server: undefined, explorer: false, explorerPort: undefined, json: false }
+        expect(takeStartFlags(['--data', './d', '--server', '/x/zs', '--port', '0'])).toEqual({ ...none, server: '/x/zs', rest: ['--data', './d', '--port', '0'] })
+        expect(takeStartFlags(['--server=/y', '--token-file', 't'])).toEqual({ ...none, server: '/y', rest: ['--token-file', 't'] })
+        expect(takeStartFlags(['--explorer', '--explorer-port', '9500', '--json', '--host', '0.0.0.0'])).toEqual({ ...none, explorer: true, explorerPort: 9500, json: true, rest: ['--host', '0.0.0.0'] })
+        expect(takeStartFlags(['--explorer-port=0'])).toEqual({ ...none, explorerPort: 0, rest: [] })
+        expect(takeStartFlags(['--', '--server', 'z', '--explorer'])).toEqual({ ...none, rest: ['--', '--server', 'z', '--explorer'] })
+        expect(() => takeStartFlags(['--server'])).toThrow('--server needs a value')
+        expect(() => takeStartFlags(['--explorer-port', 'x'])).toThrow('--explorer-port is a whole number from 0 to 65535')
+        expect(() => takeStartFlags(['--explorer-port=70000'])).toThrow('from 0 to 65535')
         expect(() => resolveServer({ override: path.join(home, 'no-such-server') })).toThrow('no such file')
+    })
+
+    test('the server\'s own flags are found in its arguments, the last one winning', () => {
+        expect(flagValue(['--data', './a', '--port', '1', '--data=./b'], '--data')).toBe('./b')
+        expect(flagValue(['--port', '1'], '--data')).toBeUndefined()
+        expect(flagValue(['--', '--data', 'x'], '--data')).toBeUndefined()
     })
 })
 
@@ -186,5 +199,154 @@ describe.skipIf(!posix)('zega start', () => {
         expect(result.code).toBe(1)
         expect(result.stderr).toContain('is not installed: it is the npm package @zegadb/server-')
         expect(result.stdout).toBe('')
+    })
+})
+
+const strip = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, '')
+
+describe('what zega start says is running', () => {
+    test('the banner: the mark, the tagline, a rule, the server, and the explorer stopped with the command that starts it (no more)', () => {
+        const banner = strip(runningBanner({ server: 'http://127.0.0.1:9342', explorer: null }, false))
+        expect(banner).toContain('/____||_____|\\____/_/   \\_\\') // the mark
+        expect(banner).toContain('An embeddable graph database.')
+        expect(banner).toContain('─'.repeat(20))
+        const lines = banner.split('\n')
+        const local = lines.findIndex((line) => line.includes('➜  Local:'))
+        expect(lines[local]).toBe('  ➜  Local:     http://127.0.0.1:9342')
+        expect(lines[local + 1]).toBe('  ➜  Explorer:  (stopped)')
+        expect(lines[local + 2]).toBe('       zega start --explorer')
+        expect(banner).not.toContain('both')
+    })
+
+    test('with the explorer running both lines have their address and there is no hint', () => {
+        const banner = strip(runningBanner({ server: 'http://127.0.0.1:9342', explorer: 'http://127.0.0.1:9343' }, false))
+        expect(banner).toContain('  ➜  Local:     http://127.0.0.1:9342')
+        expect(banner).toContain('  ➜  Explorer:  http://127.0.0.1:9343')
+        expect(banner).not.toContain('(stopped)')
+        expect(banner).not.toContain('zega start --explorer')
+    })
+
+    test('the colour is the terminal\'s to decide: none when asked for none, the hint dim when it has colour', () => {
+        expect(runningBanner({ server: 'http://x', explorer: null }, false)).not.toContain('\u001b[')
+        expect(runningBanner({ server: 'http://x', explorer: null }, true)).toContain('\u001b[2mzega start --explorer')
+    })
+
+    test('the JSON line has each thing\'s address and status', () => {
+        expect(JSON.parse(runningJson({ server: 'http://127.0.0.1:9342', explorer: null }))).toEqual({
+            server: { url: 'http://127.0.0.1:9342', status: 'running' },
+            explorer: { url: null, status: 'stopped' },
+        })
+        expect(JSON.parse(runningJson({ server: 'http://a', explorer: 'http://b' })).explorer).toEqual({ url: 'http://b', status: 'running' })
+    })
+})
+
+describe.skipIf(!posix)('zega start, running', () => {
+    const dir = path.join(home, 'running')
+    fs.mkdirSync(dir, { recursive: true })
+    const base = (data: string, extra: string[] = []) => ['start', '--server', FAKE_SERVER, '--data', path.join(dir, data), '--port', '0', ...extra]
+    const started: ReturnType<typeof startCli>[] = []
+    afterAll(async () => {
+        for (const cli of started) {
+            cli.signal('SIGTERM')
+            await cli.exited
+        }
+    })
+    const go = (args: string[]) => {
+        const cli = startCli(args, { cwd: dir, home })
+        started.push(cli)
+        return cli
+    }
+
+    test('with no terminal it prints one JSON line (not the banner) and the explorer is stopped', async () => {
+        const cli = go(base('plain'))
+        await cli.until('\n')
+        const line = JSON.parse(cli.stdout().split('\n')[0]!)
+        expect(line.server.status).toBe('running')
+        expect(line.server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
+        expect(line.explorer).toEqual({ url: null, status: 'stopped' })
+        expect(cli.stdout()).not.toContain('➜')
+        // The server is the real thing behind that address, started with the arguments it was given.
+        expect((await (await fetch(`${line.server.url}/health`)).json())).toEqual({ ok: true })
+        expect(recorded(path.join(dir, 'plain')).argv).toEqual(['start', '--data', path.join(dir, 'plain'), '--port', '0'])
+        cli.signal('SIGTERM')
+        expect(await cli.exited).toBe(0)
+    })
+
+    test('on a terminal it prints the banner; --json on a terminal prints the JSON line instead', async () => {
+        const onTerminal = async (args: string[]) => {
+            let output = ''
+            const child = Bun.spawn([process.execPath, ENTRY, ...args], {
+                cwd: dir,
+                env: { PATH: process.env.PATH ?? '', HOME: home, TERM: 'xterm' },
+                terminal: { cols: 100, rows: 30, data: (_t, data) => void (output += new TextDecoder().decode(data)) },
+            })
+            const deadline = Date.now() + 20_000
+            while (!/zega start --explorer|"status":"stopped"/.test(output) && Date.now() < deadline) await Bun.sleep(25)
+            child.kill('SIGTERM')
+            await child.exited
+            return strip(output)
+        }
+        const banner = await onTerminal(base('tty'))
+        expect(banner).toMatch(/➜  Local:     http:\/\/127\.0\.0\.1:\d+\r?\n/)
+        expect(banner).toMatch(/➜  Explorer:  \(stopped\)\r?\n {7}zega start --explorer\r?\n/)
+        expect(banner).not.toContain('"status"')
+        const json = await onTerminal(base('tty-json', ['--json']))
+        expect(json).toContain('"explorer":{"url":null,"status":"stopped"}')
+        expect(json).not.toContain('➜')
+    })
+
+    test('--explorer serves the explorer on the same database: both addresses are printed, and the page\'s requests reach the server', async () => {
+        const cli = go(base('both', ['--explorer', '--explorer-port', '0']))
+        await cli.until('\n')
+        const line = JSON.parse(cli.stdout().split('\n')[0]!)
+        expect(line.explorer.status).toBe('running')
+        expect(line.explorer.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
+        expect(line.explorer.url).not.toBe(line.server.url)
+        const page = await (await fetch(line.explorer.url)).text()
+        expect(page).toContain('<title>zega</title>')
+        const config = (await (await fetch(`${line.explorer.url}/explorer-config.json`)).json()) as { local: { label: string; detail: string } }
+        expect(config.local).toEqual({ label: 'local server · both', detail: path.join(dir, 'both') })
+        // One server, not two: the explorer's database requests land on the server this command started.
+        expect(await (await fetch(`${line.explorer.url}/graph`)).json()).toEqual({ ok: true, result: { nodes: [], rels: [] } })
+        expect(recorded(path.join(dir, 'both')).requests.map((r) => `${r.method} ${r.target}`)).toEqual(['GET /graph'])
+        // --explorer and --explorer-port are not the server's: it never saw them.
+        expect(recorded(path.join(dir, 'both')).argv).toEqual(['start', '--data', path.join(dir, 'both'), '--port', '0'])
+        cli.signal('SIGTERM')
+        expect(await cli.exited).toBe(0)
+        expect(recorded(path.join(dir, 'both')).stopped).toBe(true)
+        await expect(fetch(line.explorer.url)).rejects.toThrow()
+    })
+
+    test('a server that needs a token still works through the explorer: the page never has the token, the explorer adds it', async () => {
+        const tokenFile = path.join(dir, 'server-token')
+        fs.writeFileSync(tokenFile, 'server-secret-token\n', { mode: 0o600 })
+        const cli = go(base('guarded', ['--token-file', tokenFile, '--explorer', '--explorer-port', '0']))
+        await cli.until('\n')
+        const line = JSON.parse(cli.stdout().split('\n')[0]!)
+        expect((await fetch(`${line.server.url}/graph`)).status).toBe(401)
+        expect(await (await fetch(`${line.explorer.url}/graph`)).json()).toEqual({ ok: true, result: { nodes: [], rels: [] } })
+        expect(cli.stdout() + cli.stderr()).not.toContain('server-secret-token')
+        // The page sent no token; the server saw one.
+        const seen = recorded(path.join(dir, 'guarded')).requests
+        expect(seen.at(-1)).toMatchObject({ target: '/graph', authorization: 'Bearer server-secret-token' })
+    })
+
+    test('an explorer port that is taken is named, the server is stopped again, and the exit is 1', async () => {
+        const taken = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('') })
+        try {
+            const cli = go(base('busy', ['--explorer', '--explorer-port', String(taken.port)]))
+            expect(await cli.exited).toBe(1)
+            expect(cli.stderr()).toContain(`the explorer's port ${taken.port} is already in use`)
+            expect(recorded(path.join(dir, 'busy')).stopped).toBe(true)
+        } finally {
+            taken.stop(true)
+        }
+    })
+
+    test('a server that refuses to start passes its words and its exit code through; nothing is announced', async () => {
+        const cli = go(base('locked', ['--explorer']))
+        expect(await cli.exited).toBe(1)
+        expect(cli.stderr()).toContain('data directory is locked')
+        expect(cli.stdout()).toBe('')
     })
 })

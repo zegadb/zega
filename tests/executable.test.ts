@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import pkg from '../package.json'
+import { FAKE_SERVER, startCli } from './cli_helpers'
 import { FIXTURES, FUNCTION_ID, TOKEN, callBundle, deployedFunction, fakeApi, regionsBody, remove, scratch } from './helpers'
 
 /**
@@ -117,4 +118,21 @@ describe('the compiled executable', () => {
         expect(missing.code).toBe(1)
         expect(missing.stderr).toContain('is not installed: it is the npm package @zegadb/server-')
     })
+    test.skipIf(process.platform === 'win32')('zega explorer serves the page embedded in the executable, on a database server it starts, and stops it again', async () => {
+        const data = path.join(dir, 'explorer-data')
+        const cli = startCli(['explorer', '--port', '0', '--server', FAKE_SERVER, '--data', data], { cwd: dir, home: dir, command: [exe] })
+        await cli.until('Ctrl-C to stop', 'stderr')
+        const url = cli.stdout().split('\n')[0]!
+        expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
+        const html = await (await fetch(url)).text()
+        expect(html).toContain('<title>zega</title>')
+        expect(html).not.toContain('zega.dev')
+        const wasm = await fetch(`${url}/pkg/zega_wasm_bg.wasm`)
+        expect(wasm.headers.get('content-type')).toBe('application/wasm')
+        expect((await wasm.arrayBuffer()).byteLength).toBeGreaterThan(1_000_000)
+        expect((await (await fetch(`${url}/graph`)).json())).toEqual({ ok: true, result: { nodes: [], rels: [] } })
+        cli.signal('SIGTERM')
+        expect(await cli.exited).toBe(0)
+        expect(fs.existsSync(path.join(data, 'stopped'))).toBe(true)
+    }, 30_000)
 })

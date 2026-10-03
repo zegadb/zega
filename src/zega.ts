@@ -80,16 +80,34 @@ program
 
 program
     .command('start')
-    .description('run the zega-server that ships with this CLI: `zega start --data ./data --port 9342` is `zega-server start` with the same arguments (`zega start --help` is its help)')
+    .description(
+        'run the zega-server that ships with this CLI: `zega start --data ./data --port 9342` is `zega-server start` with the same arguments (`zega start --help` is its help); says what is running; --explorer serves the explorer on the same database',
+    )
     .allowUnknownOption()
     .allowExcessArguments()
     .helpOption(false)
-    .argument('[args...]', 'passed to `zega-server start` untouched; only --server <path> is ours (use that build instead of the bundled one)')
+    .argument('[args...]', 'passed to `zega-server start` untouched; ours are --explorer, --explorer-port <n>, --json and --server <path> (use that build instead of the bundled one)')
     .action(
         // commander would take the server's own --token-file for the global one: the arguments are read raw.
         action(async () => {
-            process.exitCode = await core.start(process.argv.slice(process.argv.indexOf('start') + 1))
+            process.exitCode = await core.start(process.argv.slice(process.argv.indexOf('start') + 1), globals())
         }),
+    )
+
+program
+    .command('explorer')
+    .description(
+        'the explorer for a local database, served on 127.0.0.1 (prints the address, opens nothing); with a graph id, the address of that cloud graph\'s console in the dashboard',
+    )
+    .argument('[graph]', 'a cloud graph id: print its console address instead of serving a local database')
+    .option('--port <n>', `the explorer\'s port (default ${core.EXPLORER_PORT}; 0 chooses a free one)`, integer('--port', 0, 65535))
+    .option('--data <dir>', 'the database directory (default ./zega-data)')
+    .option('--server <path>', 'run this zega-server instead of the bundled one (development)')
+    .option('--assets <dir>', "serve this directory's build of the explorer page instead of the vendored one (development)")
+    .action(
+        action(async (graph: string | undefined, options: Omit<core.ExplorerOptions, keyof Globals>) =>
+            core.explorer(graph, { ...globals(), ...options }),
+        ),
     )
 
 program
