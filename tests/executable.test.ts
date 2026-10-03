@@ -93,7 +93,7 @@ describe('the compiled executable', () => {
             expect(request.body).toContain('useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict')
             expect(request.body).toContain('hello from workerd')
             expect(request.body).not.toMatch(/^import /m)
-            expect(await callBundle(request.body, 'https://f.example/abc')).toMatch(/^HELLO FROM WORKERD \/ABC /)
+            expect(await callBundle(request.body, 'https://f.example/abc')).toMatch(/^HELLO FROM WORKERD \/ABC [A-Za-z0-9_-]{12}$/)
         } finally {
             functionApi.stop()
         }

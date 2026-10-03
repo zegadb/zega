@@ -62,7 +62,7 @@ describe('zega function deploy', () => {
 
         // And it runs: loaded as a module, its handler answers.
         const answer = await callBundle(code, 'https://f.example/abc')
-        expect(answer).toMatch(/^HELLO FROM WORKERD \/ABC [A-Z0-9_-]{12}$/i)
+        expect(answer).toMatch(/^HELLO FROM WORKERD \/ABC [A-Za-z0-9_-]{12}$/)
 
         expect(result.stderr).toMatch(/bundled src\/index\.ts: [\d,]+ bytes \(limit 1,000,000\)/)
         expect(result.stdout).toContain(`Deployed  ${FUNCTION_ID} (hello) as v4`)
