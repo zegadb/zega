@@ -79,6 +79,20 @@ program
     .action(action(async (id: string | undefined, options: { minify?: boolean }) => core.deploy(id, { ...globals(), ...options })))
 
 program
+    .command('start')
+    .description('run the zega-server that ships with this CLI: `zega start --data ./data --port 9342` is `zega-server start` with the same arguments (`zega start --help` is its help)')
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .helpOption(false)
+    .argument('[args...]', 'passed to `zega-server start` untouched; only --server <path> is ours (use that build instead of the bundled one)')
+    .action(
+        // commander would take the server's own --token-file for the global one: the arguments are read raw.
+        action(async () => {
+            process.exitCode = await core.start(process.argv.slice(process.argv.indexOf('start') + 1))
+        }),
+    )
+
+program
     .command('projects')
     .description('list projects, or show one with its graphs')
     .argument('[id]', 'a project id')

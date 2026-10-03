@@ -44,6 +44,7 @@ zega login [--store file|keychain]   store an API token
 zega logout                          remove the stored token
 zega whoami                          which token this is: name, scope, project, expiry
 zega init                            write zega.json for a project here
+zega start [args]                    run the zega-server that ships with this CLI (zega-server start)
 zega deploy [id]                     bundle and upload the functions zega.json lists
 zega function deploy <id> [entry]    bundle and upload one function
 zega projects [id]                   list projects, or show one with its graphs
@@ -67,6 +68,17 @@ Global options: `--api <url>`, `--token-file <path>`, `--json`.
 - With `--json` stdout is the API's answer unchanged, one per function; the size line is on stderr.
 
 `zega function logs <id>` takes `--from`, `--to`, `--limit` (1 to 200), `--status`, `--search` and `--cursor`.
+
+### start
+
+`zega start [args]` runs `zega-server start [args]`, the database server that ships with this CLI: the arguments are passed through untouched (`zega start --data ./data --port 9342`, `--host 0.0.0.0 --token-file ./token`, `--help` is the server's own), the terminal is the server's (it prints its address), stderr is the server's, and the exit code is the server's (128 plus the signal if it was killed by one). SIGTERM and SIGHUP sent to `zega` reach the server; so does SIGINT unless a terminal is attached, where Ctrl-C already reaches both.
+
+```
+zega start --data ./data
+# http://127.0.0.1:9342
+```
+
+Which server: the binary of the npm package `@zegadb/server-<os>-<cpu>` (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win32-x64`; one file, `bin/zega-server`), which `zegadb` lists as optionalDependencies at the exact version of the zega release this CLI is tested against, as create-deka-app does for deka. It is looked for from where the CLI's code is, then from where the running executable is, in each one's `node_modules` and every `node_modules` above. **It is never the `zega-server` on `PATH`.** If the package for this machine is not installed, `zega start` exits 1 naming the package and the platform (reinstall `zegadb` without `--omit=optional`). `--server <path>` (the only option that is `zega`'s and not the server's) runs another build, for development.
 
 ### for agents and scripts
 
