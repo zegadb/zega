@@ -7,14 +7,15 @@ import { CloudClient } from '@/utils/cloud_request'
 import { normalizeApi } from '@/utils/api_address'
 import { LocalFailure } from '@/utils/errors'
 import * as render from '@/utils/render'
-import { answer, canPrompt, show, welcome, write } from '@/utils'
+import { withoutPrefix } from '@/utils/token_info'
+import { answer, canPrompt, show, welcome } from '@/utils'
 
 export type LoginOptions = Globals & { store?: string }
 
 /**
  * Store an API token. The token comes from `--token-file`, from stdin when it
- * is piped, or from a hidden prompt on a terminal; never from an argument
- * (arguments show in process listings). It is checked with the API before it is
+ * is piped, or (`--human` on a terminal) from a hidden prompt; never from an argument
+ * (arguments show in process listings). With none of them the command says how to give it. It is checked with the API before it is
  * saved: a mistyped token never replaces a good one.
  */
 export async function login(options: LoginOptions): Promise<void> {
@@ -30,7 +31,7 @@ export async function login(options: LoginOptions): Promise<void> {
         if (piped.trim() !== '') {
             given = credentials.oneToken(piped) ?? undefined
             if (given === undefined) {
-                throw new LocalFailure('the token on stdin must be one nonempty word, with no spaces or line breaks')
+                throw new LocalFailure('the token on stdin must be one nonempty word, with no spaces or line breaks', 'invalid_token')
             }
         }
     }
@@ -46,8 +47,7 @@ export async function login(options: LoginOptions): Promise<void> {
 
     const reply = await new CloudClient(api, token).get('/v1/whoami')
     await credentials.save(api, token, store)
-    if (options.json === true) return await show(options, reply, () => '')
-    await write('stdout', render.login(reply.json))
+    await show(options, withoutPrefix(reply), render.login)
 }
 
 function parseStore(value: string | undefined): Store {

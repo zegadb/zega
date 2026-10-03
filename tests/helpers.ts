@@ -97,6 +97,14 @@ export async function run(
     return { code, stdout, stderr }
 }
 
+/** The error a failed command printed on stderr: one JSON object on one line. Fails the test if it is anything else. */
+export function errorOf(result: { stderr: string }): { code: string; message: string; hint: string | null } {
+    const lines = result.stderr.trim().split('\n')
+    if (lines.length !== 1) throw new Error(`stderr is not one line: ${JSON.stringify(result.stderr)}`)
+    const { error } = JSON.parse(lines[0]!) as { error: { code: string; message: string; hint: string | null } }
+    return error
+}
+
 export function credentialsFile(home: string): string {
     return path.join(home, '.config', 'zega', 'cloud.json')
 }
@@ -120,6 +128,10 @@ export const tokenInfo = {
 export const account = { login: 'ada', name: 'Ada Lovelace' } satisfies Schemas['AccountInfo']
 
 export const whoamiRoute = { 'GET /v1/whoami': { body: { account, token: tokenInfo } } }
+
+/** What the CLI prints of that answer: the same, without the token's `prefix` (no part of a token is ever shown). */
+export const { prefix: _shownNever, ...tokenShown } = tokenInfo
+export const whoamiShown = { account, token: tokenShown }
 
 export const graph = {
     id: 'g0aaaaaaaaaaaaaaaa',

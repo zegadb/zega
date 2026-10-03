@@ -3,7 +3,7 @@ import path from 'node:path'
 import { openSessionIfAny, projectConfig, regionChoices, type Globals } from '@/handlers'
 import * as questions from '@/questions'
 import { LocalFailure } from '@/utils/errors'
-import { answer, canPrompt, welcome, write } from '@/utils'
+import { answer, canPrompt, json, welcome, write } from '@/utils'
 
 export type InitOptions = Globals & {
     name?: string
@@ -23,7 +23,7 @@ export async function init(options: InitOptions): Promise<void> {
     const prompt = canPrompt(options)
     if (prompt) await welcome('init', 'start a zega project here')
 
-    // Without a terminal nothing is asked: name every flag that is missing at once.
+    // Nothing is asked without --human on a terminal: name every flag that is missing at once.
     if (!prompt) {
         const missing = [
             options.name === undefined ? '--name' : null,
@@ -32,7 +32,8 @@ export async function init(options: InitOptions): Promise<void> {
         ].filter((flag) => flag !== null)
         if (missing.length > 1) {
             throw new LocalFailure(
-                `missing ${missing.join(', ')}. There is no terminal to ask on, so every answer must be a flag.`,
+                `missing ${missing.join(', ')}. Nothing is asked unless --human is given on a terminal: pass them as flags.`,
+                'missing_flag',
             )
         }
     }
@@ -59,7 +60,7 @@ export async function init(options: InitOptions): Promise<void> {
         ask: () => questions.name(path.basename(dir)),
     })
 
-    const choices = await regionChoices(await openSessionIfAny(options))
+    const choices = await regionChoices(await openSessionIfAny(options), options.human === true)
     const region = await answer({
         flag: '--region',
         given: options.region,
@@ -73,15 +74,15 @@ export async function init(options: InitOptions): Promise<void> {
     const functionId =
         options.function ?? (prompt && options.entry === undefined ? (await questions.functionId()) || undefined : undefined)
     if (functionId === undefined && options.entry !== undefined) {
-        throw new LocalFailure('--entry needs --function: the id of the function it is the source of')
+        throw new LocalFailure('--entry needs --function: the id of the function it is the source of', 'missing_flag')
     }
     let entry: string | undefined
     if (functionId !== undefined) {
         const badId = questions.validateFunctionId(functionId)
-        if (badId !== null) throw new LocalFailure(`--function: ${badId}`)
+        if (badId !== null) throw new LocalFailure(`--function: ${badId}`, 'invalid_flag')
         if (options.entry !== undefined) {
             const badEntry = questions.validateEntry(options.entry)
-            if (badEntry !== null) throw new LocalFailure(`--entry: ${badEntry}`)
+            if (badEntry !== null) throw new LocalFailure(`--entry: ${badEntry}`, 'invalid_flag')
             entry = options.entry
         } else {
             entry = prompt ? await questions.entry() : questions.DEFAULT_ENTRY
@@ -95,8 +96,8 @@ export async function init(options: InitOptions): Promise<void> {
         ...(functionId === undefined || entry === undefined ? {} : { functions: [{ id: functionId, entry }] }),
     }
     const file = projectConfig.write(dir, config)
-    if (options.json === true) {
-        await write('stdout', JSON.stringify({ file, config }, null, 2) + '\n')
+    if (options.human !== true) {
+        await write('stdout', json({ file, config }))
         return
     }
     const deploys = (config.functions ?? []).map((item) => `Deploys  ${item.id} from ${item.entry}\n`).join('')

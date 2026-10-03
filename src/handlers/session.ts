@@ -10,8 +10,8 @@ export type Globals = {
     api?: string
     /** Use the token in this file instead of the stored one: for CI and agents. */
     tokenFile?: string
-    /** Print the API's JSON unchanged instead of a table. */
-    json?: boolean
+    /** Readable output for people (tables, banners, questions on a terminal) instead of JSON. */
+    human?: boolean
 }
 
 export type Session = { client: CloudClient; api: string }
@@ -32,6 +32,7 @@ export async function openSession(globals: Globals): Promise<Session> {
     if (stored === null) {
         throw new LocalFailure(
             `not logged in: run \`zega login\` (the token is made at ${DASHBOARD}/tokens), or pass --token-file`,
+            'not_logged_in',
         )
     }
     const api = normalizeApi(stored.api)

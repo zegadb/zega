@@ -48,6 +48,6 @@ export async function functionDeploy(
             `no entry for ${id}: pass it (\`zega function deploy ${id} <entry>\`) or list it in ${projectConfig.CONFIG_FILE}`,
         )
     }
-    const prepared = await prepare([{ id, entry: found }], { dir, minify: options.minify === true })
+    const prepared = await prepare([{ id, entry: found }], { dir, minify: options.minify === true, human: options.human === true })
     await upload(await openSession(options), prepared, options)
 }

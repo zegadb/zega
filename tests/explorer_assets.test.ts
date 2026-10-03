@@ -53,7 +53,7 @@ describe('serving the vendored files', () => {
     test.skipIf(process.platform === 'win32')('`zega explorer` with nothing else given serves the vendored page', async () => {
         const dir = workdir()
         try {
-            const cli = startCli(['explorer', '--port', '0', '--server', FAKE_SERVER, '--data', path.join(dir, 'data')], { cwd: dir, home: path.join(dir, 'home') })
+            const cli = startCli(['explorer', '--human', '--port', '0', '--server', FAKE_SERVER, '--data', path.join(dir, 'data')], { cwd: dir, home: path.join(dir, 'home') })
             await cli.until('Ctrl-C to stop', 'stderr')
             const url = cli.stdout().split('\n')[0]!
             const html = await (await fetch(url)).text()

@@ -25,6 +25,8 @@ export type BannerOptions = {
     lines: BannerLine[]
     /** Colour and the dim hint (default: whatever chalk finds for the terminal). */
     color?: boolean
+    /** Draw the zega mark (default: yes). */
+    mark?: boolean
 }
 
 const WIDTH = 44
@@ -56,8 +58,7 @@ export function startBanner(options: BannerOptions): string {
     const paint = options.color === undefined ? chalk : new Chalk({ level: options.color ? 1 : 0 })
     const labelWidth = Math.max(...options.lines.map((line) => line.label.length)) + 1
     const out: string[] = ['']
-    out.push(logo(options.color))
-    out.push('')
+    if (options.mark !== false) out.push(logo(options.color), '')
     out.push(`${INDENT}${options.tagline}  ${paint.dim(`${options.name} v${options.version}`)}`)
     out.push(INDENT + paint.dim('─'.repeat(WIDTH)))
     out.push('')

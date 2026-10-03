@@ -8,7 +8,7 @@ import { DEFAULT_PORT, serveDatabaseExplorer, type Serving } from '@/handlers/ex
 import { flagValue, resolveServer, takeStartFlags } from '@/handlers/server_binary'
 import { LocalFailure } from '@/utils/errors'
 import { startBanner } from '@/utils/banner'
-import { write } from '@/utils'
+import { json, showLogo, write } from '@/utils'
 
 /** The signals worth forwarding: a supervisor's stop, and a hang-up. */
 const FORWARDED = ['SIGTERM', 'SIGHUP'] as const
@@ -21,17 +21,16 @@ const TAGLINE = 'An embeddable graph database.'
 /** What the start-up says is running: the server, and the explorer or not. */
 export type Running = { server: string; explorer: string | null }
 
-/** One JSON line for `--json` and for no terminal: each thing's address and whether it is running. */
+/** The `ready` event, one JSON line: each thing's address and whether it is running. */
 export function runningJson(running: Running): string {
-    return (
-        JSON.stringify({
-            server: { url: running.server, status: 'running' },
-            explorer: running.explorer === null ? { url: null, status: 'stopped' } : { url: running.explorer, status: 'running' },
-        }) + '\n'
-    )
+    return json({
+        event: 'ready',
+        server: { url: running.server, status: 'running' },
+        explorer: running.explorer === null ? { url: null, status: 'stopped' } : { url: running.explorer, status: 'running' },
+    })
 }
 
-export function runningBanner(running: Running, color?: boolean): string {
+export function runningBanner(running: Running, color?: boolean, mark?: boolean): string {
     return startBanner({
         name: 'zega',
         version: pkg.version,
@@ -41,18 +40,42 @@ export function runningBanner(running: Running, color?: boolean): string {
             { label: 'Explorer', url: running.explorer, hint: 'zega start --explorer' },
         ],
         color,
+        mark,
     })
 }
 
 /**
+ * What the server prints on stdout, passed on: as it is with `--human`, otherwise one `output` event per line,
+ * so that everything on stdout is JSON.
+ */
+function relay(human: boolean) {
+    let pending = ''
+    return {
+        async push(text: string): Promise<void> {
+            if (human) return await write('stdout', text)
+            pending += text
+            const lines = pending.split('\n')
+            pending = lines.pop() ?? ''
+            for (const line of lines) await write('stdout', json({ event: 'output', line }))
+        },
+        async end(): Promise<void> {
+            if (pending !== '') await write('stdout', json({ event: 'output', line: pending }))
+            pending = ''
+        },
+    }
+}
+
+/**
  * `zega start [args]` is `zega-server start [args]`, the server that ships with this CLI: the arguments go through
- * untouched, stderr is the server's, and so is the exit code. It says what is running, in a banner on a terminal
- * and as one JSON line anywhere else. With `--explorer` it also serves the explorer page, on the database this
+ * untouched, stderr is the server's, and so is the exit code. It says what is running as one JSON `ready` line,
+ * or with `--human` in a banner. With `--explorer` it also serves the explorer page, on the database this
  * server holds. Returns the code to exit with.
  */
 export async function start(rawArgs: string[], globals: Globals): Promise<number> {
     const flags = takeStartFlags(rawArgs)
     const binary = resolveServer({ override: flags.server })
+    const human = flags.human || globals.human === true
+    const out = relay(human)
     const child = Bun.spawn([binary, 'start', ...flags.rest], { stdin: 'inherit', stdout: 'pipe', stderr: 'inherit' })
 
     const signals: NodeJS.Signals[] = [...FORWARDED]
@@ -71,10 +94,11 @@ export async function start(rawArgs: string[], globals: Globals): Promise<number
         }
         if (typeof found === 'object' && 'ended' in found) {
             // It ended before it was ready (a --help, a refusal): what it printed is passed on and its exit code is ours.
-            await write('stdout', found.ended)
+            await out.push(found.ended)
+            await out.end()
             return await child.exited
         }
-        await write('stdout', found.before)
+        await out.push(found.before)
 
         if (flags.explorer) {
             const data = path.resolve(flagValue(flags.rest, '--data') ?? './zega-data')
@@ -93,15 +117,14 @@ export async function start(rawArgs: string[], globals: Globals): Promise<number
         }
 
         const running: Running = { server: found.url, explorer: explorer?.url ?? null }
-        const json = flags.json || globals.json === true || !process.stdout.isTTY
-        await write('stdout', json ? runningJson(running) : runningBanner(running))
-        if (found.after !== '') await write('stdout', found.after)
+        await write('stdout', human ? runningBanner(running, undefined, showLogo({ human })) : runningJson(running))
+        if (found.after !== '') await out.push(found.after)
         // What else it prints goes through as it comes.
         void (async () => {
             for (;;) {
                 const next = await reader.read()
-                if (next.done) return
-                await write('stdout', new TextDecoder().decode(next.value))
+                if (next.done) return await out.end()
+                await out.push(new TextDecoder().decode(next.value))
             }
         })()
 

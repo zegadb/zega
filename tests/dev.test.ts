@@ -235,7 +235,7 @@ describe('zega dev: which graph', () => {
         }
     })
 
-    test('--cloud-graph without a key in .dev.vars warns; with --local-graph too it is refused; --json prints one start document', async () => {
+    test('--cloud-graph without a key in .dev.vars warns; with --local-graph too it is refused; by default the start is one `ready` event', async () => {
         const api = fakeApi({ [`GET /v1/graphs/${graph.id}`]: { body: { graph } } })
         try {
             const dir = writeProject({ 'f.ts': echoEnv }, [{ id: FN, entry: 'f.ts' }])
@@ -245,15 +245,19 @@ describe('zega dev: which graph', () => {
             expect(both.stderr()).toContain('--local-graph and --cloud-graph are alternatives')
 
             const port = freePort()
-            const dev = await startDev(['--cloud-graph', graph.id, '--api', api.url, '--token-file', tokenFile, '--json', '--port', String(port)], { cwd: dir, home })
+            const dev = await startDev(['--cloud-graph', graph.id, '--api', api.url, '--token-file', tokenFile, '--port', String(port)], { cwd: dir, home, human: false })
             running.push(dev)
             await dev.until('"watching":true')
-            expect(JSON.parse(dev.stdout())).toEqual({
+            expect(JSON.parse(dev.stdout().split('\n')[0]!)).toEqual({
+                event: 'ready',
                 functions: [{ id: FN, entry: 'f.ts', url: `http://127.0.0.1:${port}`, env: ['ZEGA_GRAPH_URL'] }],
                 graph: { kind: 'cloud', url: graph.hostUrl, id: graph.id, name: graph.name, urlVar: 'ZEGA_GRAPH_URL' },
                 watching: true,
             })
-            await dev.until('no ZEGA_GRAPH_KEY in .dev.vars', 'stderr')
+            await dev.until('no ZEGA_GRAPH_KEY in .dev.vars')
+            const events = dev.stdout().trim().split('\n').map((line) => JSON.parse(line))
+            expect(events[1]).toEqual({ event: 'warning', function: FN, message: `${FN}: no ZEGA_GRAPH_KEY in .dev.vars; the cloud graph will answer 401` })
+            expect(dev.stderr()).toBe('')
         } finally {
             api.stop()
         }
@@ -318,5 +322,62 @@ export class Counter {}
         } finally {
             taken.stop(true)
         }
+    })
+})
+
+describe('zega dev: by default every line is a JSON event on stdout', () => {
+    /** Start without --human and read the events printed so far. */
+    async function json(dir: string, args: string[] = []) {
+        dirs.push(dir)
+        const port = freePort()
+        const dev = await startDev([...args, '--port', String(port)], { cwd: dir, home, human: false })
+        running.push(dev)
+        await dev.until('"event":"ready"')
+        const events = () =>
+            dev
+                .stdout()
+                .trim()
+                .split('\n')
+                .map((line) => JSON.parse(line) as Record<string, unknown>)
+        return { dev, url: `http://127.0.0.1:${port}`, port, events }
+    }
+
+    test('ready, then a request event per request, then threw for a function that throws; nothing else is printed', async () => {
+        const dir = writeProject({ 'f.ts': "export default { fetch(r) { if (new URL(r.url).pathname === '/boom') throw new Error('kaboom'); return new Response('fine') } }\n" }, [
+            { id: FN, entry: 'f.ts' },
+        ])
+        const { dev, url, port, events } = await json(dir)
+        expect(events()[0]).toEqual({
+            event: 'ready',
+            functions: [{ id: FN, entry: 'f.ts', url, env: [] }],
+            graph: null,
+            watching: true,
+        })
+        expect(await (await fetch(`${url}/ok`)).text()).toBe('fine')
+        expect((await fetch(`${url}/boom`)).status).toBe(500)
+        await dev.until('"path":"/boom"')
+        const seen = events()
+        expect(seen.find((e) => e.event === 'request' && e.path === '/ok')).toMatchObject({ function: FN, method: 'GET', status: 200 })
+        expect(seen.find((e) => e.event === 'request' && e.path === '/boom')).toMatchObject({ status: 500 })
+        expect(seen.find((e) => e.event === 'threw')).toMatchObject({ function: FN })
+        expect(String(seen.find((e) => e.event === 'threw')?.message)).toContain('kaboom')
+        // No banner, no logo, no "bundled" line: stdout is events and stderr is empty.
+        expect(dev.stdout()).not.toContain('▐')
+        expect(dev.stdout()).not.toContain('watching for changes')
+        expect(dev.stderr()).toBe('')
+        expect(port).toBeGreaterThan(0)
+    })
+
+    test('a change is a reloaded event; a broken save is a build_failed event and the old build keeps serving', async () => {
+        const dir = writeProject({ 'f.ts': "export default { fetch: () => new Response('one') }\n" }, [{ id: FN, entry: 'f.ts' }])
+        const { dev, url, events } = await json(dir)
+        fs.writeFileSync(path.join(dir, 'f.ts'), "export default { fetch: () => new Response('two') }\n")
+        await dev.until(`"event":"reloaded","function":"${FN}"`)
+        expect(events().find((e) => e.event === 'reloaded')).toEqual({ event: 'reloaded', function: FN, entry: 'f.ts' })
+        fs.writeFileSync(path.join(dir, 'f.ts'), 'export default (\n')
+        await dev.until('"event":"build_failed"')
+        expect(await (await fetch(url)).text()).toBe('two')
+        expect(events().find((e) => e.event === 'build_failed')).toMatchObject({ function: FN })
+        expect(dev.stderr()).toBe('')
     })
 })

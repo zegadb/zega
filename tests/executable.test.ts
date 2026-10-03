@@ -54,10 +54,13 @@ describe('the compiled executable', () => {
         expect(result.stdout.trim()).toBe(pkg.version)
     })
 
-    test('talks to the API and prints a table', async () => {
+    test('talks to the API and prints its JSON; --human prints a table', async () => {
         const tokenFile = path.join(dir, 'token')
         fs.writeFileSync(tokenFile, TOKEN + '\n', { mode: 0o600 })
-        const result = await run(['regions', '--api', api.url, '--token-file', tokenFile])
+        const json = await run(['regions', '--api', api.url, '--token-file', tokenFile])
+        expect(json.code).toBe(0)
+        expect(JSON.parse(json.stdout).regions[0]).toMatchObject({ id: 'yyz', city: 'Toronto' })
+        const result = await run(['regions', '--human', '--api', api.url, '--token-file', tokenFile])
         expect(result.code).toBe(0)
         expect(result.stdout).toContain('yyz  Toronto')
         expect(api.seen.at(-1)?.authorization).toBe(`Bearer ${TOKEN}`)
@@ -112,16 +115,20 @@ describe('the compiled executable', () => {
     test.skipIf(process.platform === 'win32')('zega start runs the server it is pointed at, with the arguments and the exit code passed through', async () => {
         const fake = path.join(dir, 'fake-zega-server')
         fs.writeFileSync(fake, '#!/bin/sh\necho "got $*"\nexit 5\n', { mode: 0o755 })
-        const result = await run(['start', '--data', './d', '--token-file', './t', '--server', fake])
+        const result = await run(['start', '--human', '--data', './d', '--token-file', './t', '--server', fake])
         expect(result.stdout).toBe('got start --data ./d --token-file ./t\n')
         expect(result.code).toBe(5)
+        // By default its lines are JSON events, so that everything on stdout parses.
+        const json = await run(['start', '--data', './d', '--token-file', './t', '--server', fake])
+        expect(json.stdout).toBe('{"event":"output","line":"got start --data ./d --token-file ./t"}\n')
+        expect(json.code).toBe(5)
         const missing = await run(['start', '--port', '0'], { path: '/nonexistent' })
         expect(missing.code).toBe(1)
         expect(missing.stderr).toContain('is not installed: it is the npm package @zegadb/server-')
     })
     test.skipIf(process.platform === 'win32')('zega explorer serves the page embedded in the executable, on a database server it starts, and stops it again', async () => {
         const data = path.join(dir, 'explorer-data')
-        const cli = startCli(['explorer', '--port', '0', '--server', FAKE_SERVER, '--data', data], { cwd: dir, home: dir, command: [exe] })
+        const cli = startCli(['explorer', '--human', '--port', '0', '--server', FAKE_SERVER, '--data', data], { cwd: dir, home: dir, command: [exe] })
         await cli.until('Ctrl-C to stop', 'stderr')
         const url = cli.stdout().split('\n')[0]!
         expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)

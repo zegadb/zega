@@ -6,7 +6,7 @@ import { DEFAULT_PORT, serveDatabaseExplorer, type Serving } from '@/handlers/ex
 import { resolveServer } from '@/handlers/server_binary'
 import { LocalFailure } from '@/utils/errors'
 import { DASHBOARD } from '@/utils/constants'
-import { write } from '@/utils'
+import { json, write } from '@/utils'
 
 export type ExplorerOptions = Globals & {
     /** The explorer's own port (default 9343, as `zega-server explorer` had); 0 asks the OS. */
@@ -32,8 +32,8 @@ export function dashboardFor(api: string): string {
 }
 
 /**
- * `zega explorer`: the explorer page for a local database, served here (it prints the address and
- * opens nothing). `zega explorer <graph>`: the address of that cloud graph's console in the dashboard.
+ * `zega explorer`: the explorer page for a local database, served here (it prints the address as a
+ * `ready` event, or with `--human` as a plain line, and opens nothing). `zega explorer <graph>`: the address of that cloud graph's console in the dashboard.
  */
 export async function explorer(graph: string | undefined, options: ExplorerOptions): Promise<void> {
     if (graph !== undefined) return await consoleUrl(graph, options)
@@ -45,7 +45,7 @@ async function consoleUrl(id: string, options: ExplorerOptions): Promise<void> {
     const { graph } = (await session.client.get('/v1/graphs/{graph}', { path: { graph: id } })).json
     // `/graphs/<id>/console` is the dashboard's address today; its project-first layout redirects it (zegadb/dashboard#44).
     const url = `${dashboardFor(session.api)}/graphs/${encodeURIComponent(graph.id)}/console`
-    await write('stdout', options.json === true ? JSON.stringify({ url }) + '\n' : `${url}\n`)
+    await write('stdout', options.human === true ? `${url}\n` : json({ url }))
 }
 
 async function serveLocal(options: ExplorerOptions): Promise<void> {
@@ -66,9 +66,12 @@ async function serveLocal(options: ExplorerOptions): Promise<void> {
         throw error
     }
 
-    if (options.json === true) await write('stdout', JSON.stringify({ url: web.url, data, server: local.url }) + '\n')
-    else await write('stdout', `${web.url}\n`)
-    await write('stderr', `explorer for ${data} (database server at ${local.url}); Ctrl-C to stop\n`)
+    if (options.human === true) {
+        await write('stdout', `${web.url}\n`)
+        await write('stderr', `explorer for ${data} (database server at ${local.url}); Ctrl-C to stop\n`)
+    } else {
+        await write('stdout', json({ event: 'ready', url: web.url, data, server: local.url }))
+    }
 
     const reason = await Promise.race([
         new Promise<'signal'>((resolve) => {

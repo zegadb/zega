@@ -1,12 +1,12 @@
 import { credentials, type Globals } from '@/handlers'
 import { DASHBOARD } from '@/utils/constants'
-import { write } from '@/utils'
+import { json, write } from '@/utils'
 
 /** Remove the stored token. The token itself stays valid until it is revoked in the dashboard. */
 export async function logout(globals: Globals): Promise<void> {
     const removed = await credentials.remove()
-    if (globals.json === true) {
-        await write('stdout', JSON.stringify({ loggedOut: removed !== null }) + '\n')
+    if (globals.human !== true) {
+        await write('stdout', json({ loggedOut: removed !== null }))
         return
     }
     await write(

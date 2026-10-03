@@ -38,7 +38,7 @@ async function deployIn(cwd: string, args: string[], route: Canned = ok) {
 
 describe('zega function deploy', () => {
     test('uploads one ES module: PUT, the path, the manage token, application/javascript, the code as the body', async () => {
-        const { result, seen } = await deployIn(hello, ['function', 'deploy', FUNCTION_ID, 'src/index.ts'])
+        const { result, seen } = await deployIn(hello, ['function', 'deploy', FUNCTION_ID, 'src/index.ts', '--human'])
         expect(result.code).toBe(0)
         expect(seen).toHaveLength(1)
         const request = seen[0]!
@@ -70,11 +70,11 @@ describe('zega function deploy', () => {
         expect(result.stdout + result.stderr).not.toContain(TOKEN)
     })
 
-    test('--json prints the API answer unchanged; the bundle size goes to stderr', async () => {
-        const { result } = await deployIn(hello, ['function', 'deploy', FUNCTION_ID, 'src/index.ts', '--json'])
+    test('by default it prints the API answer unchanged and nothing else: the bundle size line is --human', async () => {
+        const { result } = await deployIn(hello, ['function', 'deploy', FUNCTION_ID, 'src/index.ts'])
         expect(result.code).toBe(0)
         expect(result.stdout).toBe(JSON.stringify(ok.body) + '\n')
-        expect(result.stderr).toContain('bundled src/index.ts')
+        expect(result.stderr).toBe('')
     })
 
     test('--minify makes a smaller module that still runs', async () => {
@@ -144,7 +144,7 @@ describe('zega function deploy', () => {
                 path.join(dir, 'big.ts'),
                 `const blob = ${JSON.stringify('x'.repeat(1_100_000))}\nexport default { fetch() { return new Response(blob) } }\n`,
             )
-            const { result, seen } = await deployIn(dir, ['function', 'deploy', FUNCTION_ID, 'big.ts'])
+            const { result, seen } = await deployIn(dir, ['function', 'deploy', FUNCTION_ID, 'big.ts', '--human'])
             expect(result.code).toBe(1)
             expect(seen).toHaveLength(0)
             expect(result.stderr).toMatch(/bundled big\.ts: 1,1\d\d,\d{3} bytes \(limit 1,000,000\)/)
@@ -209,7 +209,8 @@ describe('Node built-ins', () => {
 })
 
 describe('what the API says', () => {
-    const args = ['function', 'deploy', FUNCTION_ID, 'src/index.ts']
+    // --human: these are the words people read (errors.test.ts has the JSON).
+    const args = ['function', 'deploy', FUNCTION_ID, 'src/index.ts', '--human']
 
     test('403 scope_required: a read token cannot deploy, and the CLI says to make a manage token', async () => {
         const { result } = await deployIn(
@@ -255,7 +256,7 @@ describe('what the API says', () => {
     })
 
     test('not logged in: says how to log in, after the bundle is made', async () => {
-        const result = await run(['function', 'deploy', FUNCTION_ID, 'src/index.ts'], { home, cwd: hello })
+        const result = await run([...args], { home, cwd: hello })
         expect(result.code).toBe(1)
         expect(result.stderr).toContain('not logged in: run `zega login`')
     })
@@ -293,7 +294,7 @@ describe('zega deploy', () => {
     test('deploys every function zega.json lists, each from its own entry', async () => {
         const dir = twoFunctions()
         try {
-            const { result, seen } = await deployAll(dir, [])
+            const { result, seen } = await deployAll(dir, ['--human'])
             expect(result.code).toBe(0)
             expect(seen.map((r) => `${r.method} ${r.pathname}`)).toEqual([`PUT ${CODE_PATH}`, `PUT /v1/functions/${second}/code`])
             expect(await callBundle(seen[1]!.body, 'https://f.example/')).toBe('other')
@@ -331,10 +332,10 @@ describe('zega deploy', () => {
         }
     })
 
-    test('--json: one API answer per function, unchanged', async () => {
+    test('by default one API answer per function, unchanged', async () => {
         const dir = twoFunctions()
         try {
-            const { result } = await deployAll(dir, ['--json'])
+            const { result } = await deployAll(dir, [])
             const lines = result.stdout.trim().split('\n')
             expect(lines).toHaveLength(2)
             expect(JSON.parse(lines[0]!).function.id).toBe(FUNCTION_ID)

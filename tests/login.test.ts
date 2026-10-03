@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { TOKEN, account, credentialsFile, fakeApi, remove, run, scratch, tokenInfo, whoamiRoute } from './helpers'
+import { TOKEN, account, credentialsFile, fakeApi, remove, run, scratch, tokenInfo, whoamiRoute, whoamiShown } from './helpers'
 
 const home = scratch()
 afterAll(() => remove(home))
@@ -16,7 +16,7 @@ describe('zega login', () => {
     afterAll(() => api.stop())
 
     test('checks the token with whoami, stores it privately, and never prints it', async () => {
-        const result = await run(['login', '--api', api.url], { home, stdin: TOKEN + '\n' })
+        const result = await run(['login', '--human', '--api', api.url], { home, stdin: TOKEN + '\n' })
         expect(result.code).toBe(0)
 
         // The API was asked who this token is, with that token and no other credential.
@@ -51,7 +51,7 @@ describe('zega login', () => {
     })
 
     test('a later command uses the stored token and its host', async () => {
-        const result = await run(['whoami'], { home })
+        const result = await run(['whoami', '--human'], { home })
         expect(result.code).toBe(0)
         expect(api.seen.at(-1)).toMatchObject({ pathname: '/v1/whoami', authorization: `Bearer ${TOKEN}` })
         expect(result.stdout).toBe(
@@ -74,25 +74,40 @@ describe('zega login', () => {
 
     test('a stored token is never sent to another host', async () => {
         const before = api.seen.length
-        const result = await run(['whoami', '--api', 'https://cloud.zega.world'], { home })
+        const result = await run(['whoami', '--human', '--api', 'https://cloud.zega.world'], { home })
         expect(result.code).toBe(1)
         expect(result.stderr).toContain(`you are logged in to ${api.url}`)
         expect(result.stderr).toContain('zega login --api https://cloud.zega.world')
         expect(api.seen).toHaveLength(before)
     })
 
+    test('logout and the logged-out state are JSON by default', async () => {
+        const dir = scratch()
+        try {
+            expect((await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })).code).toBe(0)
+            const out = await run(['logout'], { home: dir })
+            expect(out.code).toBe(0)
+            expect(JSON.parse(out.stdout)).toEqual({ loggedOut: true })
+            expect(fs.existsSync(credentialsFile(dir))).toBe(false)
+            const again = await run(['logout'], { home: dir })
+            expect(JSON.parse(again.stdout)).toEqual({ loggedOut: false })
+        } finally {
+            remove(dir)
+        }
+    })
+
     test('logout removes it, and the next command says to log in', async () => {
-        const out = await run(['logout'], { home })
+        const out = await run(['logout', '--human'], { home })
         expect(out.code).toBe(0)
         expect(fs.existsSync(credentialsFile(home))).toBe(false)
         expect(out.stdout).toContain('still valid until you revoke it')
 
-        const after = await run(['whoami'], { home })
+        const after = await run(['whoami', '--human'], { home })
         expect(after.code).toBe(1)
         expect(after.stderr).toContain('not logged in: run `zega login`')
         expect(after.stderr).toContain('--token-file')
 
-        const again = await run(['logout'], { home })
+        const again = await run(['logout', '--human'], { home })
         expect(again.code).toBe(0)
         expect(again.stdout).toContain('not logged in')
     })
@@ -117,7 +132,7 @@ describe('zega login with a token the API refuses', () => {
         const before = fs.readFileSync(credentialsFile(dir), 'utf8')
 
         const bad = 'zc_mistyped_token_value'
-        const second = await run(['login', '--api', rejecting.url], { home: dir, stdin: bad })
+        const second = await run(['login', '--human', '--api', rejecting.url], { home: dir, stdin: bad })
         expect(second.code).toBe(1)
         expect(second.stderr).toContain('This is not an API token.')
         expect(second.stderr).toContain('code: invalid_token')
@@ -176,9 +191,15 @@ describe('zega login reading the token', () => {
         const result = await run(['login', '--api', api.url], { home: dir, stdin: null })
         expect(Date.now() - started).toBeLessThan(5000)
         expect(result.code).toBe(1)
+        expect(JSON.parse(result.stderr).error).toMatchObject({ code: 'missing_flag' })
         expect(result.stderr).toContain('missing --token-file')
-        expect(result.stderr).toContain('no terminal')
+        expect(result.stderr).toContain('piped on stdin or read from a file')
         expect(result.stdout).toBe('')
+        expect(api.seen).toHaveLength(before)
+        // --human does not change that without a terminal: there is nobody to ask.
+        const human = await run(['login', '--human', '--api', api.url], { home: dir, stdin: null })
+        expect(human.code).toBe(1)
+        expect(human.stderr).toStartWith('zega: missing --token-file')
         expect(api.seen).toHaveLength(before)
     })
 
@@ -189,10 +210,10 @@ describe('zega login reading the token', () => {
         expect(result.stderr).not.toContain('zc_one')
     })
 
-    test('--json prints the whoami answer unchanged', async () => {
-        const result = await run(['login', '--api', api.url, '--json'], { home: dir, stdin: TOKEN })
+    test('by default login prints the whoami answer, without the token prefix', async () => {
+        const result = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
         expect(result.code).toBe(0)
-        expect(JSON.parse(result.stdout)).toEqual(JSON.parse(JSON.stringify(whoamiRoute['GET /v1/whoami'].body)))
+        expect(JSON.parse(result.stdout)).toEqual(JSON.parse(JSON.stringify(whoamiShown)))
         secrets(result.stdout, result.stderr)
     })
 
@@ -218,10 +239,10 @@ describe('who the output says you are', () => {
     test('an account with no full name is just its login', async () => {
         const api = withBody({ account: { login: 'ada', name: null }, token: tokenInfo })
         try {
-            const login = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
+            const login = await run(['login', '--human', '--api', api.url], { home: dir, stdin: TOKEN })
             expect(login.code).toBe(0)
             expect(login.stdout.split('\n')[0]).toBe('Logged in as @ada')
-            const whoami = await run(['whoami'], { home: dir })
+            const whoami = await run(['whoami', '--human'], { home: dir })
             expect(whoami.stdout.split('\n')[0]).toBe('Logged in as @ada')
         } finally {
             api.stop()
@@ -234,7 +255,7 @@ describe('who the output says you are', () => {
             token: { ...tokenInfo, scope: 'manage', projectId: 'p1', projectName: 'Atlas', expiresAt: null, lastUsedAt: '2026-10-03T12:00:00.000Z' },
         })
         try {
-            const result = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
+            const result = await run(['login', '--human', '--api', api.url], { home: dir, stdin: TOKEN })
             expect(result.code).toBe(0)
             expect(result.stdout).toContain('Scope    manage')
             expect(result.stdout).toContain('Project  Atlas (p1)')
@@ -249,10 +270,10 @@ describe('who the output says you are', () => {
     test('an API that does not say who the account is yet: the token name, and nothing fails', async () => {
         const api = withBody({ token: tokenInfo })
         try {
-            const login = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
+            const login = await run(['login', '--human', '--api', api.url], { home: dir, stdin: TOKEN })
             expect(login.code).toBe(0)
             expect(login.stdout).toBe(['Logged in', '', 'Token    ci-bot', 'Scope    read', 'Project  all projects', 'Expires  Dec 1, 2026', ''].join('\n'))
-            const whoami = await run(['whoami'], { home: dir })
+            const whoami = await run(['whoami', '--human'], { home: dir })
             expect(whoami.code).toBe(0)
             expect(whoami.stdout).toBe([`API      ${api.url}`, 'Token    ci-bot', 'Scope    read', 'Project  all projects', 'Expires  Dec 1, 2026', ''].join('\n'))
             for (const out of [login.stdout, whoami.stdout]) expect(out).not.toContain('zc_')
@@ -264,22 +285,56 @@ describe('who the output says you are', () => {
     test('control characters in a name never reach the terminal', async () => {
         const api = withBody({ account: { login: 'ada', name: 'Ada\u001b[31m Lovelace' }, token: tokenInfo })
         try {
-            const result = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
+            const result = await run(['login', '--human', '--api', api.url], { home: dir, stdin: TOKEN })
             expect(result.stdout).not.toContain('\u001b')
         } finally {
             api.stop()
         }
     })
 
-    test('--json on whoami is the API answer unchanged, account included', async () => {
+    test('by default whoami is the API answer without the token prefix, account included', async () => {
         const api = fakeApi({ ...whoamiRoute })
         try {
             const tokenFile = path.join(dir, 'token')
             fs.writeFileSync(tokenFile, TOKEN, { mode: 0o600 })
-            const result = await run(['whoami', '--api', api.url, '--token-file', tokenFile, '--json'], { home: dir })
+            const result = await run(['whoami', '--api', api.url, '--token-file', tokenFile], { home: dir })
             expect(result.code).toBe(0)
-            expect(result.stdout).toBe(JSON.stringify(whoamiRoute['GET /v1/whoami'].body) + '\n')
+            expect(result.stdout).toBe(JSON.stringify(whoamiShown) + '\n')
             expect(JSON.parse(result.stdout).account).toEqual(account)
+        } finally {
+            api.stop()
+        }
+    })
+})
+
+describe('no part of a token is ever shown', () => {
+    const dir = scratch()
+    afterAll(() => remove(dir))
+    const tokenFile = path.join(dir, 'token')
+    fs.writeFileSync(tokenFile, TOKEN, { mode: 0o600 })
+
+    /** The API sends the token's prefix (`zc_test_0123`); nothing the CLI prints may carry it. */
+    test('whoami and login print no `prefix` key and no `zc_`, by default and with --human', async () => {
+        const api = fakeApi({ ...whoamiRoute })
+        try {
+            // The API does send it: the test is only meaningful if so.
+            expect(JSON.stringify(whoamiRoute['GET /v1/whoami'].body)).toContain('"prefix":"zc_test_0123"')
+            const runs = [
+                await run(['whoami', '--api', api.url, '--token-file', tokenFile], { home: dir }),
+                await run(['whoami', '--human', '--api', api.url, '--token-file', tokenFile], { home: dir }),
+                await run(['login', '--api', api.url], { home: dir, stdin: TOKEN }),
+                await run(['login', '--human', '--api', api.url], { home: dir, stdin: TOKEN }),
+            ]
+            for (const result of runs) {
+                expect(result.code).toBe(0)
+                expect(result.stdout + result.stderr).not.toContain('zc_')
+                expect(result.stdout + result.stderr).not.toContain('prefix')
+            }
+            // The JSON is still the whole answer, minus that one field.
+            const json = JSON.parse(runs[0]!.stdout)
+            expect(json).toEqual(whoamiShown)
+            expect('prefix' in json.token).toBe(false)
+            expect(json.token.name).toBe('ci-bot')
         } finally {
             api.stop()
         }

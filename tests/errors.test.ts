@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 
-import { TOKEN, fakeApi, remove, run, scratch, type Canned } from './helpers'
+import { TOKEN, errorOf, fakeApi, remove, run, scratch, type Canned } from './helpers'
 
 const home = scratch()
 const tokenFile = path.join(home, 'token')
@@ -16,10 +16,11 @@ const fail = (status: number, code: string, error: string, extra: object = {}, h
     body: { ok: false, code, error, ...extra },
 })
 
-async function against(route: Canned, args: string[] = ['usage']) {
+/** `--human` unless told otherwise: most of these are about the words people read. */
+async function against(route: Canned, args: string[] = ['usage'], human = true) {
     const api = fakeApi({ 'GET /v1/usage': route })
     try {
-        const result = await run([...args, '--api', api.url, '--token-file', tokenFile], { home })
+        const result = await run([...args, ...(human ? ['--human'] : []), '--api', api.url, '--token-file', tokenFile], { home })
         return { result, api }
     } finally {
         api.stop()
@@ -46,7 +47,7 @@ describe('what a failure says', () => {
         const dir = scratch()
         try {
             expect((await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })).code).toBe(0)
-            const result = await run(['usage'], { home: dir })
+            const result = await run(['usage', '--human'], { home: dir })
             expect(result.code).toBe(1)
             expect(result.stderr).toContain('code: token_revoked')
             expect(result.stderr).toContain('then run `zega login`.')
@@ -114,7 +115,7 @@ describe('what a failure says', () => {
                 server.close(() => resolve(port))
             })
         })
-        const result = await run(['usage', '--api', `http://127.0.0.1:${port}`, '--token-file', tokenFile], { home })
+        const result = await run(['usage', '--human', '--api', `http://127.0.0.1:${port}`, '--token-file', tokenFile], { home })
         expect(result.code).toBe(1)
         expect(result.stdout).toBe('')
         expect(result.stderr).toContain(`could not reach 127.0.0.1:${port}`)
@@ -127,7 +128,7 @@ describe('what a failure says', () => {
             'GET /v1/usage': { status: 302, body: '', headers: { location: `${elsewhere.url}/v1/usage` } },
         })
         try {
-            const result = await run(['usage', '--api', api.url, '--token-file', tokenFile], { home })
+            const result = await run(['usage', '--human', '--api', api.url, '--token-file', tokenFile], { home })
             expect(result.code).toBe(1)
             expect(result.stderr).toContain('HTTP 302')
             expect(elsewhere.seen).toHaveLength(0)
@@ -140,11 +141,84 @@ describe('what a failure says', () => {
     test('a 200 that is not JSON is a failure that names the host', async () => {
         const api = fakeApi({ 'GET /v1/usage': { body: '<html>captive portal</html>' } })
         try {
-            const result = await run(['usage', '--api', api.url, '--token-file', tokenFile], { home })
+            const result = await run(['usage', '--human', '--api', api.url, '--token-file', tokenFile], { home })
             expect(result.code).toBe(1)
             expect(result.stderr).toContain(`${api.host} answered HTTP 200 with something that is not JSON`)
         } finally {
             api.stop()
         }
+    })
+})
+
+/** What a script reads: `{"error":{"code","message","hint"}}` on stderr, nothing on stdout, a nonzero exit. */
+describe('what a failure says by default: JSON on stderr', () => {
+    test('an API failure: its code and sentence, then what to do about it as the hint', async () => {
+        const { result } = await against(fail(401, 'token_expired', "The token's expiry has passed."), ['usage'], false)
+        expect(result.code).toBe(1)
+        expect(result.stdout).toBe('')
+        expect(JSON.parse(result.stderr)).toEqual({
+            error: {
+                code: 'token_expired',
+                message: "The token's expiry has passed.",
+                hint: `Make a token at https://dashboard.zega.dev/tokens, then put a new token in ${tokenFile}.`,
+            },
+        })
+        expect(result.stderr).not.toContain('zega:')
+        expect(result.stderr).not.toContain(TOKEN)
+    })
+
+    test('a wait is in the hint, and a failure with nothing to add has a null hint', async () => {
+        const wait = await against(fail(429, 'rate_limited', 'Too many requests.', { retryAfterSeconds: 37 }), ['usage'], false)
+        expect(errorOf(wait.result)).toEqual({ code: 'rate_limited', message: 'Too many requests.', hint: 'Wait 37 seconds, then run the command again.' })
+        const plain = await against(fail(404, 'not_found', 'No such graph.'), ['usage'], false)
+        expect(errorOf(plain.result)).toEqual({ code: 'not_found', message: 'No such graph.', hint: null })
+    })
+
+    test('a network failure has the code `network` and names the host', async () => {
+        const port = await new Promise<number>((resolve) => {
+            const server = net.createServer().listen(0, '127.0.0.1', () => {
+                const { port } = server.address() as net.AddressInfo
+                server.close(() => resolve(port))
+            })
+        })
+        const result = await run(['usage', '--api', `http://127.0.0.1:${port}`, '--token-file', tokenFile], { home })
+        expect(result.code).toBe(1)
+        expect(result.stdout).toBe('')
+        expect(errorOf(result)).toMatchObject({ code: 'network', hint: 'Check the address given to --api.' })
+        expect(errorOf(result).message).toContain(`could not reach 127.0.0.1:${port}`)
+    })
+
+    test('a failure on this machine has a code of its own: not logged in, and a mistake on the command line', async () => {
+        const dir = scratch()
+        try {
+            const out = await run(['usage'], { home: dir })
+            expect(out.code).toBe(1)
+            expect(out.stdout).toBe('')
+            expect(errorOf(out).code).toBe('not_logged_in')
+            expect(errorOf(out).message).toContain('not logged in: run `zega login`')
+            // The same words with --human are the text people read.
+            const text = await run(['usage', '--human'], { home: dir })
+            expect(text.stderr).toStartWith('zega: not logged in: run `zega login`')
+            expect(() => JSON.parse(text.stderr)).toThrow()
+        } finally {
+            remove(dir)
+        }
+        const mistaken = await run(['usage', '--nonsense'], { home })
+        expect(mistaken.code).toBe(1)
+        expect(mistaken.stdout).toBe('')
+        expect(errorOf(mistaken)).toMatchObject({ code: 'usage', message: "unknown option '--nonsense'" })
+        const removed = await run(['usage', '--json'], { home })
+        expect(removed.code).toBe(1)
+        expect(errorOf(removed)).toMatchObject({ code: 'usage', message: "unknown option '--json'" })
+        // With --human the same mistake is text.
+        const readable = await run(['usage', '--nonsense', '--human'], { home })
+        expect(readable.code).toBe(1)
+        expect(readable.stderr).toBe("error: unknown option '--nonsense'\nhint: zega --help\n")
+    })
+
+    test('a failure is not a stack trace or a log line: stderr is that one object and nothing else', async () => {
+        const { result } = await against(fail(500, 'internal', 'Something broke.'), ['usage'], false)
+        expect(result.stderr.trim().startsWith('{"error":')).toBe(true)
+        expect(errorOf(result).code).toBe('internal')
     })
 })
