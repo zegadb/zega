@@ -1,9 +1,31 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
+
 import type { Reply } from '@/utils/cloud_request'
 import { eventLine, formatJson } from '@/utils/pretty'
 import type { Mode } from '@/utils/tty'
 
+/** Where a command's output goes instead of the process's streams (see `capture`). */
+type Sink = { stdout: string; stderr: string }
+const sinks = new AsyncLocalStorage<Sink>()
+
+/**
+ * Run a command and collect what it would have printed. `zega mcp` speaks its protocol on stdout, so the commands it
+ * reuses for its tools must not print there: this gives each call its own buffers (concurrent calls do not mix), and
+ * what a command printed is what the tool answers. Nothing else in the CLI uses it.
+ */
+export async function capture(run: () => Promise<void>): Promise<Sink> {
+    const sink: Sink = { stdout: '', stderr: '' }
+    await sinks.run(sink, run)
+    return sink
+}
+
 /** Write and wait until it is out, so a process that exits right after loses nothing on a pipe. */
 export function write(stream: 'stdout' | 'stderr', text: string): Promise<void> {
+    const sink = sinks.getStore()
+    if (sink !== undefined) {
+        sink[stream] += text
+        return Promise.resolve()
+    }
     return new Promise((resolve) => {
         process[stream].write(text, () => resolve())
     })

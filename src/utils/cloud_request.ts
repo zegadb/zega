@@ -7,7 +7,7 @@ import { ApiFailure, LocalFailure, NetworkFailure } from '@/utils/errors'
 const MAX_ANSWER_BYTES = 32 << 20
 const TIMEOUT_MS = 60_000
 
-type Method = 'get' | 'put'
+type Method = 'get' | 'put' | 'post' | 'delete'
 
 /** Every path of the OpenAPI document that has this method. */
 type PathWith<M extends Method> = {
@@ -16,15 +16,19 @@ type PathWith<M extends Method> = {
 
 export type GetPath = PathWith<'get'>
 export type PutPath = PathWith<'put'>
+export type PostPath = PathWith<'post'>
+export type DeletePath = PathWith<'delete'>
 
 type Operation<P extends keyof paths, M extends Method> = paths[P] extends { [K in M]: infer O } ? O : never
 
-/** What a 200 answers, typed from the OpenAPI document. */
+/** What a 200 (or, for a create, a 201) answers, typed from the OpenAPI document. */
 export type Answer<P extends keyof paths, M extends Method = 'get'> = Operation<P, M> extends {
     responses: { 200: { content: { 'application/json': infer Body } } }
 }
     ? Body
-    : never
+    : Operation<P, M> extends { responses: { 201: { content: { 'application/json': infer Body } } } }
+      ? Body
+      : never
 
 type OperationParameters<P extends keyof paths, M extends Method> = Operation<P, M> extends { parameters: infer Q }
     ? Q
@@ -70,8 +74,23 @@ export class CloudClient {
         >
     }
 
+    /** A POST with an optional JSON body (a create: `POST /v1/graphs/{graph}/keys` needs a manage token). */
+    async post<P extends PostPath>(
+        path: P,
+        args: { path?: PathParams<P, 'post'>; json?: unknown },
+    ): Promise<Reply<Answer<P, 'post'>>> {
+        const body = args.json === undefined ? undefined : { text: JSON.stringify(args.json), contentType: 'application/json' }
+        return (await this.send('POST', path, (args.path ?? {}) as Record<string, string>, undefined, body)) as Reply<
+            Answer<P, 'post'>
+        >
+    }
+
+    async delete<P extends DeletePath>(path: P, args: { path?: PathParams<P, 'delete'> } = {}): Promise<Reply<Answer<P, 'delete'>>> {
+        return (await this.send('DELETE', path, (args.path ?? {}) as Record<string, string>)) as Reply<Answer<P, 'delete'>>
+    }
+
     private async send(
-        method: 'GET' | 'PUT',
+        method: 'GET' | 'PUT' | 'POST' | 'DELETE',
         template: string,
         params: Record<string, string>,
         query?: unknown,
