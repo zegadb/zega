@@ -14,11 +14,13 @@ const program = new Command()
 program
     .name('zega')
     .version(pkg.version)
-    .description('The Zega developer CLI: manage Zega Cloud from a terminal, a script or an agent.')
-    .option('--api <url>', 'the API address (default https://cloud.zega.dev; staging https://cloud.zega.world); `login` stores it with the token')
-    .option('--token-file <path>', 'use the token in this file instead of the stored one (CI, agents); one nonempty token')
-    .option('--json', "print the API's JSON unchanged instead of a table; never ask questions")
+    .description('zega: build, run and deploy with Zega.')
+    .option('--api <url>', 'use another API (e.g. staging)')
+    .option('--token-file <path>', 'read the token from a file (CI, agents)')
+    .option('--json', 'JSON output, no questions (scripts, agents)')
     .showHelpAfterError()
+    // `zega <cmd> --help` covers it; a lone "Commands:" group with only `help` is noise.
+    .helpCommand(false)
     // The mark above the help, on a terminal only: piped help stays plain text for scripts and agents.
     .addHelpText('beforeAll', () => (process.stdout.isTTY ? `\n${logo()}\n` : ''))
 
@@ -48,48 +50,50 @@ function action<A extends unknown[]>(run: (...args: A) => Promise<void>) {
 
 program
     .command('login')
-    .description(
-        'store an API token (made at https://dashboard.zega.dev/tokens): read from stdin, --token-file or a hidden prompt, never from an argument; checked with the API before it is saved',
-    )
-    .option('--store <where>', '`file` (default: mode 0600 in your config directory) or `keychain` (the OS keychain)')
+    .description('save an API token')
+    .helpGroup('Account:')
+    .option('--store <where>', '`file` (default) or `keychain`')
     .action(action(async (options: { store?: string }) => core.login({ ...globals(), ...options })))
 
 program
     .command('logout')
-    .description('remove the stored token (it stays valid until you revoke it in the dashboard)')
+    .description('forget the saved token')
+    .helpGroup('Account:')
     .action(action(async () => core.logout(globals())))
 
 program
     .command('whoami')
-    .description('show which token this is: name, scope, project restriction, expiry')
+    .description("show who you're logged in as")
+    .helpGroup('Account:')
     .action(action(async () => core.whoami(globals())))
 
 program
     .command('init')
-    .description('write zega.json for a project here (creates nothing in Zega Cloud)')
-    .option('--name <name>', 'the project name, 1 to 64 characters')
-    .option('--region <id>', 'a region id (see `zega regions`)')
-    .option('--force', 'replace zega.json if it exists')
-    .option('--function <id>', 'a cloud function this project deploys (see `zega deploy`)')
-    .option('--entry <path>', 'the source file to bundle for --function (default src/index.ts)')
+    .description('create zega.json here')
+    .helpGroup('Project:')
+    .option('--name <name>', 'project name')
+    .option('--region <id>', 'region (see `zega regions`)')
+    .option('--force', 'overwrite zega.json')
+    .option('--function <id>', 'a function id to deploy')
+    .option('--entry <path>', 'its source file (default src/index.ts)')
     .action(action(async (options: { name?: string; region?: string; force?: boolean; function?: string; entry?: string }) => core.init({ ...globals(), ...options })))
 
 program
     .command('deploy')
-    .description('bundle the functions zega.json lists (or only <id>) into one ES module each and upload them; needs a manage token')
-    .argument('[id]', 'deploy only this function id')
-    .option('--minify', 'minify the bundle (smaller, harder to read in logs)')
+    .description('deploy your functions')
+    .helpGroup('Project:')
+    .argument('[id]', 'only this function')
+    .option('--minify', 'minify the bundle')
     .action(action(async (id: string | undefined, options: { minify?: boolean }) => core.deploy(id, { ...globals(), ...options })))
 
 program
     .command('start')
-    .description(
-        'run the zega-server that ships with this CLI: `zega start --data ./data --port 9342` is `zega-server start` with the same arguments (`zega start --help` is its help); says what is running; --explorer serves the explorer on the same database',
-    )
+    .description('run a local zega server')
+    .helpGroup('Local:')
     .allowUnknownOption()
     .allowExcessArguments()
     .helpOption(false)
-    .argument('[args...]', 'passed to `zega-server start` untouched; ours are --explorer, --explorer-port <n>, --json and --server <path> (use that build instead of the bundled one)')
+    .argument('[args...]', 'server options; add --explorer to start the explorer too')
     .action(
         // commander would take the server's own --token-file for the global one: the arguments are read raw.
         action(async () => {
@@ -99,14 +103,13 @@ program
 
 program
     .command('explorer')
-    .description(
-        'the explorer for a local database, served on 127.0.0.1 (prints the address, opens nothing); with a graph id, the address of that cloud graph\'s console in the dashboard',
-    )
-    .argument('[graph]', 'a cloud graph id: print its console address instead of serving a local database')
-    .option('--port <n>', `the explorer\'s port (default ${core.EXPLORER_PORT}; 0 chooses a free one)`, integer('--port', 0, 65535))
-    .option('--data <dir>', 'the database directory (default ./zega-data)')
-    .option('--server <path>', 'run this zega-server instead of the bundled one (development)')
-    .option('--assets <dir>', "serve this directory's build of the explorer page instead of the vendored one (development)")
+    .description('open the explorer for a local database')
+    .helpGroup('Local:')
+    .argument('[graph]', 'a cloud graph: print its console link')
+    .option('--port <n>', `port (default ${core.EXPLORER_PORT})`, integer('--port', 0, 65535))
+    .option('--data <dir>', 'database folder (default ./zega-data)')
+    .option('--server <path>', 'use this zega-server build')
+    .option('--assets <dir>', 'use this explorer build')
     .action(
         action(async (graph: string | undefined, options: Omit<core.ExplorerOptions, keyof Globals>) =>
             core.explorer(graph, { ...globals(), ...options }),
@@ -115,59 +118,65 @@ program
 
 program
     .command('build')
-    .description('bundle the functions zega.json lists (or only <id>) exactly as deploy does, into dist/<id>.js; uploads nothing, needs no token')
-    .argument('[id]', 'build only this function id')
-    .option('--minify', 'minify the bundle (smaller, harder to read in logs)')
-    .option('--out <dir>', 'the directory to write to, relative to zega.json (default dist)')
+    .description('bundle your functions into dist/')
+    .helpGroup('Local:')
+    .argument('[id]', 'only this function')
+    .option('--minify', 'minify the bundle')
+    .option('--out <dir>', 'output folder (default dist)')
     .action(action(async (id: string | undefined, options: { minify?: boolean; out?: string }) => core.build(id, { ...globals(), ...options })))
 
 program
     .command('dev')
-    .description(
-        'serve the functions zega.json lists (or only <id>) on localhost with Bun, built as deploy builds them, rebuilt when a file changes; env from .dev.vars; needs no token (except --cloud-graph)',
-    )
-    .argument('[id]', 'serve only this function id')
-    .option('--port <n>', `the first function's port; each next function in zega.json gets one more (default ${core.DEFAULT_PORT})`, integer('--port', 1, 65535))
-    .option('--local-graph [url]', 'set the graph variable to a zega-server on this machine (default http://127.0.0.1:9342, see `zega start`)')
-    .option('--cloud-graph <id>', "set the graph variable to this cloud graph's address (asks the API with the stored token; the graph key comes from .dev.vars)")
-    .option('--graph-url-var <name>', 'the variable that holds the graph address (default ZEGA_GRAPH_URL)')
-    .option('--graph-key-var <name>', 'the secret that holds the graph key, checked in .dev.vars (default ZEGA_GRAPH_KEY)')
-    .option('--minify', 'minify the bundle, as deploy --minify does')
-    .option('--no-watch', 'serve once; do not rebuild when a file changes')
+    .description('run your functions locally')
+    .helpGroup('Local:')
+    .argument('[id]', 'only this function')
+    .option('--port <n>', `first port (default ${core.DEFAULT_PORT})`, integer('--port', 1, 65535))
+    .option('--local-graph [url]', 'use your local graph (`zega start`)')
+    .option('--cloud-graph <id>', 'use this cloud graph')
+    .option('--graph-url-var <name>', 'graph URL variable (default ZEGA_GRAPH_URL)')
+    .option('--graph-key-var <name>', 'graph key variable (default ZEGA_GRAPH_KEY)')
+    .option('--minify', 'minify the bundle')
+    .option('--no-watch', 'don\'t reload on changes')
     .action(action(async (id: string | undefined, options: Omit<core.DevOptions, keyof Globals>) => core.dev(id, { ...globals(), ...options })))
 
 program
     .command('projects')
-    .description('list projects, or show one with its graphs')
+    .description('list projects')
+    .helpGroup('Cloud:')
     .argument('[id]', 'a project id')
     .action(action(async (id: string | undefined) => core.projects(id, globals())))
 
 program
     .command('graphs')
-    .description('list graphs, or show one')
+    .description('list graphs')
+    .helpGroup('Cloud:')
     .argument('[id]', 'a graph id')
     .action(action(async (id: string | undefined) => core.graphs(id, globals())))
 
 program
     .command('buckets')
-    .description('list storage buckets, or show one')
+    .description('list storage buckets')
+    .helpGroup('Cloud:')
     .argument('[id]', 'a bucket id')
     .action(action(async (id: string | undefined) => core.buckets(id, globals())))
 
 program
     .command('functions')
-    .description('list functions, or show one (its variables and secret names too)')
-    .argument('[id]', 'a function id (f0 and 16 characters)')
+    .description('list functions')
+    .helpGroup('Cloud:')
+    .argument('[id]', 'a function id')
     .action(action(async (id: string | undefined) => core.functions(id, globals())))
 
 program
     .command('usage')
-    .description("this month's usage and bill per graph")
+    .description("this month's usage")
+    .helpGroup('Cloud:')
     .action(action(async () => core.usage(globals())))
 
 program
     .command('regions')
-    .description('the regions a graph can run in')
+    .description('list regions')
+    .helpGroup('Cloud:')
     .action(action(async () => core.regions(globals())))
 
 /** A flag that is a whole number in a range. */
@@ -181,31 +190,35 @@ function integer(name: string, min: number, max: number) {
     }
 }
 
-const fn = program.command('function').description("a function's code and logs")
+const fn = program.command('function').description("deploy one function, or read its logs").helpGroup('Project:')
 fn.command('deploy')
-    .description('bundle a function into one ES module and upload it; needs a manage token')
+    .description('deploy one function')
     .argument('<id>', 'a function id')
-    .argument('[entry]', 'the source file to bundle (default: the entry zega.json lists for this id)')
-    .option('--minify', 'minify the bundle (smaller, harder to read in logs)')
+    .argument('[entry]', 'source file (default: from zega.json)')
+    .option('--minify', 'minify the bundle')
     .action(
         action(async (id: string, entry: string | undefined, options: { minify?: boolean }) =>
             core.functionDeploy(id, entry, { ...globals(), ...options }),
         ),
     )
 fn.command('logs')
-    .description("a page of a function's requests, newest first, with their console lines")
+    .description("show a function's recent requests and logs")
     .argument('<id>', 'a function id')
-    .option('--from <time>', 'start of the window: an ISO time or epoch milliseconds (default: 24 hours before --to)')
-    .option('--to <time>', 'end of the window (default: now)')
-    .option('--limit <n>', 'requests in the page, 1 to 200 (default 50)', integer('--limit', 1, 200))
-    .option('--status <code>', 'only requests that answered this HTTP status', integer('--status', 100, 599))
-    .option('--search <text>', 'search the method, path, error and every console line')
-    .option('--cursor <cursor>', 'the cursor a previous page printed')
+    .option('--from <time>', 'from (ISO time; default 24h ago)')
+    .option('--to <time>', 'to (default now)')
+    .option('--limit <n>', 'how many (1-200, default 50)', integer('--limit', 1, 200))
+    .option('--status <code>', 'only this HTTP status', integer('--status', 100, 599))
+    .option('--search <text>', 'search requests and logs')
+    .option('--cursor <cursor>', 'next page (from the last output)')
     .action(
         action(async (id: string, options: Omit<core.LogsOptions, keyof Globals>) =>
             core.functionLogs(id, { ...globals(), ...options }),
         ),
     )
+
+// Help lists the groups in this order (a stable sort keeps each group's own order).
+const GROUPS = ['Local:', 'Project:', 'Cloud:', 'Account:']
+;(program.commands as Command[]).sort((a: Command, b: Command) => GROUPS.indexOf(a.helpGroup()) - GROUPS.indexOf(b.helpGroup()))
 
 // `zega` alone shows the help (with the mark on a terminal) instead of doing nothing.
 if (process.argv.length <= 2) program.help()
