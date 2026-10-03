@@ -181,10 +181,15 @@ export function connect(options) {
         return await call('GET', '/schema', undefined, callOptions?.signal);
       } catch (error) {
         if (error instanceof ZegaError && error.status === 404) {
-          error.message += ' (a local zega-server keeps no schema; pass `schema` to connect() instead)';
+          error.message += ' (this server has no /schema route; upgrade it or pass `schema` to connect())';
         }
         throw error;
       }
+    },
+
+    setSchema(schema, callOptions) {
+      if (typeof schema !== 'string') throw new TypeError('zega.setSchema(): schema must be ZQL text');
+      return call('PUT', '/schema', { schema }, callOptions?.signal);
     },
   };
 }

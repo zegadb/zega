@@ -94,11 +94,9 @@ In a Zega Cloud function, the graph's address and key arrive as variables
 ```ts
 import { connect } from '@zegadb/lib/client'
 
-const schema = 'type Person { name: String }'
-
 export default {
   async fetch(req, env) {
-    const zega = connect({ url: env.ZEGA_GRAPH_URL, key: env.ZEGA_GRAPH_KEY, schema })
+    const zega = connect({ url: env.ZEGA_GRAPH_URL, key: env.ZEGA_GRAPH_KEY })
     const people = await zega.query<{ name: string }[]>('{ Person { name } }')
     return Response.json(people)
   },
@@ -114,8 +112,8 @@ import { connect, zql } from '@zegadb/lib/client'
 const zega = connect({
   url: 'http://127.0.0.1:9342',
   key: process.env.ZEGA_GRAPH_KEY,
-  schema: 'type Person { name: String }',
 })
+await zega.setSchema('type Person { name: String }')
 await zega.mutate(zql`mutation { Person(name: ${'Ada'}) { name } }`)
 console.log(await zega.query('{ Person { name } }')) // [ { name: 'Ada' } ]
 ```
@@ -136,13 +134,14 @@ at a cloud graph, so the function above runs unchanged against either.
 - `options` is `{ schema?, document?, signal? }`: a schema for this call only, `document: true`
   to send a whole `.zql` file (its own `schema { }` block, then `query { }` and `mutation { }`
   blocks), and an `AbortSignal` (`AbortSignal.timeout(2000)` is a timeout).
-- `zega.schema()` is the schema last pushed to a Zega Cloud graph (`GET /schema`, counted as one query).
+- `zega.setSchema(schema)` stores the schema on the graph (`PUT /schema`). Do this when creating
+  or changing the graph's schema, not on every request.
+- `zega.schema()` reads the stored schema (`GET /schema`) when the application needs it.
 
-**The schema.** A zega server keeps no schema: every statement carries the schema it
-runs against, and a statement without one fails with "schema has no types". So
-`schema` is part of `connect()`, or of a call. A Zega Cloud graph keeps the text its
-owner pushed, and `await zega.schema()` reads it back, but nothing is fetched behind
-your back: that would be an extra billed query on every cold start.
+**The schema.** A graph keeps its schema across restarts, so ordinary queries do not
+need to carry it and `connect()` does not fetch it. Set it once with `setSchema()`;
+`schema` on `connect()` or an individual call remains available for one-off and
+older-server use. `Auth` is built in on every graph.
 
 **Reads and writes.** The server tells them apart by method. `query()` sends the HTTP
 `QUERY` method ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html)): safe,

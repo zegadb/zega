@@ -200,13 +200,24 @@ describe('client against a Zega Cloud stand-in', () => {
   });
 
   test('schema() reads the graph\'s stored schema; a server with no /schema route says what to do instead', async () => {
-    assert.deepEqual(await zega().schema(), { schema: SCHEMA, updatedAt: '2026-10-03T00:00:00.000Z' });
+    assert.deepEqual(await zega().schema(), { schema: SCHEMA, builtin: ['Auth'], updatedAt: '2026-10-03T00:00:00.000Z' });
     const local = await startFakeGraph({ queryMethod: 'server-405' });
     try {
       const error = await rejection(connect({ url: local.url, key: KEY }).schema());
       assert.deepEqual([error.code, error.status], ['http', 404]);
-      assert.match(error.message, /keeps no schema; pass `schema` to connect\(\)/);
+      assert.match(error.message, /has no \/schema route; upgrade it or pass `schema` to connect\(\)/);
     } finally { await local.close(); }
+  });
+
+  test('setSchema() stores the schema and later calls omit it', async () => {
+    graph.requests.length = 0;
+    const client = connect({ url: graph.url, key: graph.key });
+    assert.deepEqual(await client.setSchema(SCHEMA), {
+      schema: SCHEMA, builtin: ['Auth'], updatedAt: '2026-10-03T00:00:00.000Z',
+    });
+    assert.deepEqual(await client.query('{ Person { name } }'), { echo: { query: '{ Person { name } }' } });
+    assert.deepEqual(sent(), ['PUT /schema', 'QUERY /zql']);
+    assert.deepEqual(graph.requests[0].body, { schema: SCHEMA });
   });
 });
 
@@ -262,7 +273,8 @@ if (serverBinary) {
 
     test('write, read, escaped values, a ZQL error with its help and position, a write refused by QUERY, bad auth', async () => {
       const { url } = await start('--token-file', join(scratch, 'token'));
-      const zega = connect({ url, key: TOKEN, schema: SCHEMA });
+      const zega = connect({ url, key: TOKEN });
+      await zega.setSchema(SCHEMA);
 
       assert.deepEqual(await zega.mutate('mutation { Person(name: "Ada") { name } }'), { name: 'Ada' });
       assert.deepEqual(await zega.query('{ Person { name } }'), [{ name: 'Ada' }]);
@@ -294,13 +306,9 @@ if (serverBinary) {
         assert.equal(deniedWrite.code, 'unauthorized');
       }
 
-      const noSchema = await rejection(connect({ url, key: TOKEN }).query('{ Person { name } }'));
-      assert.deepEqual([noSchema.code, noSchema.help], ['query', 'start with `type Name { }`']);
+      assert.deepEqual((await zega.schema()).schema, SCHEMA);
       const rows = await connect({ url, key: TOKEN }).query('schema { type Person { name: String } }\nquery { Person { name } }', { document: true });
       assert.equal(rows.length, names.length + 1);
-
-      const stored = await rejection(zega.schema());
-      assert.deepEqual([stored.code, stored.status], ['http', 404]);
 
       const aborted = await rejection(zega.query('{ Person { name } }', { signal: AbortSignal.abort() }));
       assert.deepEqual([aborted.constructor, aborted.code], [ZegaNetworkError, 'aborted']);
@@ -308,7 +316,8 @@ if (serverBinary) {
 
     test('a server started without a token takes a client without a key', async () => {
       const { url } = await start();
-      const zega = connect({ url, schema: SCHEMA });
+      const zega = connect({ url });
+      await zega.setSchema(SCHEMA);
       await zega.mutate('mutation { Person(name: "Ada") { name } }');
       assert.deepEqual(await zega.query('{ Person { name } }'), [{ name: 'Ada' }]);
     });

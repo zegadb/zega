@@ -66,9 +66,8 @@ export interface ConnectOptions {
   /** The bearer token: a `zk_` graph key, or the `--token-file` token of a zega-server. In a function, `env.ZEGA_GRAPH_KEY`. */
   key?: string;
   /**
-   * The ZQL schema text sent with every statement. A zega server keeps no schema
-   * of its own, so a statement without one fails with "schema has no types".
-   * A call's own `schema` replaces this one.
+   * Optional ZQL schema text sent with every statement. Prefer `setSchema()` to
+   * store it on the server; a call's own `schema` replaces this one.
    */
   schema?: string;
   /** Your own `fetch`: a service binding, a test double, a polyfill. Defaults to the global one. */
@@ -92,8 +91,10 @@ export interface CallOptions {
 
 export interface StoredSchema {
   schema: string;
-  /** ISO time of the last push, or null before the first. */
-  updatedAt: string | null;
+  /** Built-in types available to the graph, including Auth. */
+  builtin?: string[];
+  /** ISO time of the last push, or null before the first (Zega Cloud only). */
+  updatedAt?: string | null;
 }
 
 export interface Client {
@@ -108,8 +109,10 @@ export interface Client {
   query<T = unknown>(zql: string, options?: CallOptions): Promise<T>;
   /** Run a statement that writes (or any statement) as `POST /zql` and return its result. */
   mutate<T = unknown>(zql: string, options?: CallOptions): Promise<T>;
-  /** The schema last pushed to a Zega Cloud graph (`GET /schema`). Counted as one query. A local zega-server has none: 404. */
+  /** Read the graph's stored schema (`GET /schema`). */
   schema(options?: { signal?: AbortSignal }): Promise<StoredSchema>;
+  /** Store a schema on the graph (`PUT /schema`) for later schema-less queries. */
+  setSchema(schema: string, options?: { signal?: AbortSignal }): Promise<StoredSchema>;
 }
 
 /** Connect to a zega-server or a Zega Cloud graph. Sends nothing until the first call. */

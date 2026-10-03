@@ -44,6 +44,7 @@ export function writes(source) {
 
 export async function startFakeGraph({ queryMethod = 'supported', key = KEY } = {}) {
   const requests = [];
+  let storedSchema = SCHEMA;
   const server = createServer((request, response) => {
     const chunks = [];
     request.on('data', chunk => chunks.push(chunk));
@@ -59,7 +60,11 @@ export async function startFakeGraph({ queryMethod = 'supported', key = KEY } = 
 
       if (request.url === '/schema' && request.method === 'GET') {
         if (queryMethod === 'server-405') { response.writeHead(404, { 'content-length': 0 }); return response.end(); }
-        return answer(response, { schema: SCHEMA, updatedAt: '2026-10-03T00:00:00.000Z' });
+        return answer(response, { schema: storedSchema, builtin: ['Auth'], updatedAt: '2026-10-03T00:00:00.000Z' });
+      }
+      if (request.url === '/schema' && request.method === 'PUT') {
+        storedSchema = body.schema;
+        return answer(response, { schema: storedSchema, builtin: ['Auth'], updatedAt: '2026-10-03T00:00:00.000Z' });
       }
       if (request.url !== '/zql') return problem(response, 404, 'not_found', `zega does not serve ${request.method} ${request.url}.`);
       const isQuery = request.method === 'QUERY';
