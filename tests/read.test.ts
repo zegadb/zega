@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import type { components } from '@/types/cloud-api'
-import { TOKEN, fakeApi, graph, project, regionsBody, remove, run, scratch, whoamiRoute } from './helpers'
+import { TOKEN, fakeApi, graph, project, regionsBody, remove, run, scratch, whoamiRoute, whoamiShown } from './helpers'
 
 type Schemas = components['schemas']
 
@@ -191,7 +191,9 @@ describe('read commands', () => {
         for (const [args, route] of commands) {
             const result = await cli(args)
             expect(result.code).toBe(0)
-            expect(result.stdout).toBe(JSON.stringify(routes[route].body) + '\n')
+            // whoami is the API's answer without the token's prefix; everything else is byte for byte.
+            const shown = route === 'GET /v1/whoami' ? whoamiShown : routes[route].body
+            expect(result.stdout).toBe(JSON.stringify(shown) + '\n')
         }
     })
 

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { TOKEN, account, credentialsFile, fakeApi, remove, run, scratch, tokenInfo, whoamiRoute } from './helpers'
+import { TOKEN, account, credentialsFile, fakeApi, remove, run, scratch, tokenInfo, whoamiRoute, whoamiShown } from './helpers'
 
 const home = scratch()
 afterAll(() => remove(home))
@@ -210,10 +210,10 @@ describe('zega login reading the token', () => {
         expect(result.stderr).not.toContain('zc_one')
     })
 
-    test('by default login prints the whoami answer unchanged', async () => {
+    test('by default login prints the whoami answer, without the token prefix', async () => {
         const result = await run(['login', '--api', api.url], { home: dir, stdin: TOKEN })
         expect(result.code).toBe(0)
-        expect(JSON.parse(result.stdout)).toEqual(JSON.parse(JSON.stringify(whoamiRoute['GET /v1/whoami'].body)))
+        expect(JSON.parse(result.stdout)).toEqual(JSON.parse(JSON.stringify(whoamiShown)))
         secrets(result.stdout, result.stderr)
     })
 
@@ -292,15 +292,49 @@ describe('who the output says you are', () => {
         }
     })
 
-    test('by default whoami is the API answer unchanged, account included', async () => {
+    test('by default whoami is the API answer without the token prefix, account included', async () => {
         const api = fakeApi({ ...whoamiRoute })
         try {
             const tokenFile = path.join(dir, 'token')
             fs.writeFileSync(tokenFile, TOKEN, { mode: 0o600 })
             const result = await run(['whoami', '--api', api.url, '--token-file', tokenFile], { home: dir })
             expect(result.code).toBe(0)
-            expect(result.stdout).toBe(JSON.stringify(whoamiRoute['GET /v1/whoami'].body) + '\n')
+            expect(result.stdout).toBe(JSON.stringify(whoamiShown) + '\n')
             expect(JSON.parse(result.stdout).account).toEqual(account)
+        } finally {
+            api.stop()
+        }
+    })
+})
+
+describe('no part of a token is ever shown', () => {
+    const dir = scratch()
+    afterAll(() => remove(dir))
+    const tokenFile = path.join(dir, 'token')
+    fs.writeFileSync(tokenFile, TOKEN, { mode: 0o600 })
+
+    /** The API sends the token's prefix (`zc_test_0123`); nothing the CLI prints may carry it. */
+    test('whoami and login print no `prefix` key and no `zc_`, by default and with --human', async () => {
+        const api = fakeApi({ ...whoamiRoute })
+        try {
+            // The API does send it: the test is only meaningful if so.
+            expect(JSON.stringify(whoamiRoute['GET /v1/whoami'].body)).toContain('"prefix":"zc_test_0123"')
+            const runs = [
+                await run(['whoami', '--api', api.url, '--token-file', tokenFile], { home: dir }),
+                await run(['whoami', '--human', '--api', api.url, '--token-file', tokenFile], { home: dir }),
+                await run(['login', '--api', api.url], { home: dir, stdin: TOKEN }),
+                await run(['login', '--human', '--api', api.url], { home: dir, stdin: TOKEN }),
+            ]
+            for (const result of runs) {
+                expect(result.code).toBe(0)
+                expect(result.stdout + result.stderr).not.toContain('zc_')
+                expect(result.stdout + result.stderr).not.toContain('prefix')
+            }
+            // The JSON is still the whole answer, minus that one field.
+            const json = JSON.parse(runs[0]!.stdout)
+            expect(json).toEqual(whoamiShown)
+            expect('prefix' in json.token).toBe(false)
+            expect(json.token.name).toBe('ci-bot')
         } finally {
             api.stop()
         }

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { TOKEN, credentialsFile, errorOf, fakeApi, graph, regionsBody, remove, scratch, whoamiRoute } from './helpers'
+import { TOKEN, credentialsFile, errorOf, fakeApi, graph, regionsBody, remove, scratch, whoamiRoute, whoamiShown } from './helpers'
 
 /**
  * A real terminal (a pty). With `--human` the wizard asks, takes typed answers, and the
@@ -157,7 +157,12 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
             const session = await onTerminal([...args, '--api', api.url, '--token-file', tokenFile], { home, cwd: home })
             expect(await session.exited).toBe(0)
             // A pty turns \n into \r\n; the text is otherwise the API's own, byte for byte.
-            expect(session.output.replace(/\r\n/g, '\n')).toBe(JSON.stringify((({ ...whoamiRoute, 'GET /v1/regions': { body: regionsBody }, 'GET /v1/graphs': { body: { graphs: [graph] } } }) as Record<string, { body: unknown }>)[route]!.body) + '\n')
+            const answers: Record<string, unknown> = {
+                'GET /v1/whoami': whoamiShown, // the API's answer without the token's prefix
+                'GET /v1/regions': regionsBody,
+                'GET /v1/graphs': { graphs: [graph] },
+            }
+            expect(session.output.replace(/\r\n/g, '\n')).toBe(JSON.stringify(answers[route]) + '\n')
             expect(session.output).not.toContain('\u001b')
         }
     })

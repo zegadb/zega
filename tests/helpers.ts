@@ -129,6 +129,10 @@ export const account = { login: 'ada', name: 'Ada Lovelace' } satisfies Schemas[
 
 export const whoamiRoute = { 'GET /v1/whoami': { body: { account, token: tokenInfo } } }
 
+/** What the CLI prints of that answer: the same, without the token's `prefix` (no part of a token is ever shown). */
+export const { prefix: _shownNever, ...tokenShown } = tokenInfo
+export const whoamiShown = { account, token: tokenShown }
+
 export const graph = {
     id: 'g0aaaaaaaaaaaaaaaa',
     name: 'main graph',

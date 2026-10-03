@@ -50,7 +50,7 @@ Project  all projects
 Expires  never
 ```
 
-An account with no full name shows as `Logged in as @ada`. The JSON is the API's answer unchanged (it also has when the token was made and last used).
+An account with no full name shows as `Logged in as @ada`. The JSON is the API's answer (it also has when the token was made and last used), without the token's `prefix`: no part of a token is ever shown.
 
 The token is never an argument (arguments show in process listings) and never an environment variable. It is checked with `GET /v1/whoami` before it is saved, so a mistyped token never replaces a good one.
 
@@ -186,7 +186,7 @@ zega dev: Bun serves your function; this is not the Workers runtime (see `zega d
 
 | command | stdout |
 |---|---|
-| `login`, `whoami`, `projects`, `graphs`, `buckets`, `functions`, `usage`, `regions`, `function logs` | the API's answer, unchanged (`projects` is `{ "projects": [...] }`, `whoami` is `{ "account", "token" }`, and so on; the shapes are in `openapi/openapi.json`) |
+| `login`, `whoami`, `projects`, `graphs`, `buckets`, `functions`, `usage`, `regions`, `function logs` | the API's answer, unchanged (except that a `token` object has no `prefix`; `projects` is `{ "projects": [...] }`, `whoami` is `{ "account", "token" }`, and so on; the shapes are in `openapi/openapi.json`) |
 | `deploy`, `function deploy` | the API's answer, one line per function: `{ "function": { "id", "name", "url", "version", ... } }` |
 | `logout` | `{ "loggedOut": true }` (`false` when nothing was stored) |
 | `init` | `{ "file", "config": { "version", "name", "region", "functions"? } }` |

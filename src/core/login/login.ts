@@ -7,6 +7,7 @@ import { CloudClient } from '@/utils/cloud_request'
 import { normalizeApi } from '@/utils/api_address'
 import { LocalFailure } from '@/utils/errors'
 import * as render from '@/utils/render'
+import { withoutPrefix } from '@/utils/token_info'
 import { answer, canPrompt, show, welcome } from '@/utils'
 
 export type LoginOptions = Globals & { store?: string }
@@ -46,7 +47,7 @@ export async function login(options: LoginOptions): Promise<void> {
 
     const reply = await new CloudClient(api, token).get('/v1/whoami')
     await credentials.save(api, token, store)
-    await show(options, reply, render.login)
+    await show(options, withoutPrefix(reply), render.login)
 }
 
 function parseStore(value: string | undefined): Store {
