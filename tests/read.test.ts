@@ -112,10 +112,12 @@ afterAll(() => {
 })
 
 const cli = (args: string[]) => run([...args, '--api', api.url, '--token-file', tokenFile], { home })
+/** The same with `--human`: the tables people read. */
+const human = (args: string[]) => cli([...args, '--human'])
 
 describe('read commands', () => {
-    test('projects: an aligned table, with the token from --token-file and nothing stored', async () => {
-        const result = await cli(['projects'])
+    test('--human: an aligned table, with the token from --token-file and nothing stored', async () => {
+        const result = await human(['projects'])
         expect(result.code).toBe(0)
         expect(result.stdout).toBe(
             [
@@ -129,35 +131,35 @@ describe('read commands', () => {
         expect(fs.existsSync(path.join(home, '.config'))).toBe(false)
     })
 
-    test('--json prints the API answer byte for byte', async () => {
-        const result = await cli(['projects', '--json'])
+    test('by default the API answer is printed byte for byte, with no table', async () => {
+        const result = await cli(['projects'])
         expect(result.code).toBe(0)
         expect(result.stdout).toBe(JSON.stringify(routes['GET /v1/projects'].body) + '\n')
     })
 
     test('projects <id> shows the project and its graphs', async () => {
-        const result = await cli(['projects', 'p1'])
+        const result = await human(['projects', 'p1'])
         expect(result.stdout).toContain('Name     Atlas')
         expect(result.stdout).toContain('g0aaaaaaaaaaaaaaaa  main graph  Atlas (p1)  yyz     512mb  active')
         expect(api.seen.at(-1)?.target).toBe('/v1/projects/p1')
     })
 
     test('graphs, graphs <id>, buckets, buckets <id>, functions, functions <id>', async () => {
-        const graphs = await cli(['graphs'])
+        const graphs = await human(['graphs'])
         expect(graphs.stdout.split('\n')[0]).toBe('ID                  NAME        PROJECT     REGION  TIER   STATUS')
-        const graphOne = await cli(['graphs', graph.id])
+        const graphOne = await human(['graphs', graph.id])
         expect(graphOne.stdout).toContain('Tier     512mb (512 MB)')
         expect(graphOne.stdout).toContain('Billing  monthly, $12.00 base price')
         expect(graphOne.stdout).toContain('Address  https://g0aaaaaaaaaaaaaaaa.zegadb.com')
 
-        const buckets = await cli(['buckets'])
+        const buckets = await human(['buckets'])
         expect(buckets.stdout).toContain('1.2 MB')
-        const bucketOne = await cli(['buckets', 'b1'])
+        const bucketOne = await human(['buckets', 'b1'])
         expect(bucketOne.stdout).toContain('Cap      $5.00 of overage a month (changed in the dashboard)')
 
-        const functions = await cli(['functions'])
+        const functions = await human(['functions'])
         expect(functions.stdout).toContain('v3')
-        const functionOne = await cli(['functions', fn.id])
+        const functionOne = await human(['functions', fn.id])
         expect(functionOne.stdout).toContain('GREETING=hi')
         expect(functionOne.stdout).toContain('Secrets (names only; values are not readable)')
         expect(functionOne.stdout).toContain('  API_KEY')
@@ -165,17 +167,17 @@ describe('read commands', () => {
     })
 
     test('usage and regions', async () => {
-        const usage = await cli(['usage'])
+        const usage = await human(['usage'])
         expect(usage.stdout).toContain('To date     $4.50')
         expect(usage.stdout).toContain('Worst case  $20.00')
         expect(usage.stdout).toContain('800/1000')
-        const regions = await cli(['regions'])
+        const regions = await human(['regions'])
         expect(regions.stdout).toBe(
             ['ID   CITY       COUNTRY      CONTINENT', 'yyz  Toronto    Canada       North America', 'ams  Amsterdam  Netherlands  Europe', ''].join('\n'),
         )
     })
 
-    test('every read command has a --json that is the API text unchanged', async () => {
+    test('every read command prints the API text unchanged by default', async () => {
         const commands: [string[], keyof typeof routes][] = [
             [['whoami'], 'GET /v1/whoami'],
             [['graphs'], 'GET /v1/graphs'],
@@ -187,14 +189,14 @@ describe('read commands', () => {
             [['function', 'logs', fn.id], 'GET /v1/functions/f0bbbbbbbbbbbbbbbb/logs'],
         ]
         for (const [args, route] of commands) {
-            const result = await cli([...args, '--json'])
+            const result = await cli(args)
             expect(result.code).toBe(0)
             expect(result.stdout).toBe(JSON.stringify(routes[route].body) + '\n')
         }
     })
 
     test('function logs: the filters are sent as the API names them, entries are printed with their console lines', async () => {
-        const result = await cli([
+        const result = await human([
             'function', 'logs', fn.id,
             '--limit', '20', '--status', '500', '--search', 'boom', '--from', '2026-10-02T00:00:00Z', '--cursor', 'abc',
         ])
@@ -226,7 +228,7 @@ describe('read commands', () => {
     test('control characters in an API string never reach the terminal', async () => {
         const nasty = fakeApi({ 'GET /v1/projects': { body: { projects: [{ ...project, name: 'evil\u001b[31mname', graphs: [] }] } } })
         try {
-            const result = await run(['projects', '--api', nasty.url, '--token-file', tokenFile], { home })
+            const result = await run(['projects', '--human', '--api', nasty.url, '--token-file', tokenFile], { home })
             expect(result.stdout).not.toContain('\u001b')
             expect(result.stdout).toContain('evil?[31mname')
         } finally {
@@ -237,7 +239,8 @@ describe('read commands', () => {
     test('an answer that is not the API\'s is an error, not an empty list', async () => {
         const wrong = fakeApi({ 'GET /v1/projects': { body: { hello: 'world' } } })
         try {
-            const result = await run(['projects', '--api', wrong.url, '--token-file', tokenFile], { home })
+            // The default prints the answer as it came; it is the readable view that needs the list.
+            const result = await run(['projects', '--human', '--api', wrong.url, '--token-file', tokenFile], { home })
             expect(result.code).toBe(1)
             expect(result.stderr).toContain('no `projects` list')
         } finally {

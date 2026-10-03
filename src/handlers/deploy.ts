@@ -36,18 +36,20 @@ export function selectTargets(dir: string, id: string | undefined, instead = '')
 }
 
 /**
- * Bundle each target, say how big each is, and refuse one over the API's limit,
+ * Bundle each target, say how big each is (on stderr, with `--human`), and refuse one over the API's limit,
  * before anything is uploaded: a function that cannot be bundled stops the whole
  * deploy while nothing has changed in the cloud.
  */
-export async function prepare(targets: Target[], options: { dir: string; minify: boolean }): Promise<Prepared[]> {
+export async function prepare(targets: Target[], options: { dir: string; minify: boolean; human: boolean }): Promise<Prepared[]> {
     const prepared: Prepared[] = []
     for (const target of targets) {
         const built = await bundle({ dir: options.dir, entry: target.entry, minify: options.minify })
-        await write(
-            'stderr',
-            `bundled ${target.entry}: ${built.bytes.toLocaleString('en-US')} bytes (limit ${MAX_FUNCTION_BYTES.toLocaleString('en-US')})\n`,
-        )
+        if (options.human) {
+            await write(
+                'stderr',
+                `bundled ${target.entry}: ${built.bytes.toLocaleString('en-US')} bytes (limit ${MAX_FUNCTION_BYTES.toLocaleString('en-US')})\n`,
+            )
+        }
         if (built.bytes > MAX_FUNCTION_BYTES) {
             throw new LocalFailure(
                 `the bundle for ${target.entry} is ${built.bytes.toLocaleString('en-US')} bytes; a function is at most ${MAX_FUNCTION_BYTES.toLocaleString('en-US')} bytes. ` +

@@ -1,6 +1,6 @@
 /**
- * Human-readable output: aligned tables and detail views built from the API's
- * JSON (`--json` skips all of this and prints the API's own text).
+ * Human-readable output (`--human`): aligned tables and detail views built from the API's
+ * JSON. Without `--human` none of this runs and the API's own text is printed.
  *
  * Every string that came from the API is cleaned before it reaches the
  * terminal: a project can be named anything, and a control character in a name

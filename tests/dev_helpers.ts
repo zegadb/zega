@@ -55,15 +55,15 @@ export type Dev = {
 
 /**
  * Start `zega dev` as a subprocess in `cwd` and wait until it has printed its address summary (or
- * failed). The environment is a PATH, a HOME of its own and whatever `env` adds: a stray secret
+ * failed). It reads as a person does (`--human`) unless `human: false`: most tests are about the text. The environment is a PATH, a HOME of its own and whatever `env` adds: a stray secret
  * in `env` is how a test shows the shell does not reach the function.
  */
 export async function startDev(
     args: string[],
-    options: { cwd: string; home: string; env?: Record<string, string>; command?: string[] },
+    options: { cwd: string; home: string; env?: Record<string, string>; command?: string[]; human?: boolean },
 ): Promise<Dev> {
     const command = options.command ?? [process.execPath, ENTRY]
-    const child = Bun.spawn([...command, 'dev', ...args], {
+    const child = Bun.spawn([...command, 'dev', ...(options.human === false ? [] : ['--human']), ...args], {
         cwd: options.cwd,
         env: {
             PATH: process.env.PATH ?? '',

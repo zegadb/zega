@@ -28,6 +28,13 @@ export class NetworkFailure extends Error {
 /** Something on this machine: no stored token, a missing file, a missing flag. */
 export class LocalFailure extends Error {
     readonly kind = 'local'
+    constructor(
+        message: string,
+        /** What a script can switch on: `local` unless a more exact one is known. */
+        readonly code: string = 'local',
+    ) {
+        super(message)
+    }
 }
 
 export function isZegaError(error: unknown): error is ZegaError {
@@ -49,8 +56,31 @@ export type ErrorContext = {
     tokenFile: string | null
 }
 
-/** What a failed command prints on stderr: the API's sentence and code first, then what to do about it. */
-export function describe(error: ZegaError, context: ErrorContext): string {
+/** The code, message and hint of a failure: the one source of both the JSON and the readable text. */
+export type Report = { code: string; message: string; hint: string | null }
+
+/** What a failed command says, in the words the API (or this machine) gave and what to do about it. */
+export function report(error: ZegaError, context: ErrorContext): Report {
+    if (error instanceof LocalFailure) return { code: error.code, message: error.message, hint: null }
+    if (error instanceof NetworkFailure) {
+        return {
+            code: 'network',
+            message: `could not reach ${error.host}: ${error.detail}`,
+            hint: context.api !== null ? 'Check the address given to --api.' : null,
+        }
+    }
+    const hint = guidance(error, context.tokenFile).join(' ')
+    return { code: error.code, message: error.message, hint: hint === '' ? null : hint }
+}
+
+/** What a failed command prints on stderr: `{"error":{"code","message","hint"}}` on one line, or with `--human` text. */
+export function describe(error: unknown, context: ErrorContext, human: boolean): string {
+    if (!isZegaError(error)) {
+        const message = error instanceof Error ? error.message : String(error)
+        return human ? `zega: ${clean(message)}\n` : JSON.stringify({ error: { code: 'error', message, hint: null } }) + '\n'
+    }
+    const { code, message, hint } = report(error, context)
+    if (!human) return JSON.stringify({ error: { code, message, hint } }) + '\n'
     if (error instanceof LocalFailure) return `zega: ${error.message}\n`
     if (error instanceof NetworkFailure) {
         let text = `zega: could not reach ${error.host}: ${clean(error.detail)}\n`
@@ -60,6 +90,14 @@ export function describe(error: ZegaError, context: ErrorContext): string {
     let text = `zega: ${clean(error.message)} (code: ${clean(error.code)}, HTTP ${error.status})\n`
     for (const line of guidance(error, context.tokenFile)) text += `${line}\n`
     return text
+}
+
+/** A command-line mistake (an unknown option, a bad value), as commander words it. */
+export function usageError(message: string, human: boolean): string {
+    const text = message.replace(/^error: /, '').trim()
+    return human
+        ? `error: ${text}\nhint: zega --help\n`
+        : JSON.stringify({ error: { code: 'usage', message: text, hint: 'zega --help' } }) + '\n'
 }
 
 export function guidance(error: ApiFailure, tokenFile: string | null): string[] {

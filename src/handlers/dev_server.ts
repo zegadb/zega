@@ -12,6 +12,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 import type { Target } from '@/handlers/deploy'
+import type { Emit } from '@/handlers/dev_events'
 import { moduleWarnings, sourceWarnings } from '@/handlers/workers_compat'
 import { LocalFailure } from '@/utils/errors'
 
@@ -91,7 +92,7 @@ export class DevFunction {
     constructor(
         readonly target: Target,
         readonly port: number,
-        private readonly log: (line: string) => void,
+        private readonly emit: Emit,
     ) {}
 
     get url(): string {
@@ -124,7 +125,7 @@ export class DevFunction {
             const ctx: ExecutionContext = {
                 waitUntil: (promise) => {
                     waiting.push(
-                        Promise.resolve(promise).catch((error: unknown) => this.log(`${this.target.id} waitUntil rejected: ${errorText(error)}`)),
+                        Promise.resolve(promise).catch((error: unknown) => this.emit({ event: 'wait_until_rejected', function: this.target.id, message: errorText(error) })),
                     )
                 },
                 passThroughOnException() {},
@@ -137,11 +138,18 @@ export class DevFunction {
                 }
                 response = result
             } catch (error) {
-                this.log(`${this.target.id} threw: ${errorText(error)}`)
+                this.emit({ event: 'threw', function: this.target.id, message: errorText(error) })
                 response = new Response('Internal Server Error', { status: 500 })
             }
         }
-        this.log(`${this.target.id} ${request.method} ${path} ${response.status} ${Math.round(performance.now() - started)}ms`)
+        this.emit({
+            event: 'request',
+            function: this.target.id,
+            method: request.method,
+            path,
+            status: response.status,
+            ms: Math.round(performance.now() - started),
+        })
         return response
     }
 }

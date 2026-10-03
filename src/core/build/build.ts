@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Globals } from '@/handlers'
 import { prepare, selectTargets } from '@/handlers/deploy'
 import { LocalFailure } from '@/utils/errors'
-import { write } from '@/utils'
+import { json, write } from '@/utils'
 
 export type BuildOptions = Globals & { minify?: boolean; out?: string }
 
@@ -20,7 +20,7 @@ export const DEFAULT_OUT = 'dist'
 export async function build(id: string | undefined, options: BuildOptions): Promise<void> {
     const dir = process.cwd()
     const targets = selectTargets(dir, id)
-    const prepared = await prepare(targets, { dir, minify: options.minify === true })
+    const prepared = await prepare(targets, { dir, minify: options.minify === true, human: options.human === true })
     const outDir = path.resolve(dir, options.out ?? DEFAULT_OUT)
     try {
         fs.mkdirSync(outDir, { recursive: true })
@@ -37,8 +37,8 @@ export async function build(id: string | undefined, options: BuildOptions): Prom
         const relative = path.relative(dir, file).split(path.sep).join('/')
         return { id: item.id, entry: item.entry, file: relative.startsWith('..') ? file : relative, bytes: item.bytes }
     })
-    if (options.json === true) {
-        await write('stdout', JSON.stringify(built) + '\n')
+    if (options.human !== true) {
+        await write('stdout', json(built))
         return
     }
     await write(

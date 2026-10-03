@@ -2,6 +2,8 @@
 
 The Zega developer CLI. It manages [Zega Cloud](https://zega.dev) from a terminal, a script or an agent: who you are, your projects, graphs, buckets, functions and usage, and the project file (`zega.json`) that later commands read.
 
+**zega prints JSON; add `--human` for people.** Every command prints JSON on stdout (one value per result, one line per event for the ones that keep running), asks nothing, and prints no colour, logo or table, on a terminal too. `--human` gives the readable form: tables, the logo and banners, colour, readable errors and questions. The help is JSON as well. What each command prints is under [output](#output).
+
 Built for agents first. There is no browser login: a person makes an API token in the dashboard, the CLI stores it, and every command can run with no terminal at all.
 
 The npm package is `zegadb`; the command is `zega`. (The Rust database binary is `zega-server`; the embeddable library is `@zegadb/lib`.)
@@ -22,15 +24,15 @@ or run it from source: `bun run start -- <command>`.
 Make an API token at https://dashboard.zega.dev/tokens (a `read` token reads everything; a `manage` token can also create, rename, delete and deploy). Then:
 
 ```
-zega login                      # a hidden prompt on a terminal
-echo "$TOKEN" | zega login      # or pipe it
+echo "$TOKEN" | zega login      # pipe it
 zega login --token-file ./token # or read it from a file
+zega login --human              # or, on a terminal, a hidden prompt
 ```
 
-It then says who you are, and nothing about the token beyond its name and what it may do (never any part of the secret, and not where it is kept):
+Without `--human` and without one of the first two, `zega login` fails at once and says how to give the token. It then says who you are, and nothing about the token beyond its name and what it may do (never any part of the secret, and not where it is kept). This is `--human`; by default it is the API's answer as JSON (`{ "account", "token" }`):
 
 ```
-$ zega login
+$ zega login --human
 Logged in as Ada Lovelace (@ada)
 
 Token    ci-bot
@@ -38,7 +40,7 @@ Scope    manage
 Project  all projects
 Expires  Dec 1, 2026
 
-$ zega whoami
+$ zega whoami --human
 Logged in as Ada Lovelace (@ada)
 
 API      https://cloud.zega.dev
@@ -48,7 +50,7 @@ Project  all projects
 Expires  never
 ```
 
-An account with no full name shows as `Logged in as @ada`. `--json` prints the API's answer unchanged (it also has when the token was made and last used).
+An account with no full name shows as `Logged in as @ada`. The JSON is the API's answer unchanged (it also has when the token was made and last used).
 
 The token is never an argument (arguments show in process listings) and never an environment variable. It is checked with `GET /v1/whoami` before it is saved, so a mistyped token never replaces a good one.
 
@@ -83,7 +85,7 @@ zega usage                           this month's usage and bill per graph
 zega regions                         the regions a graph can run in
 ```
 
-Global options: `--api <url>`, `--token-file <path>`, `--json`.
+Global options: `--api <url>`, `--token-file <path>`, `--human`.
 
 ### deploy
 
@@ -92,24 +94,26 @@ Global options: `--api <url>`, `--token-file <path>`, `--json`.
 - The bundle is made with Bun.build (inside the compiled executable too): target `browser`, ES module, the conditions `workerd`, `worker` and `browser`, npm dependencies bundled from `node_modules`, `process.env.NODE_ENV` set to `"production"` (Bun's default is development), no source map (Zega Cloud takes one file and the runtime ignores an inline map; it would only count against the limit), `cloudflare:` imports left as they are.
 - The size is printed on stderr before the upload. A bundle over the API's limit of 1,000,000 bytes is refused with its size, before anything is sent. All entries are bundled before the first upload, so a function that cannot be bundled stops the deploy while nothing has changed.
 - **Node built-ins are not available in Zega Cloud functions yet** (no `nodejs_compat`). An import of `node:crypto`, `node:buffer`, a bare `path` and the rest, in your code or in a dependency, is an error naming the import and the file. (Bun's browser target would otherwise swap in a polyfill: `node:crypto` alone is about 925 KB.)
-- With `--json` stdout is the API's answer unchanged, one per function; the size line is on stderr.
+- Stdout is the API's answer unchanged, one JSON line per function. With `--human` it is a readable line each, and the size of each bundle is on stderr before the upload.
 
 `zega function logs <id>` takes `--from`, `--to`, `--limit` (1 to 200), `--status`, `--search` and `--cursor`.
 
 ### start
 
-`zega start [args]` runs `zega-server start [args]`, the database server that ships with this CLI: the arguments are passed through untouched (`zega start --data ./data --port 9342`, `--host 0.0.0.0 --token-file ./token`; `--help` is the server's own), stderr is the server's, and the exit code is the server's (128 plus the signal if it was killed by one). SIGTERM and SIGHUP sent to `zega` reach the server; so does SIGINT unless a terminal is attached, where Ctrl-C already reaches both. What is `zega`'s own, taken out of the arguments: `--explorer`, `--explorer-port <n>`, `--json` and `--server <path>`.
+`zega start [args]` runs `zega-server start [args]`, the database server that ships with this CLI: the arguments are passed through untouched (`zega start --data ./data --port 9342`, `--host 0.0.0.0 --token-file ./token`; `--help` is the server's own), stderr is the server's, and the exit code is the server's (128 plus the signal if it was killed by one). SIGTERM and SIGHUP sent to `zega` reach the server; so does SIGINT unless a terminal is attached, where Ctrl-C already reaches both. What is `zega`'s own, taken out of the arguments: `--explorer`, `--explorer-port <n>`, `--human` and `--server <path>`.
 
-On a terminal it says what is running in a banner (the mark, a tagline, a rule, then a line each); without a terminal, or with `--json`, it prints one JSON line with the same facts:
+It says what is running as one JSON line, an event; whatever else the server prints on stdout is passed on one `{"event":"output","line":...}` per line, so that stdout is all JSON:
+
+```
+{"event":"ready","server":{"url":"http://127.0.0.1:9342","status":"running"},"explorer":{"url":null,"status":"stopped"}}
+```
+
+With `--human` it says it in a banner (a tagline, a rule, a line each, and on a terminal the mark above), and the server's own lines are passed on as they are:
 
 ```
   ➜  Local:     http://127.0.0.1:9342
   ➜  Explorer:  (stopped)
        zega start --explorer
-```
-
-```
-{"server":{"url":"http://127.0.0.1:9342","status":"running"},"explorer":{"url":null,"status":"stopped"}}
 ```
 
 `zega start --explorer` starts the server and serves the explorer (below) on the same database, on 9343 (`--explorer-port <n>`; 0 chooses a free one); both lines then have their addresses. If the server needs a token (`--token-file`), the explorer adds it to the requests it passes on: the page never has it.
@@ -123,13 +127,13 @@ zega explorer [--port 9343] [--data ./zega-data]
 zega explorer <graph>
 ```
 
-`zega explorer` runs the bundled `zega-server start` on the data directory (on a port of its own, 127.0.0.1) and serves the explorer page on 127.0.0.1:9343, then prints the address and opens nothing (a browser is yours to open). Ctrl-C stops both. It exits 1 if the database cannot start (a data directory another process holds, say; the server's own words are printed) or the port is taken. `--json` prints `{ "url", "data", "server" }`.
+`zega explorer` runs the bundled `zega-server start` on the data directory (on a port of its own, 127.0.0.1) and serves the explorer page on 127.0.0.1:9343, then prints the address and opens nothing (a browser is yours to open). Ctrl-C stops both. It exits 1 if the database cannot start (a data directory another process holds, say; the server's own words are printed) or the port is taken. By default it prints one event, `{"event":"ready","url","data","server"}`; with `--human` the address alone on a line, and what it serves on stderr.
 
 The page is zegadb/zega's explorer in its CLI form: the same source as the zega.dev playground, built without the website's links, sample graphs and examples, so it opens on your own database and has nothing else in it. The bar says what it is connected to (`local server · zega-data`, or `cloud graph · <name>`) and has one button to switch between the two. An empty database says so and shows how to load data (Import, or a ZQL mutation); `clear` asks before it deletes anything. Writes go to the real engine in `zega-server`, so the database is persistent and the same one `zega start` serves.
 
 **A cloud graph** is connected from the same page: **Connect to remote graph**, then the graph and its key (`zk_...`, made in the dashboard). If you are logged in the graphs of your account are offered by name. The page's requests go to `zega`, which passes them on to the graph's own address with the key the page sent; the cloud only ever sees a server, so its CORS rule does not apply, and `zega` keeps nothing (no key, no body, no log of either). Your API token is used only to list your graphs and find their addresses, and never goes to a graph.
 
-`zega explorer <graph>` prints instead the address of that cloud graph's console in the dashboard (`https://dashboard.zega.dev/graphs/<id>/console`; the project-first layout in zegadb/dashboard#44 redirects it), after asking the API that the graph exists. `--json` prints `{ "url" }`. It needs a token (`zega login` or `--token-file`).
+`zega explorer <graph>` prints instead the address of that cloud graph's console in the dashboard (`https://dashboard.zega.dev/graphs/<id>/console`; the project-first layout in zegadb/dashboard#44 redirects it), after asking the API that the graph exists. It prints `{ "url" }` (with `--human`, the address alone). It needs a token (`zega login` or `--token-file`).
 
 Only 127.0.0.1 is served. A page of another website must not be able to drive your database through your machine, so a request must carry this server's own `Host` (against DNS rebinding), and one that can change anything must have no `Origin` or its own.
 
@@ -139,10 +143,10 @@ Two things the page still takes from the network, as the playground does: the ed
 
 ### build
 
-`zega build [id]` writes each function's bundle to `dist/<function id>.js` (`--out <dir>` changes the directory, `--minify` shrinks it). It is `zega deploy` without the upload: the same bundling step (one function, `prepare` in `src/handlers/deploy.ts`), so the file is byte for byte what `deploy` would send, the Node built-in refusal and the 1,000,000-byte limit are the same, and it needs no token and no network. `--json` prints `[{ "id", "entry", "file", "bytes" }]`.
+`zega build [id]` writes each function's bundle to `dist/<function id>.js` (`--out <dir>` changes the directory, `--minify` shrinks it). It is `zega deploy` without the upload: the same bundling step (one function, `prepare` in `src/handlers/deploy.ts`), so the file is byte for byte what `deploy` would send, the Node built-in refusal and the 1,000,000-byte limit are the same, and it needs no token and no network. It prints `[{ "id", "entry", "file", "bytes" }]`; `--human` prints what follows.
 
 ```
-$ zega build
+$ zega build --human
 bundled src/index.ts: 540 bytes (limit 1,000,000)
 Built  f0bbbbbbbbbbbbbbbb  src/index.ts -> dist/f0bbbbbbbbbbbbbbbb.js (540 bytes)
 ```
@@ -152,7 +156,7 @@ Built  f0bbbbbbbbbbbbbbbb  src/index.ts -> dist/f0bbbbbbbbbbbbbbbb.js (540 bytes
 `zega dev [id]` runs the functions `zega.json` lists on localhost, with Bun, built by the same bundling step as `deploy`. A function is `export default { fetch(request, env, ctx) }` here as in the cloud.
 
 ```
-$ zega dev
+$ zega dev --human
 zega dev: Bun serves your function; this is not the Workers runtime (see `zega dev --help`)
   f0bbbbbbbbbbbbbbbb  src/index.ts  http://127.0.0.1:8787
     env: GREETING, SECRET  (.dev.vars)
@@ -164,7 +168,7 @@ zega dev: Bun serves your function; this is not the Workers runtime (see `zega d
 - **Reload.** Any file saved under the project (not `node_modules`, `dist`, `.git`, `.tmp`) rebuilds. The port stays; the new build replaces the old one between requests. A build that fails (a syntax error, a Node built-in, a bundle over the limit) prints why and the previous build keeps serving. `--no-watch` serves once.
 - **Env and secrets.** A deployed function has no bindings: its `env` is its variables and secrets, flat strings, and nothing else. `zega dev` gives it the same shape from a dotenv file next to `zega.json`: `.dev.vars` for every function, and `.dev.vars.<function id>` over it for one. Names and sizes follow the cloud's rules (a letter or `_` then letters, digits and `_`, up to 64 characters; a value up to 5,120; 64 values), so what runs here can be set there. The shell's environment and your stored API token are never passed to a function; names are printed at start, values never. Add `.dev.vars*` to `.gitignore`.
 - **Which graph.** A function reaches a graph over HTTPS: the address in a variable, a graph key (`zk_...`) in a secret. `--local-graph [url]` sets that variable to a `zega-server start` on this machine (default `http://127.0.0.1:9342`; it says if nothing answers there). `--cloud-graph <id>` sets it to that cloud graph's address, asked of the API with your stored token (or `--token-file`); the key is a secret like any other and comes from `.dev.vars`, and the start-up says it is the CLOUD graph and warns when the key is missing. The variable is `ZEGA_GRAPH_URL` and the key `ZEGA_GRAPH_KEY`; `--graph-url-var` and `--graph-key-var` use the names your function reads. The two flags are alternatives, and with neither the function gets no graph address.
-- `--json` prints one document on stdout at start (`functions` with their addresses and env names, the `graph`); logs, reloads and request lines go to stderr.
+- By default every line on stdout is a JSON event: `ready` at start (`functions` with their addresses and env names, the `graph`, `watching`), then `reloaded`, `build_failed` (the previous build keeps serving), `request`, `threw`, `wait_until_rejected` and `warning`; stderr stays empty. With `--human` the start is the text above on stdout and the rest are lines on stderr.
 
 **What Bun is not.** `zega dev` is not the Workers runtime, and says so. Where it can tell, it prints a one-line warning when a function uses something it cannot imitate; the rest is listed here:
 
@@ -176,18 +180,35 @@ zega dev: Bun serves your function; this is not the Workers runtime (see `zega d
 - Limits are not enforced: the function's CPU time and subrequest limits (`zega functions <id>`), memory, request and response sizes. Workers freezes `Date.now()` while code runs; Bun does not. Outbound `fetch` can reach `localhost`, which is how `--local-graph` works and which a deployed function cannot do.
 - `console` output goes to your terminal, not to the function's cloud logs.
 
-### for agents and scripts
+### output
 
-- `--json` prints the API's JSON unchanged (one document on stdout). Without it you get an aligned table.
-- Every question the wizard asks is also a flag. With a terminal and a missing answer, `zega init` asks. With no terminal (an agent, CI, a pipe) or with `--json` it never asks: it fails at once, naming the missing flags.
-- Every failure exits 1 with the API's own sentence and code on stderr (`zega: <sentence> (code: <code>, HTTP <status>)`), then what to do about it: how to log in on a 401, a manage token on `scope_required`, the API's own text on `session_required`, the wait time on 429 and 503 (the CLI never retries by itself), the host it could not reach on a network failure.
-- What costs money, and the tokens themselves, are dashboard-only: the API answers 403 `session_required` and the CLI says so. `zega init` therefore creates nothing in the cloud.
+**Default: JSON.** A command prints one JSON value on stdout, and nothing else (no colour, no logo, no table), whether or not a terminal is attached. A command that keeps running (`start`, `dev`, `explorer`) prints one JSON line per event, each with an `event` name. `--human` is the only switch to the readable form: no output is chosen by what stdout is.
+
+| command | stdout |
+|---|---|
+| `login`, `whoami`, `projects`, `graphs`, `buckets`, `functions`, `usage`, `regions`, `function logs` | the API's answer, unchanged (`projects` is `{ "projects": [...] }`, `whoami` is `{ "account", "token" }`, and so on; the shapes are in `openapi/openapi.json`) |
+| `deploy`, `function deploy` | the API's answer, one line per function: `{ "function": { "id", "name", "url", "version", ... } }` |
+| `logout` | `{ "loggedOut": true }` (`false` when nothing was stored) |
+| `init` | `{ "file", "config": { "version", "name", "region", "functions"? } }` |
+| `build` | `[{ "id", "entry", "file", "bytes" }]` |
+| `explorer <graph>` | `{ "url" }` |
+| `explorer` | `{ "event": "ready", "url", "data", "server" }`, then nothing until it stops |
+| `start` | `{ "event": "ready", "server": { "url", "status" }, "explorer": { "url", "status" } }`, then `{ "event": "output", "line" }` for what the server prints |
+| `dev` | `{ "event": "ready", "functions": [{ "id", "entry", "url", "env" }], "graph", "watching" }`, then `reloaded`, `build_failed`, `request`, `threw`, `wait_until_rejected`, `warning` events |
+
+**Errors** are one JSON object on stderr and a nonzero exit code: `{"error":{"code","message","hint"}}`. For a failure of the API `code` is its code and `message` its sentence; `hint` is what to do about it (how to log in on a 401, a manage token on `scope_required`, the wait time on 429 and 503: the CLI never retries by itself; whether the change took effect), or `null`. A network failure has the code `network`; a mistake on the command line, `usage` (hint `zega --help`); one on this machine its own (`not_logged_in`, `missing_flag`, `invalid_flag`, otherwise `local`). With `--human` it is the sentence people read: `zega: <sentence> (code: <code>, HTTP <status>)` and the hint lines under it.
+
+**Nothing is asked.** A question is a flag too. Without `--human`, a missing value is an error naming the flag (`zega init` names every missing flag at once; `zega login` says to pipe the token or pass `--token-file`). With `--human` on a terminal, `zega init` and `zega login` ask. The terminal matters only there: for the questions, and for the logo and colour (which `--human` shows on a terminal).
+
+**Help is JSON** too, pretty-printed like a `package.json` and made from the command definitions, so it cannot go stale: `zega --help` lists the commands by group and the global options, `zega <command> --help` has the usage, arguments and options (`zega start --help` is the server's). On a terminal it is coloured and has the logo above it; piped it is plain JSON.
+
+What costs money, and the tokens themselves, are dashboard-only: the API answers 403 `session_required` and the CLI says so. `zega init` therefore creates nothing in the cloud.
 
 ### zega init
 
 ```
-zega init                                   # asks for the name and the region
-zega init --name my-app --region yyz        # no questions
+zega init --human                           # on a terminal: asks for the name and the region
+zega init --name my-app --region yyz        # no questions (the default)
 zega init --name my-app --region yyz --force
 ```
 
@@ -214,7 +235,7 @@ To deploy functions it lists them, each with its cloud id and the source file to
 }
 ```
 
-`zega init --function <id> [--entry <path>]` writes that (the entry defaults to `src/index.ts`; on a terminal init asks for both, and an empty function id means none). `init` never creates the function: that is done in the dashboard.
+`zega init --function <id> [--entry <path>]` writes that (the entry defaults to `src/index.ts`; with `--human` on a terminal init asks for both, and an empty function id means none). `init` never creates the function: that is done in the dashboard.
 
 ## develop
 
@@ -231,4 +252,4 @@ The code keeps the shape it was seeded with: `src/core/<command>/<command>.ts` i
 
 The API client is typed from the OpenAPI document: `openapi/openapi.json` is a saved copy of https://cloud.zega.dev/openapi.json and `src/types/cloud-api.d.ts` is generated from it with `openapi-typescript`. Both are committed; CI regenerates the types and fails if they differ. To follow a change in the API: `bun run api:update` (or `bun run api:update https://cloud.zega.world/openapi.json` for staging), then commit both files.
 
-The tests run the CLI as a subprocess against a fake API on `127.0.0.1` that records every request, on a real terminal (a pty) for the wizard, and as the compiled executable.
+The tests run the CLI as a subprocess against a fake API on `127.0.0.1` that records every request, on a real terminal (a pty) for the questions and for the JSON a terminal still gets, and as the compiled executable.

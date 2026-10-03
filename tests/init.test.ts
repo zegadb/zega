@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { TOKEN, fakeApi, regionsBody, remove, run, scratch } from './helpers'
+import { TOKEN, errorOf, fakeApi, regionsBody, remove, run, scratch } from './helpers'
 
 const api = fakeApi({ 'GET /v1/regions': { body: regionsBody } })
 const home = scratch()
@@ -21,7 +21,7 @@ describe('zega init', () => {
     test('with flags: writes zega.json and creates nothing in the cloud', async () => {
         const dir = project()
         try {
-            const result = await run(['init', '--name', 'my-app', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
+            const result = await run(['init', '--human', '--name', 'my-app', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
                 home,
                 cwd: dir,
             })
@@ -50,8 +50,9 @@ describe('zega init', () => {
             const result = await run(['init'], { home, cwd: dir, stdin: null })
             expect(Date.now() - started).toBeLessThan(5000)
             expect(result.code).toBe(1)
+            expect(JSON.parse(result.stderr).error).toMatchObject({ code: 'missing_flag' })
             expect(result.stderr).toContain('missing --name, --region')
-            expect(result.stderr).toContain('no terminal')
+            expect(result.stderr).toContain('Nothing is asked unless --human is given on a terminal')
             expect(result.stdout).toBe('')
             expect(fs.existsSync(path.join(dir, 'zega.json'))).toBe(false)
 
@@ -64,13 +65,17 @@ describe('zega init', () => {
         }
     })
 
-    test('--json never asks either', async () => {
+    test('by default it prints JSON and never asks; --human without a terminal has no one to ask either', async () => {
         const dir = project()
         try {
-            const result = await run(['init', '--json'], { home, cwd: dir, stdin: null })
+            const result = await run(['init'], { home, cwd: dir, stdin: null })
             expect(result.code).toBe(1)
             expect(result.stderr).toContain('missing --name, --region')
-            const done = await run(['init', '--json', '--name', 'a', '--region', 'yyz'], { home, cwd: dir, stdin: null })
+            const human = await run(['init', '--human'], { home, cwd: dir, stdin: null })
+            expect(human.code).toBe(1)
+            expect(human.stderr).toStartWith('zega: missing --name, --region')
+            expect(fs.existsSync(path.join(dir, 'zega.json'))).toBe(false)
+            const done = await run(['init', '--name', 'a', '--region', 'yyz'], { home, cwd: dir, stdin: null })
             expect(done.code).toBe(0)
             const printed = JSON.parse(done.stdout)
             expect(printed.config).toEqual({ version: 1, name: 'a', region: 'yyz' })
@@ -88,7 +93,8 @@ describe('zega init', () => {
                 cwd: dir,
             })
             expect(result.code).toBe(1)
-            expect(result.stderr).toContain('--region: "moon" is not a region; the regions are yyz, ams')
+            expect(errorOf(result)).toMatchObject({ code: 'invalid_flag' })
+            expect(errorOf(result).message).toContain('--region: "moon" is not a region; the regions are yyz, ams')
             expect(fs.existsSync(path.join(dir, 'zega.json'))).toBe(false)
         } finally {
             remove(dir)
@@ -102,8 +108,8 @@ describe('zega init', () => {
             expect(ok.code).toBe(0)
             const bad = await run(['init', '--name', 'x', '--region', 'moon', '--force'], { home, cwd: dir })
             expect(bad.code).toBe(1)
-            expect(bad.stderr).toContain('"moon" is not a region')
-            expect(bad.stderr).toContain('dfw')
+            expect(errorOf(bad).message).toContain('"moon" is not a region')
+            expect(errorOf(bad).message).toContain('dfw')
         } finally {
             remove(dir)
         }
@@ -148,7 +154,7 @@ describe('zega init', () => {
     test('--function ties a function to its entry (src/index.ts unless --entry); nothing is asked without a terminal', async () => {
         const dir = project()
         try {
-            const first = await run(['init', '--name', 'a', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb'], { home, cwd: dir, stdin: null })
+            const first = await run(['init', '--human', '--name', 'a', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb'], { home, cwd: dir, stdin: null })
             expect(first.code).toBe(0)
             expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))).toEqual({
                 version: 1,
@@ -176,7 +182,7 @@ describe('zega init', () => {
         try {
             const bad = await run(['init', '--name', 'a', '--region', 'yyz', '--function', 'hello'], { home, cwd: dir, stdin: null })
             expect(bad.code).toBe(1)
-            expect(bad.stderr).toContain('--function: a function id is "f0" and 16 characters')
+            expect(errorOf(bad).message).toContain('--function: a function id is "f0" and 16 characters')
             const orphan = await run(['init', '--name', 'a', '--region', 'yyz', '--entry', 'x.ts'], { home, cwd: dir, stdin: null })
             expect(orphan.code).toBe(1)
             expect(orphan.stderr).toContain('--entry needs --function')

@@ -20,7 +20,7 @@ describe('zega build', () => {
         const dir = hello()
         const api = fakeApi({ [`PUT ${CODE_PATH}`]: { body: { function: deployedFunction } } })
         try {
-            const built = await run(['build'], { home, cwd: dir })
+            const built = await run(['build', '--human'], { home, cwd: dir })
             expect(built.code).toBe(0)
             const file = path.join(dir, 'dist', `${FUNCTION_ID}.js`)
             const onDisk = fs.readFileSync(file, 'utf8')
@@ -41,11 +41,11 @@ describe('zega build', () => {
         }
     })
 
-    test('--minify matches deploy --minify; --out chooses the directory; --json lists what was written', async () => {
+    test('--minify matches deploy --minify; --out chooses the directory; by default it lists what was written as JSON', async () => {
         const dir = hello()
         const api = fakeApi({ [`PUT ${CODE_PATH}`]: { body: { function: deployedFunction } } })
         try {
-            const built = await run(['build', '--minify', '--out', 'out/js', '--json'], { home, cwd: dir })
+            const built = await run(['build', '--minify', '--out', 'out/js'], { home, cwd: dir })
             expect(built.code).toBe(0)
             const files = JSON.parse(built.stdout) as { id: string; entry: string; file: string; bytes: number }[]
             expect(files).toEqual([

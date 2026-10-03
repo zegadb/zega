@@ -96,19 +96,19 @@ export type StartFlags = {
     explorer: boolean
     /** `--explorer-port <n>`: its port (default 9343). */
     explorerPort: number | undefined
-    /** `--json`: say what is running as one JSON line instead of the banner. */
-    json: boolean
+    /** `--human`: say what is running as the banner instead of one JSON line. */
+    human: boolean
     /** Everything else, for `zega-server start`, in the order it was typed. */
     rest: string[]
 }
 
 /**
  * What `zega start` takes for itself out of the arguments meant for `zega-server start`: `--server`, `--explorer`,
- * `--explorer-port` and `--json` (the server has none of them). Everything else, and everything after `--`, is the
+ * `--explorer-port` and `--human` (the server has none of them). Everything else, and everything after `--`, is the
  * server's, untouched.
  */
 export function takeStartFlags(args: string[]): StartFlags {
-    const flags: StartFlags = { server: undefined, explorer: false, explorerPort: undefined, json: false, rest: [] }
+    const flags: StartFlags = { server: undefined, explorer: false, explorerPort: undefined, human: false, rest: [] }
     const value = (name: string, at: number): string => {
         const given = args[at + 1]
         if (given === undefined) throw new LocalFailure(`${name} needs a value`)
@@ -127,8 +127,8 @@ export function takeStartFlags(args: string[]): StartFlags {
             flags.server = arg.slice('--server='.length)
         } else if (arg === '--explorer') {
             flags.explorer = true
-        } else if (arg === '--json') {
-            flags.json = true
+        } else if (arg === '--human') {
+            flags.human = true
         } else if (arg === '--explorer-port' || arg.startsWith('--explorer-port=')) {
             const given = arg === '--explorer-port' ? value('--explorer-port', i) : arg.slice('--explorer-port='.length)
             if (arg === '--explorer-port') i++

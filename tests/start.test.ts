@@ -105,11 +105,11 @@ describe('which zega-server', () => {
         expect(roots.every((root) => !root.includes('$bunfs'))).toBe(true)
     })
 
-    test('--server, --explorer, --explorer-port and --json are ours and nothing else is', () => {
-        const none = { server: undefined, explorer: false, explorerPort: undefined, json: false }
+    test('--server, --explorer, --explorer-port and --human are ours and nothing else is', () => {
+        const none = { server: undefined, explorer: false, explorerPort: undefined, human: false }
         expect(takeStartFlags(['--data', './d', '--server', '/x/zs', '--port', '0'])).toEqual({ ...none, server: '/x/zs', rest: ['--data', './d', '--port', '0'] })
         expect(takeStartFlags(['--server=/y', '--token-file', 't'])).toEqual({ ...none, server: '/y', rest: ['--token-file', 't'] })
-        expect(takeStartFlags(['--explorer', '--explorer-port', '9500', '--json', '--host', '0.0.0.0'])).toEqual({ ...none, explorer: true, explorerPort: 9500, json: true, rest: ['--host', '0.0.0.0'] })
+        expect(takeStartFlags(['--explorer', '--explorer-port', '9500', '--human', '--host', '0.0.0.0'])).toEqual({ ...none, explorer: true, explorerPort: 9500, human: true, rest: ['--host', '0.0.0.0'] })
         expect(takeStartFlags(['--explorer-port=0'])).toEqual({ ...none, explorerPort: 0, rest: [] })
         expect(takeStartFlags(['--', '--server', 'z', '--explorer'])).toEqual({ ...none, rest: ['--', '--server', 'z', '--explorer'] })
         expect(() => takeStartFlags(['--server'])).toThrow('--server needs a value')
@@ -128,9 +128,9 @@ describe('which zega-server', () => {
 describe.skipIf(!posix)('zega start', () => {
     const server = fakeServer(path.join(home, 'fake'))
 
-    test('runs zega-server start with the arguments untouched, on the same terminal', async () => {
+    test('runs zega-server start with the arguments untouched; with --human its own words are passed on as they are', async () => {
         // `--token-file` is a global option of zega too: the server's own must reach the server.
-        const result = await run(['start', '--data', './d', '--port', '0', '--token-file', './tok', '--host', '0.0.0.0', '--server', server], { home })
+        const result = await run(['start', '--human', '--data', './d', '--port', '0', '--token-file', './tok', '--host', '0.0.0.0', '--server', server], { home })
         expect(result.code).toBe(0)
         expect(result.stdout.split('\n')).toEqual([
             'fake-server 9',
@@ -148,8 +148,22 @@ describe.skipIf(!posix)('zega start', () => {
     })
 
     test('--help is the server\'s, not zega\'s', async () => {
-        const result = await run(['start', '--server', server, '--help'], { home })
+        const result = await run(['start', '--human', '--server', server, '--help'], { home })
         expect(result.stdout).toContain('arg:start\narg:--help')
+    })
+
+    test('by default what the server prints is one `output` event per line, so that stdout is all JSON; the exit code is still its own', async () => {
+        const result = await run(['start', '--server', server, '--data', './d', '--exit=3'], { home })
+        expect(result.code).toBe(3)
+        const events = result.stdout.trim().split('\n').map((line) => JSON.parse(line))
+        expect(events).toEqual([
+            { event: 'output', line: 'fake-server 4' },
+            { event: 'output', line: 'arg:start' },
+            { event: 'output', line: 'arg:--data' },
+            { event: 'output', line: 'arg:./d' },
+            { event: 'output', line: 'arg:--exit=3' },
+        ])
+        expect(result.stdout).not.toContain('➜')
     })
 
     test('the exit code and stderr are the server\'s', async () => {
@@ -242,6 +256,7 @@ describe('what zega start says is running', () => {
 
     test('the JSON line has each thing\'s address and status', () => {
         expect(JSON.parse(runningJson({ server: 'http://127.0.0.1:9342', explorer: null }))).toEqual({
+            event: 'ready',
             server: { url: 'http://127.0.0.1:9342', status: 'running' },
             explorer: { url: null, status: 'stopped' },
         })
@@ -266,10 +281,11 @@ describe.skipIf(!posix)('zega start, running', () => {
         return cli
     }
 
-    test('with no terminal it prints one JSON line (not the banner) and the explorer is stopped', async () => {
+    test('by default it prints one JSON `ready` line (not the banner) and the explorer is stopped', async () => {
         const cli = go(base('plain'))
         await cli.until('\n')
         const line = JSON.parse(cli.stdout().split('\n')[0]!)
+        expect(line.event).toBe('ready')
         expect(line.server.status).toBe('running')
         expect(line.server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
         expect(line.explorer).toEqual({ url: null, status: 'stopped' })
@@ -281,27 +297,44 @@ describe.skipIf(!posix)('zega start, running', () => {
         expect(await cli.exited).toBe(0)
     })
 
-    test('on a terminal it prints the banner; --json on a terminal prints the JSON line instead', async () => {
-        const onTerminal = async (args: string[]) => {
-            let output = ''
-            const child = Bun.spawn([process.execPath, ENTRY, ...args], {
-                cwd: dir,
-                env: { PATH: process.env.PATH ?? '', HOME: home, TERM: 'xterm' },
-                terminal: { cols: 100, rows: 30, data: (_t, data) => void (output += new TextDecoder().decode(data)) },
-            })
-            const deadline = Date.now() + 20_000
-            while (!/zega start --explorer|"status":"stopped"/.test(output) && Date.now() < deadline) await Bun.sleep(25)
-            child.kill('SIGTERM')
-            await child.exited
-            return strip(output)
-        }
-        const banner = await onTerminal(base('tty'))
+    /** Run on a pseudo-terminal, until the start-up has been said; what was printed, without colour. */
+    const onTerminal = async (args: string[]) => {
+        let output = ''
+        const child = Bun.spawn([process.execPath, ENTRY, ...args], {
+            cwd: dir,
+            env: { PATH: process.env.PATH ?? '', HOME: home, TERM: 'xterm' },
+            terminal: { cols: 100, rows: 30, data: (_t, data) => void (output += new TextDecoder().decode(data)) },
+        })
+        const deadline = Date.now() + 20_000
+        while (!/zega start --explorer|"status":"stopped"/.test(output) && Date.now() < deadline) await Bun.sleep(25)
+        child.kill('SIGTERM')
+        await child.exited
+        return strip(output)
+    }
+
+    test('on a terminal it is still JSON by default: no banner, no mark, no colour', async () => {
+        const json = await onTerminal(base('tty'))
+        expect(json).toContain('"event":"ready"')
+        expect(json).toContain('"explorer":{"url":null,"status":"stopped"}')
+        expect(json).not.toContain('➜')
+        expect(json).not.toContain('▐')
+    })
+
+    test('--human on a terminal prints the banner with the mark', async () => {
+        const banner = await onTerminal(base('tty-human', ['--human']))
+        expect(banner).toContain('▐██████▐██████▐██████▐██████')
         expect(banner).toMatch(/➜  Local:     http:\/\/127\.0\.0\.1:\d+\r?\n/)
         expect(banner).toMatch(/➜  Explorer:  \(stopped\)\r?\n {7}zega start --explorer\r?\n/)
         expect(banner).not.toContain('"status"')
-        const json = await onTerminal(base('tty-json', ['--json']))
-        expect(json).toContain('"explorer":{"url":null,"status":"stopped"}')
-        expect(json).not.toContain('➜')
+    })
+
+    test('--human without a terminal prints the banner too, but not the mark (that is for a terminal)', async () => {
+        const cli = go(base('human-pipe', ['--human']))
+        await cli.until('zega start --explorer')
+        expect(cli.stdout()).toMatch(/➜  Local:     http:\/\/127\.0\.0\.1:\d+\n/)
+        expect(cli.stdout()).not.toContain('"event"')
+        expect(cli.stdout()).not.toContain('▐')
+        expect(cli.stdout()).not.toContain('\u001b[')
     })
 
     test('--explorer serves the explorer on the same database: both addresses are printed, and the page\'s requests reach the server', async () => {
@@ -361,15 +394,15 @@ describe.skipIf(!posix)('zega start, running', () => {
 })
 
 describe('the mark in the help', () => {
-    test('piped help has no mark (scripts and agents read plain text); `zega` alone prints the help, exit 0', async () => {
+    test('piped help has no mark (scripts and agents read it as JSON); `zega` alone prints the help, exit 0', async () => {
         const home = scratch()
         const help = await run(['--help'], { home })
         expect(help.code).toBe(0)
         expect(help.stdout).not.toContain('▐██')
-        expect(help.stdout).toContain('Usage: zega')
+        expect(JSON.parse(help.stdout).name).toBe('zega')
         const bare = await run([], { home })
         remove(home)
         expect(bare.code).toBe(0)
-        expect(bare.stdout).toContain('Usage: zega')
+        expect(JSON.parse(bare.stdout).name).toBe('zega')
     })
 })

@@ -9,14 +9,14 @@ import { write } from '@/utils/output'
  * the API (the authority, with each region's city); without, or when the API
  * cannot be reached, the ids in the OpenAPI document this CLI was built from.
  */
-export async function regionChoices(session: Session | null): Promise<RegionChoice[]> {
+export async function regionChoices(session: Session | null, human: boolean): Promise<RegionChoice[]> {
     if (session !== null) {
         try {
             const { json } = await session.client.get('/v1/regions')
             return json.regions.map((r) => ({ id: r.id, label: `${r.id}  ${r.city}, ${r.country}` }))
         } catch (error) {
             if (!(error instanceof NetworkFailure)) throw error
-            await write('stderr', `zega: ${error.message}; checking the region against the built-in list\n`)
+            if (human) await write('stderr', `zega: ${error.message}; checking the region against the built-in list\n`)
         }
     }
     return builtInRegions().map((id) => ({ id, label: id }))

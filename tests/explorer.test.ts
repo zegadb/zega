@@ -29,10 +29,13 @@ let counter = 0
 const dataDir = (name = `data${++counter}`) => path.join(work, name)
 
 type Started = { cli: Cli; url: string; data: string }
-/** Start `zega explorer` on the fake database server and the fixture page, on a port of the OS's choosing. */
-async function explorer(extra: string[] = [], options: { data?: string; assets?: boolean } = {}): Promise<Started> {
+/**
+ * Start `zega explorer` on the fake database server and the fixture page, on a port of the OS's choosing.
+ * It reads as a person does (`--human`: the address on a line, the rest on stderr) unless `human: false`.
+ */
+async function explorer(extra: string[] = [], options: { data?: string; assets?: boolean; human?: boolean } = {}): Promise<Started> {
     const data = options.data ?? dataDir()
-    const args = ['explorer', '--port', '0', '--server', FAKE_SERVER, '--data', data, ...(options.assets === false ? [] : ['--assets', FIXTURE_ASSETS]), ...extra]
+    const args = ['explorer', ...(options.human === false ? [] : ['--human']), '--port', '0', '--server', FAKE_SERVER, '--data', data, ...(options.assets === false ? [] : ['--assets', FIXTURE_ASSETS]), ...extra]
     const cli = startCli(args, { cwd: work, home })
     running.push(cli)
     await cli.until('\n')
@@ -55,10 +58,12 @@ describe.skipIf(!posix)('zega explorer: a local database', () => {
         expect((await fetch(`${url}/../package.json`)).status).not.toBe(200)
     })
 
-    test('--json prints one document: the address, the data directory and the database server behind it', async () => {
-        const { cli, data } = await explorer(['--json'])
+    test('by default it prints one `ready` event: the address, the data directory and the database server behind it; nothing on stderr', async () => {
+        const { cli, data } = await explorer([], { human: false })
         const info = JSON.parse(cli.stdout().split('\n')[0]!)
-        expect(Object.keys(info).sort()).toEqual(['data', 'server', 'url'])
+        expect(Object.keys(info).sort()).toEqual(['data', 'event', 'server', 'url'])
+        expect(info.event).toBe('ready')
+        expect(cli.stderr()).toBe('')
         expect(info.data).toBe(data)
         expect(info.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
         expect(info.server).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
@@ -258,13 +263,13 @@ describe('zega explorer <graph>: the cloud console address', () => {
     test('prints the dashboard console address of that graph, asked of the API with the token; opens nothing', async () => {
         const api = fakeApi({ [`GET /v1/graphs/${graph.id}`]: { body: { graph } } })
         try {
-            const cli = startCli(['explorer', graph.id, '--api', api.url, '--token-file', tokenFile], { cwd: work, home })
+            const cli = startCli(['explorer', graph.id, '--human', '--api', api.url, '--token-file', tokenFile], { cwd: work, home })
             expect(await cli.exited).toBe(0)
             expect(cli.stdout()).toBe(`https://dashboard.zega.dev/graphs/${graph.id}/console\n`)
             expect(api.seen).toHaveLength(1)
             expect(api.seen[0]).toMatchObject({ method: 'GET', pathname: `/v1/graphs/${graph.id}`, authorization: `Bearer ${TOKEN}` })
 
-            const json = startCli(['explorer', graph.id, '--json', '--api', api.url, '--token-file', tokenFile], { cwd: work, home })
+            const json = startCli(['explorer', graph.id, '--api', api.url, '--token-file', tokenFile], { cwd: work, home })
             expect(await json.exited).toBe(0)
             expect(JSON.parse(json.stdout())).toEqual({ url: `https://dashboard.zega.dev/graphs/${graph.id}/console` })
         } finally {
@@ -281,11 +286,11 @@ describe('zega explorer <graph>: the cloud console address', () => {
     test('an unknown graph is the API\'s own answer, and no token says how to log in', async () => {
         const api = fakeApi({})
         try {
-            const missing = startCli(['explorer', 'g0zzzzzzzzzzzzzzzz', '--api', api.url, '--token-file', tokenFile], { cwd: work, home })
+            const missing = startCli(['explorer', 'g0zzzzzzzzzzzzzzzz', '--human', '--api', api.url, '--token-file', tokenFile], { cwd: work, home })
             expect(await missing.exited).toBe(1)
             expect(missing.stderr()).toContain('zega: No such route. (code: not_found, HTTP 404)')
             expect(missing.stdout()).toBe('')
-            const loggedOut = startCli(['explorer', graph.id, '--api', api.url], { cwd: work, home })
+            const loggedOut = startCli(['explorer', graph.id, '--human', '--api', api.url], { cwd: work, home })
             expect(await loggedOut.exited).toBe(1)
             expect(loggedOut.stderr()).toContain('not logged in: run `zega login`')
         } finally {
