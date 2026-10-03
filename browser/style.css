@@ -792,3 +792,12 @@ pre.result-json {
   #panes .pane.pane-collapsed > :not(h2) { display: none; }
   #panes .pane.pane-collapsed h2 { border-bottom: 0; }
 }
+
+/* The CLI's page (explorer-config.json says ui: cli): a database with nothing in it. */
+.empty-state { max-width: 460px; margin: auto; padding: 24px; font-size: 13px; line-height: 1.5; color: var(--ink); text-align: left; }
+.empty-state h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.empty-state p { margin: 0 0 12px; color: var(--dim); }
+.empty-state pre { margin: 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); white-space: pre-wrap; }
+.empty-state.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: color-mix(in srgb, var(--panel) 88%, transparent); pointer-events: none; max-width: none; margin: 0; }
+.empty-state.overlay > * { max-width: 460px; }
+.pane-graph #graph:has(> .empty-state.overlay) { position: relative; }
