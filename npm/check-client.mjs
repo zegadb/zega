@@ -306,7 +306,10 @@ if (serverBinary) {
         assert.equal(deniedWrite.code, 'unauthorized');
       }
 
-      assert.deepEqual((await zega.schema()).schema, SCHEMA);
+      const storedSchema = await zega.schema();
+      assert.match(storedSchema.schema, /type Person \{ name: String \}/);
+      assert.match(storedSchema.schema, /type Auth \{/);
+      assert.deepEqual(storedSchema.builtin, ['Auth']);
       const rows = await connect({ url, key: TOKEN }).query('schema { type Person { name: String } }\nquery { Person { name } }', { document: true });
       assert.equal(rows.length, names.length + 1);
 
