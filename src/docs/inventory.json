@@ -1,0 +1,28 @@
+{
+  "source": "zegadb/zega",
+  "commit": "418f361c1fc1b18281be37b55d7b5e8e0ab525d3",
+  "files": {
+    "cloud-image.md": "e80c62fd8f4bc5d7bc60d99d35bb35a9752f0040b168082736a176fc1ff79ac8",
+    "conditions.md": "c6ccd726dd654e8689c19f58acfbdfa2a7f50da77754d49ef46030bbbbcca2bb",
+    "data-loading.md": "2d2207d043e0633c56105f0d367fbd1a1f6b222b2cfd9e47ed928b96e092df64",
+    "errors.md": "f4d9c82327d432c8b76df9301c9bc4d6a8663bd2250eee59f47ae29d1d738541",
+    "files.md": "9a4b4f7d33ca9c26b6faf1189cbc008f80421ab811fc84a34ac2a8cdd88ae254",
+    "fmt.md": "782cc5185b7e6e083c17d9a258e724abf92cf66e76e25dea53df57e090f105f4",
+    "graph-format.md": "252cc034d646cfcd64f49febaf0b41b4faec855abfe7575ca3561f69e0c18e4a",
+    "index.md": "41b78bd9015865bc238c4b9d3fdb5b9cd54df6b5a9f292c8b3a8f2ce0fe276d7",
+    "linked-graphs-contract.md": "d03b723270d2511da65b23b405aa385f2b82d58d1de7851cd78a55dafb92db2f",
+    "linked-graphs.md": "4266d2e91f4031b7841142fb5b0b6439433173ea206b52efbe6e3be3df1042e8",
+    "location.md": "fe692ac17b9555d3d582639c063e6813c8d6cf8fd4f00555180d02d983e04bdc",
+    "mutation.md": "3c2be0b70e8a50f94601f2afc8e7df5dbaaf7b79ff20ffcc62b5c5e0b522ba3f",
+    "names.md": "9e3218617d46dd970bd0a793fb2efb4487cc952f88425ee5ad52c8869abb523f",
+    "path.md": "97f0f11c135771844f22f34595f88e7627927a0deedccf99f499c663d6b4dbeb",
+    "query.md": "469244d8c6f929490566f24119a3456fc970f647673e7cd834f4786d9dd302ac",
+    "relationships.md": "459d4f426fca90cda9e6499fa7e979fd6548608da809b77605a9922550128c26",
+    "scale-results.md": "e00641a2fcb6be9d25c7edd447d79a5c9d4861305148a83ae2f5ac90ceee6390",
+    "schema.md": "5af7ed0b6a721920b343e60e5f9c5576cd84ff251c60be34b01a0a71c04b8f5f",
+    "then.md": "8036b07f64fc03ab7bcf64675c6dff6577c505ab52e457770e4f92027080781d",
+    "time.md": "4eccac1018a2f8a05cb2b124e3e4ae01dcfaff5a6112934ea6052ba233cb9535",
+    "unique.md": "fda98dae72b232ca1700f92879c67fbbb159474094194098b500d6c889266a9f",
+    "vector.md": "cf7ae76ef31f7b2c5a91c0db59f8350694578225aa63f21f69d6d65e0e74f8da"
+  }
+}

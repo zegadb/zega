@@ -83,9 +83,23 @@ zega functions [id]                  list functions, or show one
 zega function logs <id>              a page of a function's requests and console lines
 zega usage                           this month's usage and bill per graph
 zega regions                         the regions a graph can run in
+zega mcp                             serve Zega tools to an MCP client over stdio
+zega mcp config --client <client>    print the client's connection command or config
 ```
 
 Global options: `--api <url>`, `--token-file <path>`, `--human`, `--nopretty`.
+
+## zega mcp
+
+`zega mcp` serves tools over stdio. Add it to an agent with `zega mcp config --client claude-code`, `codex`, `cursor`, `vscode`, `windsurf` or `zed`; copy the command or config it prints. For example, Claude Code can run:
+
+```
+claude mcp add --scope project zega -- zega mcp --groups account,graphs
+```
+
+By default it offers the `account`, `docs`, `functions`, `graphs` and `local` groups. Add `storage` explicitly, or use `--groups all`. Use `--read-only` to remove every tool that changes data. A read token also limits the server to read tools. The MCP server never returns the Cloud token or graph/storage keys in tool output.
+
+Graph tools use a short-lived graph key. With a manage token, `zega mcp` creates a `zega mcp <time>` key for the session and revokes it when the server exits. If the process is killed before cleanup, revoke the key in the dashboard. You can pass `--token-file <path>` to select a token file; the generated client snippets include only its path, never its contents.
 
 ### deploy
 

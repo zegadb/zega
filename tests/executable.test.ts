@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import pkg from '../package.json'
 import { FAKE_SERVER, startCli } from './cli_helpers'
+import { connectMcp, newHome } from './mcp_helpers'
 import { FN, eventually, freePort, startDev, writeProject } from './dev_helpers'
 import { FIXTURES, FUNCTION_ID, TOKEN, callBundle, deployedFunction, fakeApi, regionsBody, remove, scratch } from './helpers'
 
@@ -52,6 +53,19 @@ describe('the compiled executable', () => {
         const result = await run(['--version'])
         expect(result.code).toBe(0)
         expect(result.stdout.trim()).toBe(pkg.version)
+    })
+
+    test('the compiled executable completes an MCP stdio handshake and answers tools/list', async () => {
+        const isolated = newHome()
+        const mcp = await connectMcp(['--groups', 'docs'], { home: isolated, api: 'http://127.0.0.1:9', command: [exe] })
+        try {
+            const tools = (await mcp.client.listTools()).tools.map((tool) => tool.name).sort()
+            expect(tools).toEqual(['zega_docs_read', 'zega_docs_search'])
+            expect(mcp.stderr()).not.toContain('token')
+        } finally {
+            await mcp.close()
+            remove(isolated)
+        }
     })
 
     test('talks to the API and prints its JSON; --human prints a table', async () => {
