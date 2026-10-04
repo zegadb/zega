@@ -16,6 +16,12 @@
         "openapi-typescript": "7.13.0",
         "typescript": "5.9.3",
       },
+      "optionalDependencies": {
+        "@zegadb/server-darwin-arm64": "0.2.0",
+        "@zegadb/server-darwin-x64": "0.2.0",
+        "@zegadb/server-linux-x64": "0.2.0",
+        "@zegadb/server-win32-x64": "0.2.0",
+      },
     },
   },
   "packages": {
@@ -68,6 +74,14 @@
     "@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
 
     "@types/node": ["@types/node@26.6.4", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg=="],
+
+    "@zegadb/server-darwin-arm64": ["@zegadb/server-darwin-arm64@0.2.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-kGL53mL4RVCHh0S4LdiM7V42BLofhclYjWsMvSNW0yCCTTOkJjNrKZRdI8XKTde2bsl3aPF0iWSLCFvreOh4TQ=="],
+
+    "@zegadb/server-darwin-x64": ["@zegadb/server-darwin-x64@0.2.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-D3dCO+7skuwx6nVvktULEbb9lklZL6eBIOpneVicDmFiHJ3kT6Lm2TRqi5efLV/s397xTyBcBts6QerAO6wD3g=="],
+
+    "@zegadb/server-linux-x64": ["@zegadb/server-linux-x64@0.2.0", "", { "os": "linux", "cpu": "x64" }, "sha512-lQavRQFRgNvDl9rCSXUZdrbbAmNEIIVLqtYw4LWRtz74zD0JdwzLN9UQvkCgCaBApRkFJ24cJq8Pba71kvfTgA=="],
+
+    "@zegadb/server-win32-x64": ["@zegadb/server-win32-x64@0.2.0", "", { "os": "win32", "cpu": "x64" }, "sha512-wRVQOALLQtYH8UV5EJnusfaDPr52tZm9pim/QrlHkO51D+aRlEGNXaww/LFxCBMj2GMva7n1/6a9z4H7vxSNqw=="],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 
