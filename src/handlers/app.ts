@@ -60,7 +60,7 @@ export async function buildApp(dir: string, config: AppProject, human: boolean):
     const worker = path.resolve(dir, config.build.worker)
     const assets = path.resolve(dir, config.build.assets)
     if (!fs.existsSync(worker) || !fs.statSync(worker).isFile()) {
-        throw new LocalFailure(`the build did not make the worker: ${config.build.worker} is missing (zega.json says \`build.worker\`)`, 'build_output_missing')
+        throw new LocalFailure(`the build did not make its server entry: ${config.build.worker} is missing (zega.json says \`build.worker\`)`, 'build_output_missing')
     }
     if (!fs.existsSync(assets) || !fs.statSync(assets).isDirectory()) {
         throw new LocalFailure(`the build did not make the assets: ${config.build.assets} is missing (zega.json says \`build.assets\`)`, 'build_output_missing')

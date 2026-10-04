@@ -98,7 +98,7 @@ function collect(dir: string, config: AppProject): AppFiles {
     const workerFile = inside(dir, config.build.worker)
     const workerRoot = path.dirname(workerFile)
     if (!fs.existsSync(workerFile) || !fs.statSync(workerFile).isFile()) {
-        throw new LocalFailure(`the build did not make the worker: ${config.build.worker} is missing`, 'build_output_missing')
+        throw new LocalFailure(`the build did not make its server entry: ${config.build.worker} is missing`, 'build_output_missing')
     }
     const assetRoot = inside(dir, config.build.assets)
     if (!fs.existsSync(assetRoot) || !fs.statSync(assetRoot).isDirectory()) {
@@ -220,7 +220,7 @@ export async function deployApp(
         globals,
         'built',
         { framework: config.framework, mainModule: files.mainModule, modules: files.modules.length, moduleBytes: files.moduleBytes, assets: Object.keys(files.manifest).length, assetBytes: files.assetBytes },
-        `Built ${files.modules.length} worker modules and ${Object.keys(files.manifest).length} assets`,
+        `Built ${files.modules.length} app modules and ${Object.keys(files.manifest).length} assets`,
     )
 
     const functionId = await targetFunction(dir, config, session, requestedId, globals)

@@ -18,6 +18,7 @@ export function fn(context: Context): Starter {
             [context.entry]: text(`
 import { connect } from '@zegadb/lib/client'
 
+// Edge function deployed to Zega Cloud.
 type Env = { ${GRAPH_URL_VAR}: string; ${GRAPH_KEY_VAR}: string }
 
 export default {
@@ -48,7 +49,7 @@ export default {
             'README.md': text(`
 # ${context.name}
 
-A [Zega Cloud](https://zega.dev) function that reads from a graph with \`@zegadb/lib\`.
+An Edge function for [Zega Cloud](https://zega.dev) that reads from a graph with \`@zegadb/lib\`.
 
 \`\`\`
 bun install

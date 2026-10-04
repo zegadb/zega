@@ -3,6 +3,8 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import type { Command } from 'commander'
 
 import { program } from '../src/program'
+import { TEMPLATE_CHOICES } from '../src/questions/init/template'
+import { starter, TEMPLATES } from '../src/templates'
 import { helpObject } from '../src/utils/help'
 import { paint } from '../src/utils/pretty'
 import { errorOf, remove, run, scratch } from './helpers'
@@ -18,6 +20,27 @@ function everyCommand(parent: Command = program, prefix: string[] = []): { path:
 const group = (command: Command) => command.helpGroup().replace(/:$/, '').toLowerCase()
 
 describe('the help is JSON, made from the commands themselves', () => {
+    test('all command help and template choices avoid provider names', async () => {
+        const provider = /cloudflare|workers?\b|wrangler|opennext|workerd/i
+        for (const { path } of everyCommand()) {
+            const output = await run([...path, '--help'], { home })
+            expect(output.code).toBe(0)
+            expect(output.stdout).not.toMatch(provider)
+            expect(output.stderr).not.toMatch(provider)
+        }
+        for (const choice of Object.values(TEMPLATE_CHOICES)) expect(choice).not.toMatch(provider)
+        expect(TEMPLATE_CHOICES.function).toBe('function: an Edge function')
+    })
+
+    test('generated starter READMEs avoid provider names', () => {
+        const provider = /cloudflare|workers?\b|wrangler|opennext|workerd/i
+        for (const template of TEMPLATES) {
+            const readme = starter(template, { name: 'test-app', entry: 'src/index.ts' }).files['README.md']
+            expect(readme).toBeDefined()
+            expect(readme).not.toMatch(provider)
+        }
+    })
+
     test('`zega`, `zega --help` and `zega --human --help` are the same JSON that JSON.parse takes, with no mark when piped', async () => {
         const [bare, long, human] = await Promise.all([run([], { home }), run(['--help'], { home }), run(['--help', '--human'], { home })])
         for (const result of [bare, long, human]) {
