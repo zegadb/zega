@@ -31,7 +31,10 @@ async function onTerminal(args: string[], options: { home: string; cwd: string; 
         async waitFor(text: string) {
             const deadline = Date.now() + 15_000
             while (!output.includes(text)) {
-                if (Date.now() > deadline) throw new Error(`timed out waiting for ${JSON.stringify(text)}; saw ${JSON.stringify(output)}`)
+                if (Date.now() > deadline) {
+                    child.kill()
+                    throw new Error(`timed out waiting for ${JSON.stringify(text)}; saw ${JSON.stringify(output)}`)
+                }
                 await Bun.sleep(25)
             }
         },
@@ -79,22 +82,26 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
             await session.waitFor('Starter:')
             await session.waitFor('astro: an Astro app')
             // The function is the first choice, and the one the cursor is on.
-            expect(session.output.indexOf('function: one Workers-style function')).toBeLessThan(session.output.indexOf('nextjs: a Next.js app'))
+            expect(session.output.indexOf('function: an Edge function')).toBeLessThan(session.output.indexOf('nextjs: a Next.js app'))
             session.type('\u001b[B') // down: nextjs
             session.type('\r')
+            await session.waitFor('Install dependencies now?')
+            session.type('n\r')
             expect(await session.exited).toBe(0)
-            const config = JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))
+            const config = JSON.parse(fs.readFileSync(path.join(dir, 'picked', 'zega.json'), 'utf8'))
             expect(config).toMatchObject({ name: 'picked', kind: 'app', framework: 'nextjs' })
-            expect(fs.existsSync(path.join(dir, 'app', 'page.tsx'))).toBe(true)
+            expect(fs.existsSync(path.join(dir, 'picked', 'app', 'page.tsx'))).toBe(true)
 
             const plain = scratch()
             try {
                 const again = await onTerminal(['init', '--human', '--name', 'plain', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], { home, cwd: plain })
                 await again.waitFor('Starter:')
                 again.type('\r') // the function, as it is preselected
+                await again.waitFor('Install dependencies now?')
+                again.type('n\r')
                 expect(await again.exited).toBe(0)
-                expect(fs.existsSync(path.join(plain, 'src', 'index.ts'))).toBe(true)
-                expect(JSON.parse(fs.readFileSync(path.join(plain, 'package.json'), 'utf8')).dependencies['@zegadb/lib']).toBeDefined()
+                expect(fs.existsSync(path.join(plain, 'plain', 'src', 'index.ts'))).toBe(true)
+                expect(JSON.parse(fs.readFileSync(path.join(plain, 'plain', 'package.json'), 'utf8')).dependencies['@zegadb/lib']).toBeDefined()
             } finally {
                 remove(plain)
             }
@@ -109,8 +116,12 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
             const session = await onTerminal(['init', '--human', '--template', 'function', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
             await session.waitFor('Project name:')
             session.type('wizard-app\r')
+            await session.waitFor('Region:')
+            session.type('\r')
+            await session.waitFor('Install dependencies now?')
+            session.type('n\r')
             expect(await session.exited).toBe(0)
-            expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))).toEqual({
+            expect(JSON.parse(fs.readFileSync(path.join(dir, 'wizard-app', 'zega.json'), 'utf8'))).toEqual({
                 version: 1,
                 name: 'wizard-app',
                 region: 'yyz',
@@ -126,8 +137,12 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
         try {
             const session = await onTerminal(['init', '--human', '--template', 'function', '--name', 'flagged', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
             expect(session.output).not.toContain('Project name:')
+            await session.waitFor('Region:')
+            session.type('\r')
+            await session.waitFor('Install dependencies now?')
+            session.type('n\r')
             expect(await session.exited).toBe(0)
-            expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8')).name).toBe('flagged')
+            expect(JSON.parse(fs.readFileSync(path.join(dir, 'flagged', 'zega.json'), 'utf8')).name).toBe('flagged')
         } finally {
             remove(dir)
         }
@@ -136,7 +151,7 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
     test('init accepts a known function id and custom entry through flags', async () => {
         const dir = scratch()
         try {
-            const result = await run(['init', '--name', 'fn-app', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb', '--entry', 'worker/main.ts'], { home, cwd: dir })
+            const result = await run(['init', '--here', '--name', 'fn-app', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb', '--entry', 'worker/main.ts'], { home, cwd: dir })
             expect(result.code).toBe(0)
             expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))).toEqual({
                 version: 1,
@@ -153,7 +168,7 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
         const dir = scratch()
         try {
             fs.writeFileSync(path.join(dir, 'zega.json'), '{"version":1,"name":"old","region":"yyz"}\n')
-            const session = await onTerminal(['init', '--human', '--template', 'function', '--name', 'new', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
+            const session = await onTerminal(['init', '--human', '--here', '--template', 'function', '--name', 'new', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
                 home,
                 cwd: dir,
             })
@@ -210,7 +225,7 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
     test('without --human nothing is asked, even on a terminal: init and login fail at once, as JSON on stderr', async () => {
         const dir = scratch()
         try {
-            const init = await onTerminal(['init', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
+            const init = await onTerminal(['init', '--here', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
             expect(await init.exited).toBe(1)
             // The pty carries stderr too: it is one JSON object naming the flags.
             const initError = JSON.parse(init.output.trim()).error

@@ -94,17 +94,17 @@ try {
     const fakePm = path.join(temp, 'fake-pm')
     const installMarker = path.join(temp, 'install-cwd')
     fs.mkdirSync(fakePm)
-    const fakeBun = path.join(fakePm, 'bun')
-    fs.writeFileSync(fakeBun, `#!/bin/sh\npwd > ${JSON.stringify(installMarker)}\n`)
-    fs.chmodSync(fakeBun, 0o755)
+    const fakePnpm = path.join(fakePm, 'pnpm')
+    fs.writeFileSync(fakePnpm, `#!/bin/sh\npwd > ${JSON.stringify(installMarker)}\n`)
+    fs.chmodSync(fakePnpm, 0o755)
     const installRoot = path.join(temp, 'install')
     fs.mkdirSync(installRoot)
     const human = run('zega', ['init', '--human', '--template', 'function', '--name', 'installed', '--region', 'yyz', '--install'], {
         cwd: installRoot,
-        env: { ...env, PATH: `${fakePm}${path.delimiter}${env.PATH}`, npm_config_user_agent: 'bun/1.3.14' },
+        env: { ...env, PATH: `${fakePm}${path.delimiter}${env.PATH}`, npm_config_user_agent: 'pnpm/9.0.0' },
     })
     const installDir = path.join(installRoot, 'installed')
-    assert.equal(fs.readFileSync(installMarker, 'utf8').trim(), installDir, '--install did not run in the new project folder')
+    assert.equal(fs.readFileSync(installMarker, 'utf8').trim(), installDir, `--install did not run in the new project folder\n${human}`)
     assert.match(human, /Created installed\/ \(function starter\)/)
     assert(!/\bFiles\b/.test(human), '--human output contains a file list')
     assert(!/cloudflare|workers?\b|wrangler|opennext|workerd/i.test(human), '--human output names the provider')

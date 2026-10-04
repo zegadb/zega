@@ -285,7 +285,7 @@ describe('app starters: build contract (local fixtures)', () => {
         const worker = template === 'nextjs' ? '.open-next/worker.js' : 'dist/server/entry.mjs'
         const assets = template === 'nextjs' ? '.open-next/assets' : 'dist/client'
         const executable = path.join(bin, tool)
-        fs.writeFileSync(executable, `#!/bin/sh\nmkdir -p '${assets}'\nprintf 'fixture worker' > '${worker}'\nprintf 'local build fixture\\n'\n`)
+        fs.writeFileSync(executable, `#!/bin/sh\nmkdir -p '${path.dirname(worker)}' '${assets}'\nprintf 'fixture worker' > '${worker}'\nprintf 'local build fixture\\n'\n`)
         fs.chmodSync(executable, 0o755)
         return dir
     }

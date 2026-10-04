@@ -306,7 +306,7 @@ describe('graph queries need a graph key, which is never shown', () => {
         }
     })
 
-    test('a key the person gives (--graph-key-file, or ZEGA_GRAPH_KEY in .dev.vars) is used, also with a read token, and none is made', async () => {
+    test('a key the person gives (--graph-key-file, or ZEGA_GRAPH_KEY in .env) is used, also with a read token, and none is made', async () => {
         const graphHost = fakeGraphHost()
         const api = cloud('read', graphHost.url)
         const keyFile = path.join(home, 'graph-key')
@@ -322,7 +322,7 @@ describe('graph queries need a graph key, which is never shown', () => {
         }
         const project_ = path.join(home, 'with-dev-vars')
         fs.mkdirSync(project_)
-        fs.writeFileSync(path.join(project_, '.dev.vars'), `ZEGA_GRAPH_KEY=${GIVEN_KEY}\nZEGA_GRAPH_URL=https://${graph.id}.zegadb.com\n`)
+        fs.writeFileSync(path.join(project_, '.env'), `ZEGA_GRAPH_KEY=${GIVEN_KEY}\nZEGA_GRAPH_URL=https://${graph.id}.zegadb.com\n`)
         const viaVars = await connectMcp(['--groups', 'graphs'], { home, cwd: project_, api: api.url })
         try {
             const answer = await callTool(viaVars, 'zega_graph_schema', { graph: graph.id })

@@ -65,7 +65,7 @@ An Astro app for [Zega Cloud](https://zega.dev). \`src/pages/index.astro\` reads
 bun install
 cp .env.example .env   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
 bun run dev                      # astro dev, with .env in its environment
-bun run build                    # the worker (dist/server/entry.mjs) and its static assets (dist/client)
+bun run build                    # the server entry (dist/server/entry.mjs) and its static assets (dist/client)
 \`\`\`
 
 What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Zega Cloud project.

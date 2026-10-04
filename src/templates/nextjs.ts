@@ -102,7 +102,7 @@ A Next.js app for [Zega Cloud](https://zega.dev). \`app/page.tsx\` reads from a 
 bun install
 cp .env.example .env   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
 bun run dev                      # next dev, with .env in its environment
-bun run build                    # the worker (.open-next/worker.js) and its static assets (.open-next/assets)
+bun run build                    # the server entry and static assets under .open-next/
 \`\`\`
 
 What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Zega Cloud project.
