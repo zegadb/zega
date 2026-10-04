@@ -29,7 +29,7 @@ jobs:
       - run: python3 -m unittest -v scripts.test_channels.Release
 
   tag-canary:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
+    if: always() && needs.guards.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
     needs: guards
     runs-on: ubuntu-latest
     environment: release
