@@ -6,9 +6,11 @@ import { read as readConfig } from '../src/handlers/project_config'
 import { TEMPLATES, packageName, starter } from '../src/templates'
 import { ZEGA_LIB } from '../src/templates/versions'
 import { eventually, startDev } from './dev_helpers'
-import { FIXTURES, errorOf, remove, run, scratch } from './helpers'
+import { FIXTURES, TOKEN, deployedFunction, errorOf, fakeApi, remove, run, scratch } from './helpers'
 
 const home = scratch()
+const tokenFile = path.join(home, 'token')
+fs.writeFileSync(tokenFile, TOKEN + '\n', { mode: 0o600 })
 afterAll(() => remove(home))
 
 const STAND_IN = path.join(FIXTURES, 'zega-lib-stand-in')
@@ -42,7 +44,7 @@ describe('the starters', () => {
                 expect([...printed.files].sort()).toEqual(['zega.json', ...FILES[template]!].sort())
                 for (const file of printed.files) expect(fs.existsSync(path.join(dir, file))).toBe(true)
                 expect(printed.next.length).toBeGreaterThan(2)
-                expect(printed.next[0]).toBe('npm install')
+                expect(printed.next[0]).toBe('bun install')
                 if (template === 'nextjs' || template === 'astro') {
                     expect(printed.next).toContain('zega deploy')
                     expect(printed.next.join('\n')).not.toContain('not supported')
@@ -64,12 +66,12 @@ describe('the starters', () => {
         })
     }
 
-    test('the function is the default, and its zega.json has the entry once the function id is known', async () => {
+    test('the function is the default and is ready to build before it has a Cloud id', async () => {
         const plain = await init(null)
         try {
             expect(JSON.parse(plain.result.stdout).template).toBe('function')
-            expect(readJson(path.join(plain.dir, 'zega.json'))).toEqual({ version: 1, name: 'My Starter', region: 'yyz' })
-            expect(JSON.parse(plain.result.stdout).next.join('\n')).toContain('"id": "<function id>"')
+            expect(readJson(path.join(plain.dir, 'zega.json')).functions).toEqual([{ name: 'My Starter', entry: 'src/index.ts' }])
+            expect(JSON.parse(plain.result.stdout).next.join('\n')).toContain('bun run dev')
         } finally {
             remove(plain.dir)
         }
@@ -84,6 +86,16 @@ describe('the starters', () => {
         }
     })
 
+    test('init defaults the region to yyz and says which region it chose', async () => {
+        const dir = scratch()
+        try {
+            const result = await run(['init', '--human', '--name', 'region-default'], { home, cwd: dir })
+            expect(result.code).toBe(0)
+            expect(readJson(path.join(dir, 'zega.json')).region).toBe('yyz')
+            expect(result.stdout).toContain('Region    yyz (default)')
+        } finally { remove(dir) }
+    })
+
     test('the app starters carry what a build and a deploy need in zega.json: kind, framework, build paths and the runtime flags', async () => {
         for (const [template, worker, assets] of [
             ['nextjs', '.open-next/worker.js', '.open-next/assets'],
@@ -96,7 +108,7 @@ describe('the starters', () => {
                 expect(config.build.command.length).toBeGreaterThan(1)
                 expect(config.runtime).toEqual({ compatibilityDate: '2026-09-01', compatibilityFlags: ['nodejs_compat'] })
                 expect(config.functions).toBeUndefined()
-                // `npm run build` is the same command, so the script and zega.json cannot differ.
+                // `bun run build` is the same command, so the script and zega.json cannot differ.
                 expect(readJson(path.join(dir, 'package.json')).scripts.build).toBe(config.build.command.join(' '))
                 // No wrangler file to keep, and no auth package, placeholder or stub.
                 expect(fs.readdirSync(dir).some((name) => name.startsWith('wrangler'))).toBe(false)
@@ -158,6 +170,34 @@ describe('the starters', () => {
 })
 
 describe('the function starter builds', () => {
+    test('a fresh local function builds offline and deploy creates it, records its id, then uploads', async () => {
+        const { dir, result } = await init('function')
+        const id = 'f0abcdefghjklmnopq'
+        const projectId = 'p0project123'
+        const api = fakeApi({
+            [`POST /v1/projects/${projectId}/functions`]: { status: 201, body: { function: { id } } },
+            [`PUT /v1/functions/${id}/code`]: { body: { function: { ...deployedFunction, id, name: 'My Starter' } } },
+        })
+        try {
+            expect(result.code).toBe(0)
+            fs.cpSync(STAND_IN, path.join(dir, 'node_modules', '@zegadb', 'lib'), { recursive: true })
+            const built = await run(['build'], { home, cwd: dir })
+            expect(built.code).toBe(0)
+            expect(JSON.parse(built.stdout)[0]).toMatchObject({ id: 'My Starter', entry: 'src/index.ts' })
+            const missingProject = await run(['deploy'], { home, cwd: dir })
+            expect(missingProject.code).toBe(1)
+            expect(JSON.parse(missingProject.stderr).error).toMatchObject({ code: 'missing_flag' })
+            expect(missingProject.stderr).toContain('--project <project id>')
+            const deployed = await run(['deploy', '--project', projectId, '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
+            expect(deployed.code).toBe(0)
+            expect(api.seen.map((request) => `${request.method} ${request.pathname}`)).toEqual([
+                `POST /v1/projects/${projectId}/functions`, `PUT /v1/functions/${id}/code`,
+            ])
+            expect(JSON.parse(api.seen[0]!.body)).toEqual({ name: 'My Starter' })
+            expect(readJson(path.join(dir, 'zega.json'))).toMatchObject({ projectId, functions: [{ id, entry: 'src/index.ts' }] })
+        } finally { api.stop(); remove(dir) }
+    })
+
     test('zega build bundles it with the client import, and the bundle runs against a graph', async () => {
         const { dir, result } = await init('function', ['--function', FN])
         const graph = Bun.serve({

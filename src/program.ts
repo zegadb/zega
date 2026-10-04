@@ -86,7 +86,8 @@ program
     .helpGroup('Project:')
     .argument('[id]', 'only this function')
     .option('--minify', 'minify the bundle')
-    .action(action(async (id: string | undefined, options: { minify?: boolean }) => core.deploy(id, { ...globals(), ...options })))
+    .option('--project <id>', 'Cloud project to create new functions in')
+    .action(action(async (id: string | undefined, options: { minify?: boolean; project?: string }) => core.deploy(id, { ...globals(), ...options })))
 
 program
     .command('start')

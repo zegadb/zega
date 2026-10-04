@@ -38,7 +38,7 @@ import { defineCloudflareConfig } from '@opennextjs/cloudflare'
 
 export default {
     ...defineCloudflareConfig(),
-    // \`npm run build\` is the OpenNext build, so the Next.js build it runs is named here.
+    // \`bun run build\` is the OpenNext build, so the Next.js build it runs is named here.
     buildCommand: 'next build',
 }
 `),
@@ -99,10 +99,10 @@ export default async function Page() {
 A Next.js app for [Zega Cloud](https://zega.dev), set up for the Workers runtime with OpenNext. \`app/page.tsx\` reads from a graph on the server with \`@zegadb/lib\`.
 
 \`\`\`
-npm install
+bun install
 cp .dev.vars.example .dev.vars   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
-npm run dev                      # next dev, with .dev.vars in its environment
-npm run build                    # the worker (.open-next/worker.js) and its static assets (.open-next/assets)
+bun run dev                      # next dev, with .dev.vars in its environment
+bun run build                    # the worker (.open-next/worker.js) and its static assets (.open-next/assets)
 \`\`\`
 
 What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Cloud project.
@@ -117,9 +117,9 @@ ${AUTH_LINE}
             runtime: RUNTIME,
         },
         next: [
-            'npm install',
+            'bun install',
             `copy .dev.vars.example to .dev.vars and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
-            'npm run dev',
+            'bun run dev',
             'zega deploy',
         ],
     }

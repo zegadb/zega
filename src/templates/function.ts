@@ -51,24 +51,20 @@ export default {
 A [Zega Cloud](https://zega.dev) function that reads from a graph with \`@zegadb/lib\`.
 
 \`\`\`
-npm install
+bun install
 cp .dev.vars.example .dev.vars   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
-npm run dev                      # serves ${context.entry} on http://127.0.0.1:8787
-npm run build                    # bundles it into dist/
-npm run deploy                   # uploads it (needs a manage token: zega login)
+bun run dev                      # serves ${context.entry} on http://127.0.0.1:8787
+bun run build                    # bundles it into dist/
+bun run deploy${listed ? '' : ' --project <id>'}    # creates it on first deploy and uploads it (needs a manage token: zega login)
 \`\`\`
-${listed ? '' : `
-The function is made in the dashboard. Then list it in \`zega.json\`: add \`"functions": [{ "id": "<function id>", "entry": "${context.entry}" }]\`.
-`}`),
+`),
         },
-        config: listed ? { functions: [{ id: context.functionId!, entry: context.entry }] } : {},
+        config: { functions: [{ ...(listed ? { id: context.functionId! } : { name: context.name }), entry: context.entry }] },
         next: [
-            'npm install',
+            'bun install',
             `copy .dev.vars.example to .dev.vars and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
-            ...(listed
-                ? []
-                : [`make the function in the dashboard, then add { "id": "<function id>", "entry": "${context.entry}" } under "functions" in zega.json`]),
-            'npm run dev',
+            'bun run dev',
+            listed ? 'bun run deploy' : 'bun run deploy --project <project id>',
         ],
     }
 }
