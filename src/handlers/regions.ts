@@ -1,4 +1,4 @@
-import openapi from '../../openapi/openapi.json'
+import openapi from '../types/openapi.json'
 import type { Session } from '@/handlers/session'
 import type { RegionChoice } from '@/questions'
 import { NetworkFailure } from '@/utils/errors'

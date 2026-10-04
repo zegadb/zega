@@ -5,6 +5,7 @@ import path from 'node:path'
 import { FAKE_SERVER, recorded, startCli } from './cli_helpers'
 import { remove, run, scratch } from './helpers'
 import { runningBanner, runningJson } from '../src/core/start/start'
+import { SERVER_VERSION } from '../src/server-version'
 import { LOGO, logo } from '../src/utils/banner'
 import { findInstalled, flagValue, resolveServer, searchRoots, serverPackage, takeStartFlags } from '../src/handlers/server_binary'
 
@@ -47,6 +48,10 @@ function install(root: string, ids: string[]): Record<string, string> {
 }
 
 describe('which zega-server', () => {
+    test('all optional platform packages and zega lookup share the pinned manifest version', () => {
+        expect(SERVER_VERSION).toBe('0.2.0')
+    })
+
     test('each platform has its own package, and the right binary name', () => {
         expect(serverPackage('darwin', 'arm64')).toEqual({ name: '@zegadb/server-darwin-arm64', bin: 'zega-server' })
         expect(serverPackage('darwin', 'x64')).toEqual({ name: '@zegadb/server-darwin-x64', bin: 'zega-server' })
@@ -89,7 +94,7 @@ describe('which zega-server', () => {
         process.env.PATH = `${bin}:${saved}`
         try {
             expect(() => resolveServer({ platform: 'linux', arch: 'x64', roots: [path.join(home, 'empty')] })).toThrow(
-                /the zega-server for linux-x64 is not installed: it is the npm package @zegadb\/server-linux-x64.*no --omit=optional.*--server <path>/,
+                /the zega-server for linux-x64 is not installed: it is the npm package @zegadb\/server-linux-x64@0\.2\.0.*no --omit=optional.*--server <path>/,
             )
         } finally {
             process.env.PATH = saved

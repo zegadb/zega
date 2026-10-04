@@ -1,0 +1,111 @@
+# Trusted publishing is bound to this filename and the `release` environment.
+name: publish-npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+  pull_request:
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  package-proof:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.3.14'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: mkdir -p .tmp && chmod 700 .tmp
+      - run: node scripts/npm-pack-proof.mjs
+
+  publish:
+    if: github.repository == 'zegadb/cli' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing through OIDC; no token secret
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: The tag is on main and names the package version
+        id: release
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; }
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(jq -r .version package.json)
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::tag v$TAG_VERSION != package.json $PKG_VERSION"; exit 1
+          fi
+          jq -e '.name == "zegadb" and .publishConfig.access == "public"' package.json >/dev/null
+          if [[ "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+          elif [[ "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$ ]]; then
+            echo "dist_tag=canary" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::not a semantic version: $PKG_VERSION"; exit 1
+          fi
+          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.3.14'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm install --global npm@11.16.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Verify package and runtime proof
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp && chmod 700 .tmp
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun test --timeout 600000
+          node scripts/npm-pack-proof.mjs
+
+      - name: Publish
+        env:
+          NPM_VERSION: ${{ steps.release.outputs.version }}
+          DIST_TAG: ${{ steps.release.outputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          if [ "$(npm view "zegadb@${NPM_VERSION}" version --registry=https://registry.npmjs.org/ 2>/dev/null || true)" = "$NPM_VERSION" ]; then
+            echo "zegadb@${NPM_VERSION} is already on npm; skipping."
+          else
+            npm publish --tag "$DIST_TAG" --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org/
+          fi
+
+      - name: Verify by reading back
+        env:
+          NPM_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if [ "$(npm view "zegadb@${NPM_VERSION}" version --registry=https://registry.npmjs.org/ 2>/dev/null || true)" = "$NPM_VERSION" ]; then
+              npm view "zegadb@${NPM_VERSION}" name version dist.integrity --registry=https://registry.npmjs.org/
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::zegadb@${NPM_VERSION} is not on npm after five minutes"; exit 1

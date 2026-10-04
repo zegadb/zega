@@ -200,7 +200,7 @@ zega dev: Bun serves your function; this is not the Workers runtime (see `zega d
 
 | command | stdout |
 |---|---|
-| `login`, `whoami`, `projects`, `graphs`, `buckets`, `functions`, `usage`, `regions`, `function logs` | the API's answer, unchanged (except that a `token` object has no `prefix`; `projects` is `{ "projects": [...] }`, `whoami` is `{ "account", "token" }`, and so on; the shapes are in `openapi/openapi.json`) |
+| `login`, `whoami`, `projects`, `graphs`, `buckets`, `functions`, `usage`, `regions`, `function logs` | the API's answer, unchanged (except that a `token` object has no `prefix`; `projects` is `{ "projects": [...] }`, `whoami` is `{ "account", "token" }`, and so on; the shapes are in `src/types/openapi.json`) |
 | `deploy`, `function deploy` | the API's answer, one line per function: `{ "function": { "id", "name", "url", "version", ... } }` |
 | `logout` | `{ "loggedOut": true }` (`false` when nothing was stored) |
 | `init` | `{ "file", "config": { "version", "name", "region", "functions"? } }` |
@@ -293,6 +293,6 @@ bun run build
 
 The code keeps the shape it was seeded with: `src/core/<command>/<command>.ts` is a command, `src/questions/<command>/<question>.ts` is one wizard question (a flag has the same answer; both pass the same validator), `src/handlers/` does the work, `src/utils/` is shared.
 
-The API client is typed from the OpenAPI document: `openapi/openapi.json` is a saved copy of https://cloud.zega.dev/openapi.json and `src/types/cloud-api.d.ts` is generated from it with `openapi-typescript`. Both are committed; CI regenerates the types and fails if they differ. To follow a change in the API: `bun run api:update` (or `bun run api:update https://cloud.zega.world/openapi.json` for staging), then commit both files.
+The API client is typed from the OpenAPI document: `src/types/openapi.json` is a saved copy of https://cloud.zega.dev/openapi.json and `src/types/cloud-api.d.ts` is generated from it with `openapi-typescript`. Both are committed; CI regenerates the types and fails if they differ. To follow a change in the API: `bun run api:update` (or `bun run api:update https://cloud.zega.world/openapi.json` for staging), then commit both files.
 
 The tests run the CLI as a subprocess against a fake API on `127.0.0.1` that records every request, on a real terminal (a pty) for the questions and for the JSON a terminal still gets, and as the compiled executable.
