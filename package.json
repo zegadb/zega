@@ -4,18 +4,38 @@
   "description": "The Zega developer CLI: manage Zega Cloud from a terminal, a script or an agent.",
   "type": "module",
   "module": "src/zega.ts",
+  "files": [
+    "src/**",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "zega": "src/zega.ts"
   },
   "packageManager": "bun@1.3.14",
   "engines": {
-    "bun": "1.3.14"
+    "bun": ">=1.3.14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zegadb/cli.git"
+  },
+  "homepage": "https://zega.dev",
+  "publishConfig": {
+    "access": "public"
+  },
+  "optionalDependencies": {
+    "@zegadb/server-darwin-arm64": "0.2.0",
+    "@zegadb/server-darwin-x64": "0.2.0",
+    "@zegadb/server-linux-x64": "0.2.0",
+    "@zegadb/server-win32-x64": "0.2.0"
   },
   "scripts": {
     "start": "bun run ./src/zega.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test --timeout 600000",
-    "api:types": "openapi-typescript openapi/openapi.json -o src/types/cloud-api.d.ts",
+    "api:types": "openapi-typescript src/types/openapi.json -o src/types/cloud-api.d.ts",
     "build": "bun run scripts/build-all.ts",
     "api:update": "bun run scripts/update-api.ts",
     "explorer:update": "bun run scripts/update-explorer.ts",

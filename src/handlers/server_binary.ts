@@ -13,6 +13,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { SERVER_VERSION } from '@/server-version'
 import { LocalFailure } from '@/utils/errors'
 
 /** npm's own names for the platforms zegadb/zega publishes (`process.platform`, `process.arch`). */
@@ -82,7 +83,7 @@ export function resolveServer(options: Resolve = {}): string {
     const found = findInstalled(pkg, options.roots ?? searchRoots())
     if (found === null) {
         throw new LocalFailure(
-            `the zega-server for ${platform}-${arch} is not installed: it is the npm package ${pkg.name}, which the zegadb package depends on. ` +
+            `the zega-server for ${platform}-${arch} is not installed: it is the npm package ${pkg.name}@${SERVER_VERSION}, which the zegadb package depends on. ` +
                 'Reinstall zegadb (optional dependencies must not be skipped: no --omit=optional, no --no-optional), or point at a build with --server <path>.',
         )
     }
