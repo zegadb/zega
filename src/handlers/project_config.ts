@@ -43,7 +43,7 @@ import { LocalFailure } from '@/utils/errors'
 
 export const CONFIG_FILE = 'zega.json'
 
-export type FunctionEntry = { id: string; entry: string }
+export type FunctionEntry = { id?: string; name?: string; entry: string }
 
 export const FRAMEWORKS = ['nextjs', 'astro'] as const
 export type Framework = (typeof FRAMEWORKS)[number]
@@ -169,15 +169,23 @@ export function read(dir: string): ProjectConfig | null {
             const at = `functions[${index}]`
             const entry = item as Record<string, unknown> | null
             if (typeof entry !== 'object' || entry === null) throw broken(`${at} must be an object with an \`id\` and an \`entry\``)
-            if (typeof entry.id !== 'string' || !isFunctionId(entry.id)) {
+            if (entry.id !== undefined && (typeof entry.id !== 'string' || !isFunctionId(entry.id))) {
                 throw broken(`${at}.id must be a function id: "f0" and 16 characters`)
             }
+            if (entry.name !== undefined && (typeof entry.name !== 'string' || entry.name === '')) {
+                throw broken(`${at}.name must be a nonempty string`)
+            }
+            if (entry.id === undefined && entry.name === undefined) throw broken(`${at} needs a local name or a function id`)
             if (typeof entry.entry !== 'string' || entry.entry === '') {
                 throw broken(`${at}.entry must be the path of the source file to bundle`)
             }
-            return { id: entry.id, entry: entry.entry }
+            return {
+                ...(entry.id === undefined ? {} : { id: entry.id as string }),
+                ...(entry.name === undefined ? {} : { name: entry.name as string }),
+                entry: entry.entry,
+            }
         })
-        const ids = config.functions.map((f) => f.id)
+        const ids = config.functions.flatMap((f) => f.id === undefined ? [] : [f.id])
         const twice = ids.find((id, index) => ids.indexOf(id) !== index)
         if (twice !== undefined) throw broken(`function ${twice} is listed twice`)
     }

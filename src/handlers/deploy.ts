@@ -6,7 +6,7 @@ import * as render from '@/utils/render'
 import { LocalFailure } from '@/utils/errors'
 import { show, write } from '@/utils/output'
 
-export type Target = { id: string; entry: string }
+export type Target = { id: string; cloudId?: string; entry: string }
 
 export type Prepared = Target & Bundle
 
@@ -28,11 +28,16 @@ export function selectTargets(dir: string, id: string | undefined, instead = '')
             `${projectConfig.CONFIG_FILE} lists no functions: add { "id": "<function id>", "entry": "src/index.ts" } under "functions"${instead}`,
         )
     }
-    const targets = id === undefined ? listed : listed.filter((item) => item.id === id)
-    if (targets.length === 0) {
+    const targets = listed.map((item) => ({
+        id: item.id ?? item.name!,
+        ...(item.id === undefined ? {} : { cloudId: item.id }),
+        entry: item.entry,
+    }))
+    const selected = id === undefined ? targets : targets.filter((item) => item.id === id || item.cloudId === id)
+    if (selected.length === 0) {
         throw new LocalFailure(`${id} is not in ${projectConfig.CONFIG_FILE}; it lists ${listed.map((item) => item.id).join(', ')}`)
     }
-    return targets
+    return selected
 }
 
 /**
@@ -65,7 +70,7 @@ export async function prepare(targets: Target[], options: { dir: string; minify:
 export async function upload(session: Session, prepared: Prepared[], globals: Globals): Promise<void> {
     for (const item of prepared) {
         const reply = await session.client.put('/v1/functions/{function}/code', {
-            path: { function: item.id },
+            path: { function: item.cloudId ?? item.id },
             body: item.code,
             contentType: 'application/javascript',
         })

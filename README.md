@@ -223,9 +223,9 @@ What costs money, and the tokens themselves, are dashboard-only: the API answers
 ### zega init
 
 ```
-zega init --name my-app --region yyz                        # the function starter (default)
-zega init --name my-app --region yyz --template nextjs      # or astro
-zega init --human                                           # on a terminal: asks which starter, the name and the region
+zega init --name my-app                                     # the function starter (default; region defaults to yyz)
+zega init --name my-app --template nextjs                  # or astro
+zega init --human                                           # on a terminal: asks which starter and the name; defaults the region to yyz
 ```
 
 writes a small project in the current directory, and `zega.json`. Nothing is run or fetched: the starters are vendored in the CLI. It never overwrites a file without `--force`. The result is JSON: the `template`, the `files` written and the `next` steps.
@@ -238,26 +238,26 @@ writes a small project in the current directory, and `zega.json`. Nothing is run
 
 Every starter depends on `@zegadb/lib` (pinned) and imports `connect` from `@zegadb/lib/client`; `bun install` works once that version, with `/client`, is on npm. The graph's address and key are read from `ZEGA_GRAPH_URL` and `ZEGA_GRAPH_KEY`: copy `.dev.vars.example` to `.dev.vars` (git-ignored). The app starters have no auth set up: a zega auth package does not exist yet.
 
-`zega.json`:
+`zega.json` for the function starter lists a local function name and entry before a Cloud function exists:
 
 ```json
-{ "version": 1, "name": "my-app", "region": "yyz" }
+{ "version": 1, "name": "my-app", "region": "yyz", "functions": [{ "name": "my-app", "entry": "src/index.ts" }] }
 ```
 
-`version` is the file's own format, `name` the project's display label (1 to 64 characters), `region` a Zega Cloud region id (`zega regions`). It holds no secret.
+`version` is the file's own format, `name` the project's display label (1 to 64 characters), `region` a Zega Cloud region id (`zega regions`). It holds no secret. Init creates no cloud resources; it uses `yyz` when no region is supplied.
 
-**A function** lists the functions to deploy, each with its cloud id and the source file to bundle (relative to `zega.json`):
+**A function** lists its local name and source file before first deploy. `zega build` and `zega dev` work locally without a Cloud id. The first `zega deploy --project <project id>` creates the Cloud function, records its id, and uploads the bundle. With `--human` on a terminal, deploy asks which project.
 
 ```json
 {
   "version": 1,
   "name": "my-app",
   "region": "yyz",
-  "functions": [{ "id": "f0abcdefghjkmnpqrs", "entry": "src/index.ts" }]
+  "functions": [{ "name": "my-app", "entry": "src/index.ts" }]
 }
 ```
 
-`zega init --function <id> [--entry <path>]` writes that (the entry defaults to `src/index.ts`, and is where the source is written; with `--human` on a terminal init asks for both, and an empty function id means none). `init` never creates the function: that is done in the dashboard, and without an id the README and `next` say to list it.
+`zega init --function <id> [--entry <path>]` writes an existing function id when you already have one. `init` never creates cloud resources.
 
 **An app** has no functions. `zega.json` says what it is, what `zega build` runs and what that produces (a deploy will read the same), and the flags the worker needs, instead of a wrangler file to keep:
 

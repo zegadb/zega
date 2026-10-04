@@ -89,7 +89,7 @@ describe('the compiled executable', () => {
     test('a missing flag fails naming it', async () => {
         const result = await run(['init', '--force'])
         expect(result.code).toBe(1)
-        expect(result.stderr).toContain('missing --name, --region')
+        expect(result.stderr).toContain('missing --name')
     })
 
     test('bundles a function with an npm dependency INSIDE the executable (no bun on the PATH) and uploads one ES module', async () => {

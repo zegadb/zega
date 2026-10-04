@@ -30,14 +30,13 @@ describe('zega init', () => {
                 version: 1,
                 name: 'my-app',
                 region: 'yyz',
+                functions: [{ name: 'my-app', entry: 'src/index.ts' }],
             })
             expect(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8')).toBe(
-                '{\n  "version": 1,\n  "name": "my-app",\n  "region": "yyz"\n}\n',
+                '{\n  "version": 1,\n  "name": "my-app",\n  "region": "yyz",\n  "functions": [\n    {\n      "name": "my-app",\n      "entry": "src/index.ts"\n    }\n  ]\n}\n',
             )
             expect(result.stdout).toContain(`wrote ${fs.realpathSync(dir)}${path.sep}zega.json`)
-            // The only thing it asked the API was the list of regions: nothing was created.
-            expect(api.seen.at(-1)).toMatchObject({ method: 'GET', pathname: '/v1/regions', authorization: `Bearer ${TOKEN}` })
-            expect(api.seen.every((request) => request.method === 'GET')).toBe(true)
+            expect(api.seen).toHaveLength(0)
         } finally {
             remove(dir)
         }
@@ -51,7 +50,7 @@ describe('zega init', () => {
             expect(Date.now() - started).toBeLessThan(5000)
             expect(result.code).toBe(1)
             expect(JSON.parse(result.stderr).error).toMatchObject({ code: 'missing_flag' })
-            expect(result.stderr).toContain('missing --name, --region')
+            expect(result.stderr).toContain('missing --name')
             expect(result.stderr).toContain('Nothing is asked unless --human is given on a terminal')
             expect(result.stdout).toBe('')
             expect(fs.existsSync(path.join(dir, 'zega.json'))).toBe(false)
@@ -70,19 +69,28 @@ describe('zega init', () => {
         try {
             const result = await run(['init'], { home, cwd: dir, stdin: null })
             expect(result.code).toBe(1)
-            expect(result.stderr).toContain('missing --name, --region')
+            expect(result.stderr).toContain('missing --name')
             const human = await run(['init', '--human'], { home, cwd: dir, stdin: null })
             expect(human.code).toBe(1)
-            expect(human.stderr).toStartWith('zega: missing --name, --region')
+            expect(human.stderr).toStartWith('zega: missing --name')
             expect(fs.existsSync(path.join(dir, 'zega.json'))).toBe(false)
             const done = await run(['init', '--name', 'a', '--region', 'yyz'], { home, cwd: dir, stdin: null })
             expect(done.code).toBe(0)
             const printed = JSON.parse(done.stdout)
-            expect(printed.config).toEqual({ version: 1, name: 'a', region: 'yyz' })
+            expect(printed.config).toMatchObject({ version: 1, name: 'a', region: 'yyz', functions: [{ name: 'a', entry: 'src/index.ts' }] })
             expect(path.basename(printed.file)).toBe('zega.json')
         } finally {
             remove(dir)
         }
+    })
+
+    test('without --region, init uses yyz and reports it in JSON', async () => {
+        const dir = project()
+        try {
+            const result = await run(['init', '--name', 'no-region'], { home, cwd: dir })
+            expect(result.code).toBe(0)
+            expect(JSON.parse(result.stdout).config.region).toBe('yyz')
+        } finally { remove(dir) }
     })
 
     test('a region the API does not list is refused, listing the ones it does', async () => {
@@ -94,7 +102,7 @@ describe('zega init', () => {
             })
             expect(result.code).toBe(1)
             expect(errorOf(result)).toMatchObject({ code: 'invalid_flag' })
-            expect(errorOf(result).message).toContain('--region: "moon" is not a region; the regions are yyz, ams')
+            expect(errorOf(result).message).toContain('--region: "moon" is not a region')
             expect(fs.existsSync(path.join(dir, 'zega.json'))).toBe(false)
         } finally {
             remove(dir)
@@ -147,6 +155,7 @@ describe('zega init', () => {
                 version: 1,
                 name: 'two',
                 region: 'ams',
+                functions: [{ name: 'two', entry: 'src/index.ts' }],
             })
         } finally {
             remove(dir)
@@ -164,7 +173,7 @@ describe('zega init', () => {
                 region: 'yyz',
                 functions: [{ id: 'f0bbbbbbbbbbbbbbbb', entry: 'src/index.ts' }],
             })
-            expect(first.stdout).toContain('Deploys   f0bbbbbbbbbbbbbbbb from src/index.ts')
+            expect(first.stdout).toContain('Function  f0bbbbbbbbbbbbbbbb from src/index.ts')
 
             const second = await run(
                 ['init', '--name', 'a', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb', '--entry', 'worker/main.ts', '--force'],

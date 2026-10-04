@@ -2,7 +2,7 @@ import { AUTH_LINE, DEV_VARS_EXAMPLE, GRAPH_KEY_VAR, GRAPH_URL_VAR, RUNTIME, git
 import { ASTRO, ASTRO_CLOUDFLARE, TYPESCRIPT, WRANGLER } from '@/templates/versions'
 import type { Context, Starter } from '@/templates'
 
-/** What `zega build` and `npm run build` run. */
+/** What `zega build` and `bun run build` run. */
 export const ASTRO_BUILD = ['astro', 'build']
 
 /** An Astro app on the Workers runtime (the Cloudflare adapter). */
@@ -62,10 +62,10 @@ const people = await graph.query('{ Person { name } }')
 An Astro app for [Zega Cloud](https://zega.dev), set up for the Workers runtime with \`@astrojs/cloudflare\`. \`src/pages/index.astro\` reads from a graph on the server with \`@zegadb/lib\`.
 
 \`\`\`
-npm install
+bun install
 cp .dev.vars.example .dev.vars   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
-npm run dev                      # astro dev, with .dev.vars in its environment
-npm run build                    # the worker (dist/server/entry.mjs) and its static assets (dist/client)
+bun run dev                      # astro dev, with .dev.vars in its environment
+bun run build                    # the worker (dist/server/entry.mjs) and its static assets (dist/client)
 \`\`\`
 
 What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Cloud project.
@@ -80,9 +80,9 @@ ${AUTH_LINE}
             runtime: RUNTIME,
         },
         next: [
-            'npm install',
+            'bun install',
             `copy .dev.vars.example to .dev.vars and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
-            'npm run dev',
+            'bun run dev',
             'zega deploy',
         ],
     }

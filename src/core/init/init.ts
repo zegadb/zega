@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { openSessionIfAny, projectConfig, regionChoices, type Globals } from '@/handlers'
+import { projectConfig, regionChoices, type Globals } from '@/handlers'
 import * as questions from '@/questions'
 import { DEFAULT_TEMPLATE, TEMPLATES, starter, type Template } from '@/templates'
 import { LocalFailure } from '@/utils/errors'
@@ -54,7 +54,6 @@ export async function init(options: InitOptions): Promise<void> {
     if (!prompt) {
         const missing = [
             options.name === undefined ? '--name' : null,
-            options.region === undefined ? '--region' : null,
             inTheWay.length > 0 && options.force !== true ? '--force' : null,
         ].filter((flag) => flag !== null)
         if (missing.length > 1) {
@@ -86,22 +85,17 @@ export async function init(options: InitOptions): Promise<void> {
         ask: () => questions.name(path.basename(dir)),
     })
 
-    const choices = await regionChoices(await openSessionIfAny(options), options.human === true)
-    const region = await answer({
-        flag: '--region',
-        given: options.region,
-        hint: `a region id (${choices.map((choice) => choice.id).join(', ')})`,
-        prompt,
-        validate: (value) => questions.validateRegion(value, choices),
-        ask: () => questions.region(choices),
-    })
+    const choices = await regionChoices(null, options.human === true)
+    const defaultRegion = choices.some((choice) => choice.id === 'yyz') ? 'yyz' : choices[0]!.id
+    const region = options.region ?? defaultRegion
+    const badRegion = questions.validateRegion(region, choices)
+    if (badRegion !== null) throw new LocalFailure(`--region: ${badRegion}`, 'invalid_flag')
 
-    // The function starter: optionally the cloud function it is for. Asked on a terminal, never required, never asked without one.
+    // An existing Cloud function can still be supplied explicitly; new starters use their local name until deploy.
     let functionId: string | undefined
     let entry = entryFlag ?? questions.DEFAULT_ENTRY
     if (template === 'function') {
-        functionId =
-            options.function ?? (prompt && options.entry === undefined ? (await questions.functionId()) || undefined : undefined)
+        functionId = options.function
         if (functionId === undefined && options.entry !== undefined) {
             throw new LocalFailure('--entry needs --function: the id of the function it is the source of', 'missing_flag')
         }
@@ -123,10 +117,10 @@ export async function init(options: InitOptions): Promise<void> {
         await result(options, { template, file, config, files: written, next: made.next })
         return
     }
-    const deploys = (config.functions ?? []).map((item) => `Deploys   ${item.id} from ${item.entry}\n`).join('')
+    const deploys = (config.functions ?? []).map((item) => `Function  ${item.id ?? item.name} from ${item.entry}\n`).join('')
     await write(
         'stdout',
-        `wrote ${file}\nTemplate  ${template}\nName      ${config.name}\nRegion    ${config.region}\n${deploys}` +
+        `wrote ${file}\nTemplate  ${template}\nName      ${config.name}\nRegion    ${config.region}${options.region === undefined ? ' (default)' : ''}\n${deploys}` +
             `Files     ${written.join(', ')}\n\nNext\n${made.next.map((step, index) => `  ${index + 1}. ${step}\n`).join('')}`,
     )
 }

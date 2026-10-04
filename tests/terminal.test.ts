@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { TOKEN, credentialsFile, fakeApi, graph, regionsBody, remove, scratch, whoamiRoute, whoamiShown } from './helpers'
+import { TOKEN, credentialsFile, fakeApi, graph, regionsBody, remove, run, scratch, whoamiRoute, whoamiShown } from './helpers'
 
 /**
  * A real terminal (a pty). With `--human` the wizard asks, takes typed answers, and the
@@ -72,8 +72,6 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
                 const again = await onTerminal(['init', '--human', '--name', 'plain', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], { home, cwd: plain })
                 await again.waitFor('Starter:')
                 again.type('\r') // the function, as it is preselected
-                await again.waitFor('Function id to deploy')
-                again.type('\r')
                 expect(await again.exited).toBe(0)
                 expect(fs.existsSync(path.join(plain, 'src', 'index.ts'))).toBe(true)
                 expect(JSON.parse(fs.readFileSync(path.join(plain, 'package.json'), 'utf8')).dependencies['@zegadb/lib']).toBeDefined()
@@ -85,40 +83,29 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
         }
     })
 
-    test('init asks for the name, then the region, and writes what was answered', async () => {
+    test('init asks for the name, defaults the region to yyz, and writes both', async () => {
         const dir = scratch()
         try {
             const session = await onTerminal(['init', '--human', '--template', 'function', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
             await session.waitFor('Project name:')
             session.type('wizard-app\r')
-            await session.waitFor('Region:')
-            // The choices carry the API's city names.
-            await session.waitFor('ams  Amsterdam, Netherlands')
-            session.type('\u001b[B') // down: the second choice
-            session.type('\r')
-            // The function is optional: an empty answer is none.
-            await session.waitFor('Function id to deploy')
-            session.type('\r')
             expect(await session.exited).toBe(0)
             expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))).toEqual({
                 version: 1,
                 name: 'wizard-app',
-                region: 'ams',
+                region: 'yyz',
+                functions: [{ name: 'wizard-app', entry: 'src/index.ts' }],
             })
         } finally {
             remove(dir)
         }
     })
 
-    test('a flag answers its question, so only the other is asked', async () => {
+    test('a supplied name is used and the region defaults without another prompt', async () => {
         const dir = scratch()
         try {
             const session = await onTerminal(['init', '--human', '--template', 'function', '--name', 'flagged', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
-            await session.waitFor('Region:')
             expect(session.output).not.toContain('Project name:')
-            session.type('\r')
-            await session.waitFor('Function id to deploy')
-            session.type('\r')
             expect(await session.exited).toBe(0)
             expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8')).name).toBe('flagged')
         } finally {
@@ -126,23 +113,16 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
         }
     })
 
-    test('init can tie a function to its entry file, asking for the entry with a default', async () => {
+    test('init accepts a known function id and custom entry through flags', async () => {
         const dir = scratch()
         try {
-            const session = await onTerminal(['init', '--human', '--template', 'function', '--name', 'fn-app', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
-                home,
-                cwd: dir,
-            })
-            await session.waitFor('Function id to deploy')
-            session.type('f0bbbbbbbbbbbbbbbb\r')
-            await session.waitFor('Entry file to bundle:')
-            session.type('\r') // the default
-            expect(await session.exited).toBe(0)
+            const result = await run(['init', '--name', 'fn-app', '--region', 'yyz', '--function', 'f0bbbbbbbbbbbbbbbb', '--entry', 'worker/main.ts'], { home, cwd: dir })
+            expect(result.code).toBe(0)
             expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))).toEqual({
                 version: 1,
                 name: 'fn-app',
                 region: 'yyz',
-                functions: [{ id: 'f0bbbbbbbbbbbbbbbb', entry: 'src/index.ts' }],
+                functions: [{ id: 'f0bbbbbbbbbbbbbbbb', entry: 'worker/main.ts' }],
             })
         } finally {
             remove(dir)
@@ -215,7 +195,7 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
             // The pty carries stderr too: it is one JSON object naming the flags.
             const initError = JSON.parse(init.output.trim()).error
             expect(initError).toMatchObject({ code: 'missing_flag' })
-            expect(initError.message).toContain('missing --name, --region')
+            expect(initError.message).toContain('missing --name')
             expect(init.output).not.toContain('Project name:')
             expect(fs.existsSync(path.join(dir, 'zega.json'))).toBe(false)
 
