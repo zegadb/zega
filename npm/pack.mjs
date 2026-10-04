@@ -7,7 +7,7 @@ process.chdir(resolve(import.meta.dirname, '..'));
 await mkdir('artifacts', { recursive: true });
 const [pack] = JSON.parse(execFileSync('npm', ['pack', './dist', '--json', '--ignore-scripts', '--pack-destination', 'artifacts'], { encoding: 'utf8' }));
 assert.deepEqual(pack.files.map(file => file.path).sort(), [
-  'LICENSE', 'README.md', 'browser.js', 'index.d.ts', 'node.js', 'package.json',
+  'LICENSE', 'README.md', 'browser.js', 'client.d.ts', 'client.js', 'index.d.ts', 'node.js', 'package.json',
   'wasm/zega_wasm.js', 'wasm/zega_wasm.d.ts', 'wasm/zega_wasm_bg.wasm', 'wasm/zega_wasm_bg.wasm.d.ts',
 ].sort(), 'Unexpected npm tarball contents');
 await writeFile('artifacts/pack.json', JSON.stringify(pack, null, 2) + '\n');
