@@ -9,13 +9,15 @@ const ENTRY = path.join(ROOT, 'src', 'zega.ts')
 
 /** A fresh directory outside the checkout, so upward searches cannot reach its node_modules. */
 export function scratch(): string {
-    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'zegadb-tests-'))
-    const relative = path.relative(ROOT, base)
-    if (relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))) {
-        fs.rmSync(base, { recursive: true, force: true })
-        throw new Error(`test scratch directory must be outside the checkout: ${base}`)
+    const bases = [process.env.RUNNER_TEMP, os.tmpdir(), path.dirname(ROOT)]
+    for (const candidate of bases) {
+        if (candidate === undefined) continue
+        const resolved = path.resolve(candidate)
+        const relative = path.relative(ROOT, resolved)
+        const insideCheckout = relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))
+        if (!insideCheckout) return fs.mkdtempSync(path.join(resolved, 'zegadb-tests-'))
     }
-    return base
+    throw new Error(`no test scratch base is outside the checkout; checked RUNNER_TEMP (${process.env.RUNNER_TEMP ?? 'unset'}), os.tmpdir() (${os.tmpdir()}), and checkout parent (${path.dirname(ROOT)})`)
 }
 
 export function remove(dir: string): void {
