@@ -140,6 +140,23 @@ program
     .option('--no-watch', 'don\'t reload on changes')
     .action(action(async (id: string | undefined, options: Omit<core.DevOptions, keyof Globals>) => core.dev(id, { ...globals(), ...options })))
 
+const mcp = program
+    .command('mcp')
+    .description('serve Zega to agents over MCP')
+    .helpGroup('Local:')
+    .option('--groups <list>', 'tool groups: docs, account, graphs, functions, storage, local, or all (default: all but storage)')
+    .option('--read-only', 'offer only tools that read')
+    .option('--graph-key-file <path>', 'a graph key (zk_) to open graphs with (default: .dev.vars, or one made for the session)')
+    .option('--storage-key-file <path>', 'a storage key (zs_) to open buckets with')
+    .option('--server <path>', 'use this zega-server build for the local group')
+    .action(action(async (options: Omit<core.McpOptions, keyof Globals>) => core.mcp({ ...globals(), ...options })))
+mcp.command('config')
+    .description('print how to add zega mcp to an agent')
+    .requiredOption('--client <name>', 'claude-code, codex, cursor, vscode, windsurf or zed')
+    .option('--name <name>', 'the server\'s name in the agent (default zega)')
+    .option('--command <command>', 'how the agent starts zega (default zega)')
+    .action(action(async (options: Omit<core.ConfigOptions, keyof Globals>) => core.mcpConfig({ ...globals(), ...mcp.opts(), ...options })))
+
 program
     .command('projects')
     .description('list projects')
@@ -220,4 +237,3 @@ fn.command('logs')
 // Help lists the groups in this order (a stable sort keeps each group's own order).
 const GROUPS = ['Local:', 'Project:', 'Cloud:', 'Account:']
 ;(program.commands as Command[]).sort((a: Command, b: Command) => GROUPS.indexOf(a.helpGroup()) - GROUPS.indexOf(b.helpGroup()))
-
