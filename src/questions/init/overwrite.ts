@@ -1,10 +1,11 @@
 import inquirer from 'inquirer'
 
-export async function overwrite(file: string): Promise<boolean> {
+/** Whether to replace what is there: one file by name, several by count. */
+export async function overwrite(files: string[]): Promise<boolean> {
     const { result } = await inquirer.prompt<{ result: boolean }>({
         type: 'confirm',
         name: 'result',
-        message: `${file} exists. Replace it?`,
+        message: files.length === 1 ? `${files[0]} exists. Replace it?` : `${files.join(', ')} exist. Replace them?`,
         default: false,
     })
     return result

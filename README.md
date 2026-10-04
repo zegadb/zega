@@ -68,12 +68,12 @@ For CI and agents, skip login: pass `--token-file <path>` to any command.
 zega login [--store file|keychain]   store an API token
 zega logout                          remove the stored token
 zega whoami                          who you are, and the token: name, scope, project, expiry
-zega init                            write zega.json for a project here
+zega init [--template t]             a starter project here: function (default), nextjs or astro
 zega start [args]                    run the zega-server that ships with this CLI (zega-server start)
 zega explorer [graph]                the explorer for a local database; with a graph id, its console address
 
-zega build [id]                      bundle the functions zega.json lists into dist/<id>.js (no upload, no token)
-zega dev [id]                        serve them on localhost with Bun, rebuilt when a file changes
+zega build [id]                      bundle the functions zega.json lists into dist/<id>.js (no upload, no token); in an app, its framework build
+zega dev [id]                        serve them on localhost with Bun, rebuilt when a file changes; in an app, its dev server
 zega deploy [id]                     bundle and upload the functions zega.json lists
 zega function deploy <id> [entry]    bundle and upload one function
 zega projects [id]                   list projects, or show one with its graphs
@@ -223,24 +223,30 @@ What costs money, and the tokens themselves, are dashboard-only: the API answers
 ### zega init
 
 ```
-zega init --human                           # on a terminal: asks for the name and the region
-zega init --name my-app --region yyz        # no questions (the default)
-zega init --name my-app --region yyz --force
+zega init --name my-app --region yyz                        # the function starter (default)
+zega init --name my-app --region yyz --template nextjs      # or astro
+zega init --human                                           # on a terminal: asks which starter, the name and the region
 ```
 
-writes `zega.json` in the current directory:
+writes a small project in the current directory, and `zega.json`. Nothing is run or fetched: the starters are vendored in the CLI. It never overwrites a file without `--force`. The result is JSON: the `template`, the `files` written and the `next` steps.
+
+| `--template` | writes |
+|---|---|
+| `function` (default) | one Workers-style function (`src/index.ts`) that reads from a graph with `@zegadb/lib/client`, `package.json` (scripts `dev`, `build`, `deploy`), `tsconfig.json`, `.dev.vars.example`, `.gitignore`, `README.md` |
+| `nextjs` | a Next.js app set up for the Workers runtime with OpenNext (`app/page.tsx` reads a graph on the server), and the same support files |
+| `astro` | an Astro app set up for the Workers runtime with `@astrojs/cloudflare` (`src/pages/index.astro` reads a graph on the server), and the same support files |
+
+Every starter depends on `@zegadb/lib` (pinned) and imports `connect` from `@zegadb/lib/client`; `bun install` works once that version, with `/client`, is on npm. The graph's address and key are read from `ZEGA_GRAPH_URL` and `ZEGA_GRAPH_KEY`: copy `.dev.vars.example` to `.dev.vars` (git-ignored). The app starters have no auth set up: a zega auth package does not exist yet.
+
+`zega.json`:
 
 ```json
-{
-  "version": 1,
-  "name": "my-app",
-  "region": "yyz"
-}
+{ "version": 1, "name": "my-app", "region": "yyz" }
 ```
 
 `version` is the file's own format, `name` the project's display label (1 to 64 characters), `region` a Zega Cloud region id (`zega regions`). It holds no secret.
 
-To deploy functions it lists them, each with its cloud id and the source file to bundle (relative to `zega.json`):
+**A function** lists the functions to deploy, each with its cloud id and the source file to bundle (relative to `zega.json`):
 
 ```json
 {
@@ -251,7 +257,27 @@ To deploy functions it lists them, each with its cloud id and the source file to
 }
 ```
 
-`zega init --function <id> [--entry <path>]` writes that (the entry defaults to `src/index.ts`; with `--human` on a terminal init asks for both, and an empty function id means none). `init` never creates the function: that is done in the dashboard.
+`zega init --function <id> [--entry <path>]` writes that (the entry defaults to `src/index.ts`, and is where the source is written; with `--human` on a terminal init asks for both, and an empty function id means none). `init` never creates the function: that is done in the dashboard, and without an id the README and `next` say to list it.
+
+**An app** has no functions. `zega.json` says what it is, what `zega build` runs and what that produces (a deploy will read the same), and the flags the worker needs, instead of a wrangler file to keep:
+
+```json
+{
+  "version": 1,
+  "name": "my-app",
+  "region": "yyz",
+  "kind": "app",
+  "framework": "nextjs",
+  "build": { "command": ["opennextjs-cloudflare", "build", "--skipWranglerConfigCheck"], "worker": ".open-next/worker.js", "assets": ".open-next/assets" },
+  "runtime": { "compatibilityDate": "2026-09-01", "compatibilityFlags": ["nodejs_compat", "global_fetch_strictly_public"] }
+}
+```
+
+(Astro: `["astro", "build"]`, `dist/server/entry.mjs`, `dist/client`.) In an app:
+
+- `zega build` runs `build.command` from the project's `node_modules/.bin` (so install first), checks that `worker` and `assets` exist and prints `{ "kind", "framework", "command", "worker", "assets", "workerBytes" }`. The framework's own output goes to stderr.
+- `zega dev` runs the framework's dev server (`next dev`, `astro dev --ignore-lock`) with `.dev.vars` added to its environment. Unlike a function, the dev server gets the shell's environment too (it needs PATH). `--port` and `--local-graph`/`--cloud-graph` work. Its output is passed on as `output` events (as `zega start`), after a `starting` event with the env names.
+- `zega deploy` fails with `app deploys aren't supported yet` (code `app_deploy_unsupported`): `zega deploy` ships functions only.
 
 ## develop
 

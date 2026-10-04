@@ -8,7 +8,7 @@ import { DEFAULT_PORT, serveDatabaseExplorer, type Serving } from '@/handlers/ex
 import { flagValue, resolveServer, takeStartFlags } from '@/handlers/server_binary'
 import { LocalFailure } from '@/utils/errors'
 import { startBanner } from '@/utils/banner'
-import { event, showLogo, write } from '@/utils'
+import { event, relay, showLogo, write } from '@/utils'
 
 /** The signals worth forwarding: a supervisor's stop, and a hang-up. */
 const FORWARDED = ['SIGTERM', 'SIGHUP'] as const
@@ -42,27 +42,6 @@ export function runningBanner(running: Running, color?: boolean, mark?: boolean)
         color,
         mark,
     })
-}
-
-/**
- * What the server prints on stdout, passed on: as it is with `--human`, otherwise one `output` event per line,
- * so that everything on stdout is JSON.
- */
-function relay(human: boolean) {
-    let pending = ''
-    return {
-        async push(text: string): Promise<void> {
-            if (human) return await write('stdout', text)
-            pending += text
-            const lines = pending.split('\n')
-            pending = lines.pop() ?? ''
-            for (const line of lines) await write('stdout', event({ event: 'output', line }))
-        },
-        async end(): Promise<void> {
-            if (pending !== '') await write('stdout', event({ event: 'output', line: pending }))
-            pending = ''
-        },
-    }
 }
 
 /**

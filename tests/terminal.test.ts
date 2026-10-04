@@ -52,10 +52,43 @@ afterAll(() => {
 })
 
 describe.skipIf(process.platform === 'win32')('on a terminal', () => {
+    test('init asks which starter first, with the function selected and listed first; Enter takes it, and a down arrow moves to nextjs', async () => {
+        const dir = scratch()
+        try {
+            const session = await onTerminal(['init', '--human', '--name', 'picked', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
+            await session.waitFor('Starter:')
+            await session.waitFor('astro: an Astro app')
+            // The function is the first choice, and the one the cursor is on.
+            expect(session.output.indexOf('function: one Workers-style function')).toBeLessThan(session.output.indexOf('nextjs: a Next.js app'))
+            session.type('\u001b[B') // down: nextjs
+            session.type('\r')
+            expect(await session.exited).toBe(0)
+            const config = JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8'))
+            expect(config).toMatchObject({ name: 'picked', kind: 'app', framework: 'nextjs' })
+            expect(fs.existsSync(path.join(dir, 'app', 'page.tsx'))).toBe(true)
+
+            const plain = scratch()
+            try {
+                const again = await onTerminal(['init', '--human', '--name', 'plain', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], { home, cwd: plain })
+                await again.waitFor('Starter:')
+                again.type('\r') // the function, as it is preselected
+                await again.waitFor('Function id to deploy')
+                again.type('\r')
+                expect(await again.exited).toBe(0)
+                expect(fs.existsSync(path.join(plain, 'src', 'index.ts'))).toBe(true)
+                expect(JSON.parse(fs.readFileSync(path.join(plain, 'package.json'), 'utf8')).dependencies['@zegadb/lib']).toBeDefined()
+            } finally {
+                remove(plain)
+            }
+        } finally {
+            remove(dir)
+        }
+    })
+
     test('init asks for the name, then the region, and writes what was answered', async () => {
         const dir = scratch()
         try {
-            const session = await onTerminal(['init', '--human', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
+            const session = await onTerminal(['init', '--human', '--template', 'function', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
             await session.waitFor('Project name:')
             session.type('wizard-app\r')
             await session.waitFor('Region:')
@@ -80,7 +113,7 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
     test('a flag answers its question, so only the other is asked', async () => {
         const dir = scratch()
         try {
-            const session = await onTerminal(['init', '--human', '--name', 'flagged', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
+            const session = await onTerminal(['init', '--human', '--template', 'function', '--name', 'flagged', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
             await session.waitFor('Region:')
             expect(session.output).not.toContain('Project name:')
             session.type('\r')
@@ -96,7 +129,7 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
     test('init can tie a function to its entry file, asking for the entry with a default', async () => {
         const dir = scratch()
         try {
-            const session = await onTerminal(['init', '--human', '--name', 'fn-app', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
+            const session = await onTerminal(['init', '--human', '--template', 'function', '--name', 'fn-app', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
                 home,
                 cwd: dir,
             })
@@ -120,7 +153,7 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
         const dir = scratch()
         try {
             fs.writeFileSync(path.join(dir, 'zega.json'), '{"version":1,"name":"old","region":"yyz"}\n')
-            const session = await onTerminal(['init', '--human', '--name', 'new', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
+            const session = await onTerminal(['init', '--human', '--template', 'function', '--name', 'new', '--region', 'yyz', '--api', api.url, '--token-file', tokenFile], {
                 home,
                 cwd: dir,
             })
