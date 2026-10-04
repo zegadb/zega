@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 import type { components } from '@/types/cloud-api'
@@ -6,11 +7,15 @@ import type { components } from '@/types/cloud-api'
 const ROOT = path.resolve(import.meta.dir, '..')
 const ENTRY = path.join(ROOT, 'src', 'zega.ts')
 
-/** A fresh directory under the repo's own .tmp (never the system's temp dir). */
+/** A fresh directory outside the checkout, so upward searches cannot reach its node_modules. */
 export function scratch(): string {
-    const base = path.join(ROOT, '.tmp')
-    fs.mkdirSync(base, { recursive: true, mode: 0o700 })
-    return fs.mkdtempSync(path.join(base, 'case-'))
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'zegadb-tests-'))
+    const relative = path.relative(ROOT, base)
+    if (relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))) {
+        fs.rmSync(base, { recursive: true, force: true })
+        throw new Error(`test scratch directory must be outside the checkout: ${base}`)
+    }
+    return base
 }
 
 export function remove(dir: string): void {

@@ -88,16 +88,14 @@ describe('which zega-server', () => {
         expect(findInstalled(pkg, [path.join(home, 'nothing-here')])).toBeNull()
     })
 
-    const installedPackage = serverPackage(process.platform, process.arch)
-    const installedBinary = installedPackage === null ? null : findInstalled(installedPackage, searchRoots())
-    test.skipIf(installedBinary === null)('finds the real installed platform package when present', () => {
-        const pkg = installedPackage!
-        const roots = searchRoots()
-        const found = findInstalled(pkg, roots)
-        expect(found).not.toBeNull()
-        expect(resolveServer({ platform: process.platform, arch: process.arch, roots })).toBe(found!)
-        expect(found!).toContain(path.join('node_modules', ...pkg.name.split('/'), 'bin', pkg.bin))
-        expect(() => resolveServer({ platform: process.platform, arch: process.arch, roots: [path.resolve(import.meta.dir, '../..')] })).toThrow(
+    test('a package is found only when it is under an explicitly supplied root', () => {
+        const root = path.join(home, 'explicit-root')
+        const pkg = serverPackage(process.platform, process.arch)
+        if (pkg === null) return
+        const binary = install(root, [pkg.name.replace('@zegadb/server-', '')])
+        const roots = [path.join(root, 'nested', 'directory')]
+        expect(resolveServer({ platform: process.platform, arch: process.arch, roots })).toBe(binary[pkg.name.replace('@zegadb/server-', '')]!)
+        expect(() => resolveServer({ platform: process.platform, arch: process.arch, roots: [path.join(home, 'empty')] })).toThrow(
             /is not installed: it is the npm package @zegadb\/server-/,
         )
     })
@@ -135,7 +133,7 @@ describe('which zega-server', () => {
         expect(() => takeStartFlags(['--server'])).toThrow('--server needs a value')
         expect(() => takeStartFlags(['--explorer-port', 'x'])).toThrow('--explorer-port is a whole number from 0 to 65535')
         expect(() => takeStartFlags(['--explorer-port=70000'])).toThrow('from 0 to 65535')
-        expect(() => resolveServer({ override: path.join(home, 'no-such-server') })).toThrow('no such file')
+        expect(() => resolveServer({ override: path.join(home, 'no-such-server'), roots: [path.join(home, 'empty')] })).toThrow('no such file')
     })
 
     test('the server\'s own flags are found in its arguments, the last one winning', () => {
@@ -227,7 +225,7 @@ describe.skipIf(!posix)('zega start', () => {
     })
 
     test('with an empty lookup root it says which package; no PATH lookup', async () => {
-        await expect(startServer(['--port', '0'], { human: false }, [path.resolve(import.meta.dir, '../..')])).rejects.toThrow(
+        await expect(startServer(['--port', '0'], { human: false }, [path.join(home, 'empty')])).rejects.toThrow(
             /is not installed: it is the npm package @zegadb\/server-/,
         )
     })

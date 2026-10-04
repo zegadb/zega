@@ -155,7 +155,7 @@ describe.skipIf(!posix)('zega explorer: a local database', () => {
     })
 
     test('with an empty lookup root it says which package, and never looks on PATH', async () => {
-        const emptyRoot = path.resolve(import.meta.dir, '../..')
+        const emptyRoot = path.join(home, 'empty-lookup-root')
         expect(() => resolveServer({ roots: [emptyRoot] })).toThrow(/is not installed: it is the npm package @zegadb\/server-/)
         await expect(runExplorer(undefined, {
             human: false,

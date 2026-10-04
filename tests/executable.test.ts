@@ -137,7 +137,7 @@ describe('the compiled executable', () => {
         const json = await run(['start', '--data', './d', '--token-file', './t', '--server', fake])
         expect(json.stdout).toBe('{"event":"output","line":"got start --data ./d --token-file ./t"}\n')
         expect(json.code).toBe(5)
-        expect(() => resolveServer({ roots: [path.resolve(ROOT, '../..')] })).toThrow(
+        expect(() => resolveServer({ roots: [path.join(dir, 'empty-lookup-root')] })).toThrow(
             /is not installed: it is the npm package @zegadb\/server-/,
         )
     })
