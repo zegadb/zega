@@ -70,6 +70,8 @@ describe.skipIf(process.platform === 'win32')('on a terminal', () => {
             expect(session.output).toContain('Toronto (yyz)')
             expect(session.output).toContain('cd pty-init')
             expect(session.output).toContain('bun install')
+            expect(session.output).toContain('bun run deploy')
+            expect(session.output).not.toContain('bun run deploy --project')
             expect(session.output).not.toContain('Files ')
             expect(fs.existsSync(path.join(dir, 'pty-init', 'zega.json'))).toBe(true)
         } finally { remove(dir) }

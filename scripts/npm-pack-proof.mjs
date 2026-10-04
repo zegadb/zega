@@ -81,7 +81,7 @@ try {
     assert.match(init, /"template":\s*"function"/)
     const starterDir = path.join(starter, 't')
     const starterPackage = JSON.parse(fs.readFileSync(path.join(starterDir, 'package.json'), 'utf8'))
-    assert.equal(starterPackage.devDependencies.zegadb, '0.1.0')
+    assert.equal(starterPackage.devDependencies.zegadb, manifest.version)
     assert.equal(starterPackage.dependencies['@zegadb/lib'], '0.2.0')
 
     const inPlace = path.join(temp, 'in-place')
@@ -114,7 +114,7 @@ try {
         fs.mkdirSync(directory)
         runInstalled(['init', '--template', template, '--name', 't', '--region', 'yyz'], directory)
         const generated = JSON.parse(fs.readFileSync(path.join(directory, 't', 'package.json'), 'utf8'))
-        assert.equal(generated.devDependencies.zegadb, '0.1.0', `${template} starter CLI version differs`)
+        assert.equal(generated.devDependencies.zegadb, manifest.version, `${template} starter CLI version differs`)
         assert.equal(generated.dependencies['@zegadb/lib'], '0.2.0', `${template} starter lib version differs`)
     }
 

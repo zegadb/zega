@@ -150,6 +150,8 @@ export async function init(options: InitOptions): Promise<void> {
     }
     const deploys = (config.functions ?? []).map((item) => `Function  ${item.id ?? item.name} from ${item.entry}\n`).join('')
     const next = made.next.map((step) => step.replaceAll('bun', pm).replace('zega deploy', `${pm} run deploy`))
+    // The terminal deploy command can ask for the project interactively.
+    next[next.length - 1] = `${pm} run deploy`
     await write(
         'stdout',
         `Created ${path.basename(dir)}/ (${template === 'nextjs' ? 'Next.js' : template === 'astro' ? 'Astro' : 'function'} starter)\nName      ${config.name}\nRegion    ${config.region}\n${deploys}` +

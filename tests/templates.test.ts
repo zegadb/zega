@@ -69,6 +69,7 @@ describe('the starters', () => {
         const plain = await init(null)
         try {
             expect(JSON.parse(plain.result.stdout).template).toBe('function')
+            expect(JSON.parse(plain.result.stdout).next).toContain('bun run deploy --project <project id>')
             expect(readJson(path.join(plain.dir, 'zega.json')).functions).toEqual([{ name: 'My Starter', entry: 'src/index.ts' }])
             expect(JSON.parse(plain.result.stdout).next.join('\n')).toContain('bun run dev')
         } finally {
