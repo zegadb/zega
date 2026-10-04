@@ -18,7 +18,8 @@
     "api:types": "openapi-typescript openapi/openapi.json -o src/types/cloud-api.d.ts",
     "build": "bun run scripts/build-all.ts",
     "api:update": "bun run scripts/update-api.ts",
-    "explorer:update": "bun run scripts/update-explorer.ts"
+    "explorer:update": "bun run scripts/update-explorer.ts",
+    "docs:update": "bun run scripts/update-docs.ts"
   },
   "keywords": [
     "zega",
@@ -30,9 +31,11 @@
   "author": "Sami Fouad",
   "license": "Apache-2.0",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.0",
     "chalk": "6.0.1",
     "commander": "15.0.0",
-    "inquirer": "14.2.2"
+    "inquirer": "14.2.2",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
