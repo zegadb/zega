@@ -515,9 +515,19 @@ fn encode_sections(
     let (schema, uniques, indexes) = match &options.schema {
         Some(source) => {
             let (uniques, indexes) = declarations(source)?;
-            (Some(source), uniques, indexes)
+            (Some(source.clone()), uniques, indexes)
         }
-        None => (carried.schema.as_ref(), carried.uniques.clone(), carried.indexes.clone()),
+        None => (
+            carried.schema.as_ref().map(|source| {
+                if carried.meta.get("zega.schema").is_some_and(|value| value == "stored") {
+                    crate::builtin::with_auth(source)
+                } else {
+                    source.clone()
+                }
+            }),
+            carried.uniques.clone(),
+            carried.indexes.clone(),
+        ),
     };
     let mut meta = carried.meta.clone();
     meta.extend(options.meta.iter().map(|(k, v)| (k.clone(), v.clone())));
@@ -544,7 +554,7 @@ fn encode_sections(
         Ok(())
     })?;
     emit(Section::Schema, &|sink| {
-        match schema {
+        match &schema {
             Some(source) => {
                 put_u8(sink, 1)?;
                 put_str(sink, source)?;

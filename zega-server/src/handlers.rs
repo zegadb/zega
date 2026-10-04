@@ -85,6 +85,14 @@ async fn execute_refusing(
             })),
         )
             .into_response(),
+        Ok(Err(cause)) if cause.to_string().contains("schema_mismatch:") => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"ok": false, "error": cause.to_string(), "code": "schema_mismatch"})),
+        ).into_response(),
+        Ok(Err(cause)) if cause.to_string().contains("reserved_type:") => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "error": cause.to_string(), "code": "reserved_type"})),
+        ).into_response(),
         Ok(Err(cause)) => error(refused, cause.to_string()),
         Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "database worker failed"),
     }
@@ -110,6 +118,34 @@ pub struct SchemaDiffRequest {
     old: String,
     #[serde(default)]
     new: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetSchemaRequest { schema: String }
+
+pub async fn get_schema(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&headers, &state) { return error(StatusCode::UNAUTHORIZED, "unauthorized"); }
+    execute(state, |db| Ok(json!({"schema": db.stored_schema()?, "builtin": ["Auth"]}))).await
+}
+
+pub async fn set_schema(
+    State(state): State<AppState>, headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !authorized(&headers, &state) { return error(StatusCode::UNAUTHORIZED, "unauthorized"); }
+    let schema = if headers.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).is_some_and(|v| v.split(';').next().unwrap_or("").trim().eq_ignore_ascii_case("application/zql")) {
+        match std::str::from_utf8(&body) { Ok(text) => text.to_owned(), Err(_) => return error(StatusCode::BAD_REQUEST, "schema is not valid UTF-8") }
+    } else {
+        match serde_json::from_slice::<SetSchemaRequest>(&body) {
+            Ok(request) => request.schema,
+            Err(rejection) => return error(StatusCode::BAD_REQUEST, format!("invalid schema request: {rejection}")),
+        }
+    };
+    execute(state, move |db| {
+        let report = db.set_schema(&schema)?;
+        serde_json::to_value(report).map_err(|e| ZegaError::Execution(e.to_string()))
+    }).await
 }
 
 pub async fn schema_diff(

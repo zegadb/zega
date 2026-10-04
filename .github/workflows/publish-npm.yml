@@ -61,7 +61,7 @@ jobs:
 
   publish:
     needs: proof
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
+    if: always() && needs.proof.result == 'success' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
     runs-on: ubuntu-latest
     environment: release
     concurrency:

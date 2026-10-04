@@ -43,7 +43,7 @@ jobs:
           print("publishable: zega")'
 
   promote:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
+    if: always() && needs.integrity-proof.result == 'success' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
     needs: integrity-proof
     runs-on: ubuntu-latest
     environment: release
@@ -76,6 +76,7 @@ jobs:
 
   crates:
     # Stable only: a crates.io version can never be replaced, so canaries never go there.
+    if: always() && needs.promote.result == 'success'
     needs: promote
     runs-on: ubuntu-latest
     environment: release

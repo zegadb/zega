@@ -25,6 +25,7 @@ use crate::lang::{
 };
 use crate::value::Value;
 use crate::journal::{atomically, Journal};
+use crate::wal::Operation;
 use serde_json::{json, Value as Json};
 
 use crate::{SchemaDiffReport, Zega, ZegaError};
@@ -59,6 +60,52 @@ pub fn check_zql(entry_point: ZqlEntryPoint, source: &str) -> std::result::Resul
 }
 
 impl Zega {
+    /// Set the schema carried by this graph. Declarations are committed to the
+    /// WAL before becoming visible, so a restart replays the change.
+    pub fn set_schema(&self, source: &str) -> Result<SchemaDiffReport, ZegaError> {
+        if crate::builtin::rejects_reserved(source) {
+            return Err(ZegaError::Execution("reserved_type: Auth is built in".into()));
+        }
+        let effective = crate::builtin::with_auth(source);
+        let schema = crate::lang::parse_schema(&effective).map_err(|e| explain(e, "schema", source))?;
+        let mut uniques = crate::lang::parse_uniques(&effective).map_err(|e| explain(e, "schema", source))?;
+        uniques.sort();
+        let indexes = crate::lang::parse_indexes(&effective).map_err(|e| explain(e, "schema", source))?;
+        let mut graph = self.lock_graph()?;
+        let old = graph.carried().schema.as_deref().unwrap_or("");
+        let old_effective = crate::builtin::with_auth(old);
+        let old_schema = crate::lang::parse_schema(&old_effective).map_err(|e| explain(e, "schema", old))?;
+        let report = crate::schema_diff::diff_schemas(&old_schema, &schema, &graph);
+        if report.changes.iter().any(|change| change.severity == crate::schema_diff::Severity::Blocks) {
+            return Err(ZegaError::Execution("schema change refused: incompatible with existing data".into()));
+        }
+        for node in graph.nodes() {
+            for label in node.labels() {
+                if !schema.types.iter().any(|ty| ty.name == label) {
+                    return Err(ZegaError::Execution(format!("schema change refused: existing label {label} has no type")));
+                }
+            }
+        }
+        self.wal.append(&Operation::SetSchema { source: source.to_owned(), uniques: uniques.clone(), indexes: indexes.clone() })?;
+        let mut carried = graph.carried().clone();
+        carried.schema = Some(source.to_owned());
+        carried.uniques = uniques;
+        carried.indexes = indexes;
+        carried.meta.insert("zega.schema".into(), "stored".into());
+        graph.set_carried(carried);
+        let effective_uniques = graph.carried().uniques.clone();
+        let effective_indexes = crate::lang::effective_indexes(&schema, &effective_uniques, &graph.carried().indexes);
+        graph.sync_uniques(&effective_uniques);
+        graph.sync_indexes(&effective_indexes);
+        Ok(report)
+    }
+
+    /// Return the effective schema text carried by this graph.
+    pub fn stored_schema(&self) -> Result<String, ZegaError> {
+        let graph = self.lock_graph()?;
+        Ok(crate::builtin::with_auth(graph.carried().schema.as_deref().unwrap_or("")))
+    }
+
     /// Parse and check the schema, including the explicit display contract.
     pub fn schema(&self, source: &str) -> Result<Schema, ZegaError> {
         crate::lang::parse_schema(source).map_err(|error| explain(error, "schema", source))
@@ -123,11 +170,41 @@ impl Zega {
         access: Access,
         loader: &dyn Fn(&str) -> Result<String, LangError>,
     ) -> Result<Json, ZegaError> {
-        let schema = crate::lang::parse_schema(schema_src)
+        let (effective_src, explicitly_stored) = {
+            let graph = self.lock_graph()?;
+            let carried = graph.carried();
+            let effective = if schema_src.trim().is_empty() {
+                crate::builtin::with_auth(carried.schema.as_deref().unwrap_or(""))
+            } else {
+                if crate::builtin::rejects_reserved(schema_src) {
+                    return Err(ZegaError::Execution("reserved_type: Auth is built in".into()));
+                }
+                crate::builtin::with_auth(schema_src)
+            };
+            (effective, carried.meta.get("zega.schema").is_some_and(|v| v == "stored") && !schema_src.trim().is_empty())
+        };
+        if explicitly_stored {
+            let stored = self.stored_schema()?;
+            let requested = crate::lang::parse_schema(&effective_src).map_err(|e| explain(e, "schema", schema_src))?;
+            let stored_parsed = crate::lang::parse_schema(&stored).map_err(|e| explain(e, "schema", &stored))?;
+            let graph = self.lock_graph()?;
+            let report = crate::schema_diff::diff_schemas(&stored_parsed, &requested, &graph);
+            let stored_uniques = crate::lang::parse_uniques(&stored).unwrap_or_default();
+            let requested_uniques = crate::lang::parse_uniques(&effective_src).unwrap_or_default();
+            let stored_indexes = crate::lang::parse_indexes(&stored).unwrap_or_default();
+            let requested_indexes = crate::lang::parse_indexes(&effective_src).unwrap_or_default();
+            if !report.changes.is_empty() || stored_uniques != requested_uniques || stored_indexes != requested_indexes {
+                let difference = report.changes.first().map(|change| change.message.as_str())
+                    .or_else(|| (stored_uniques != requested_uniques).then_some("unique declarations differ"))
+                    .unwrap_or("index declarations differ");
+                return Err(ZegaError::Execution(format!("schema_mismatch: {difference}")));
+            }
+        }
+        let schema = crate::lang::parse_schema(&effective_src)
             .map_err(|error| explain(error, "schema", schema_src))?;
-        let uniques = crate::lang::parse_uniques(schema_src)
+        let uniques = crate::lang::parse_uniques(&effective_src)
             .map_err(|error| explain(error, "schema", schema_src))?;
-        let indexes = crate::lang::parse_indexes(schema_src)
+        let indexes = crate::lang::parse_indexes(&effective_src)
             .map_err(|error| explain(error, "schema", schema_src))?;
         let statement = crate::lang::parse_statement(source)
             .map_err(|error| explain(error, "query", source))?;
@@ -285,6 +362,23 @@ impl Zega {
         access: Access,
         loader: &dyn Fn(&str) -> Result<String, LangError>,
     ) -> Result<Json, ZegaError> {
+        if crate::builtin::rejects_reserved(source) {
+            return Err(ZegaError::Execution("reserved_type: Auth is built in".into()));
+        }
+        // A raw statement sent as a `.zql` media type can use this graph's
+        // stored schema without wrapping it in a schema block. Try the whole
+        // document grammar first so leading comments do not hide `schema`.
+        if let Err(document_error) = crate::lang::parse_zql(source) {
+            if let Ok(statement) = crate::lang::parse_statement(source) {
+            let schema_src = self.stored_schema()?;
+            let schema = crate::lang::parse_schema(&schema_src).map_err(|e| explain(e, "schema", &schema_src))?;
+            let uniques = crate::lang::parse_uniques(&schema_src).map_err(|e| explain(e, "schema", &schema_src))?;
+            let indexes = crate::lang::parse_indexes(&schema_src).map_err(|e| explain(e, "schema", &schema_src))?;
+            access.admit(&statement)?;
+            return self.execute(&schema, Declared { uniques: &uniques, indexes: &indexes }, &statement, access, Origin { name: "query", text: source }, loader);
+            }
+            return Err(explain(document_error, "schema", source));
+        }
         let file =
             crate::lang::parse_zql(source).map_err(|error| explain(error, "schema", source))?;
         // Every block is checked before the first runs: a document that ends
@@ -3907,5 +4001,55 @@ mod tests {
             )
             .unwrap_err();
         assert!(password.to_string().contains("password"), "{password}");
+    }
+
+    #[test]
+    fn stored_schema_survives_wal_replay_checkpoint_and_graph_export() {
+        let dir = tempfile::tempdir().unwrap();
+        let schema = "type Person { name: String age: Int }";
+        {
+            let db = Zega::open(dir.path().to_str().unwrap()).wal_flush_every_write().build().unwrap();
+            db.run_lang(schema, r#"mutation { Person(name: "Ada" && age: 37) { name } }"#).unwrap();
+            assert!(db.set_schema("type Other { name: String }").unwrap_err().to_string().contains("Person"));
+            db.set_schema(schema).unwrap();
+            assert!(db.set_schema("type Person { name: String }").unwrap_err().to_string().contains("incompatible"));
+            assert_eq!(db.run_lang("", "{ Person { name age } }").unwrap()[0]["age"], 37);
+            db.checkpoint().unwrap();
+        }
+        let db = Zega::open(dir.path().to_str().unwrap()).build().unwrap();
+        assert!(db.stored_schema().unwrap().contains("type Auth"));
+        assert_eq!(db.run_lang("", "{ Person { name age } }").unwrap()[0]["name"], "Ada");
+        let mut exported = Vec::new();
+        db.export(&mut exported).unwrap();
+        let imported = Zega::in_memory().build().unwrap();
+        imported.import(&exported[..]).unwrap();
+        assert_eq!(imported.run_lang("", "{ Person { name } }").unwrap()[0]["name"], "Ada");
+        imported.clear().unwrap();
+        assert!(imported.stored_schema().unwrap().contains("type Person"));
+        assert_eq!(imported.run_lang("", "{ Person { name } }").unwrap(), json!([]));
+    }
+
+    #[test]
+    fn stored_schema_survives_wal_replay_without_checkpoint() {
+        let dir = tempfile::tempdir().unwrap();
+        let schema = "type Person { name: String }";
+        {
+            let db = Zega::open(dir.path().to_str().unwrap()).wal_flush_every_write().build().unwrap();
+            db.set_schema(schema).unwrap();
+        }
+        let db = Zega::open(dir.path().to_str().unwrap()).build().unwrap();
+        assert!(db.stored_schema().unwrap().contains("type Person"));
+    }
+
+    #[test]
+    fn auth_is_reserved_but_relationship_targets_and_edge_extensions_work() {
+        let db = Zega::in_memory().build().unwrap();
+        assert!(db.set_schema("type Auth { uid: String }").unwrap_err().to_string().contains("reserved_type"));
+        assert!(db.set_schema("schema { type Auth { uid: String } }").unwrap_err().to_string().contains("reserved_type"));
+        assert!(db.set_schema("type Person { name: String } unique { Auth { uid } }").unwrap_err().to_string().contains("reserved_type"));
+        let schema = "type Post { title: String author -> Auth } extend type Auth { posts: MEMBER <- Post[] }";
+        db.set_schema(schema).unwrap();
+        db.run_lang("", r#"mutation { Post(title: "Hello") { author -> Auth(uid: "a_123" && emailVerified: true && isAnonymous: false && createdAt: 1) { uid } } }"#).unwrap();
+        assert_eq!(db.run_lang("", "{ Auth { uid } }").unwrap()[0]["uid"], "a_123");
     }
 }

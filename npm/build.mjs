@@ -22,13 +22,13 @@ execFileSync('wasm-pack', ['build', 'zega-wasm', '--target', 'web', '--out-dir',
 for (const file of ['package.json', '.gitignore', 'README.md', 'LICENSE']) {
   await rm(`dist/wasm/${file}`, { force: true });
 }
-for (const file of ['browser.js', 'node.js', 'index.d.ts']) await cp(`npm/src/${file}`, `dist/${file}`);
+for (const file of ['browser.js', 'node.js', 'index.d.ts', 'client.js', 'client.d.ts']) await cp(`npm/src/${file}`, `dist/${file}`);
 await cp('npm/README.md', 'dist/README.md');
 await cp('LICENSE', 'dist/LICENSE');
 await writeFile('dist/package.json', JSON.stringify({
   name: '@zegadb/lib',
   version: workspace.version,
-  description: 'An embeddable graph database with ZQL v2, for browsers and Node.js',
+  description: 'An embeddable graph database with ZQL v2 for browsers and Node.js, and a fetch-only client for a running zega',
   type: 'module',
   license: workspace.license,
   repository: { type: 'git', url: workspace.repository },
@@ -40,12 +40,14 @@ await writeFile('dist/package.json', JSON.stringify({
   types: './index.d.ts',
   exports: {
     '.': { types: './index.d.ts', browser: './browser.js', node: './node.js', default: './browser.js' },
+    // fetch-only network client: imports nothing, so it never loads the engine below.
+    './client': { types: './client.d.ts', default: './client.js' },
     './wasm': { types: './wasm/zega_wasm.d.ts', default: './wasm/zega_wasm.js' },
     './zega_wasm_bg.wasm': './wasm/zega_wasm_bg.wasm',
   },
   // wasm-bindgen glue initializes module state; keep it during tree shaking.
   sideEffects: ['./wasm/zega_wasm.js'],
-  files: ['browser.js', 'node.js', 'index.d.ts', 'wasm/*.js', 'wasm/*.wasm', 'wasm/*.d.ts', 'README.md', 'LICENSE'],
+  files: ['browser.js', 'node.js', 'index.d.ts', 'client.js', 'client.d.ts', 'wasm/*.js', 'wasm/*.wasm', 'wasm/*.d.ts', 'README.md', 'LICENSE'],
   publishConfig: { access: 'public', registry: 'https://registry.npmjs.org/' },
 }, null, 2) + '\n');
 console.log(`Built zegadb@${workspace.version} in dist/`);

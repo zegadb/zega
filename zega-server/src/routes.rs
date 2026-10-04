@@ -36,6 +36,7 @@ pub fn app(state: AppState) -> Router {
         )
         .route("/graph/relationships", post(handlers::connect))
         .route("/schema/diff", post(handlers::schema_diff))
+        .route("/schema", get(handlers::get_schema).put(handlers::set_schema))
         // Raw source text needs room for JSON escaping. Per-source limits are
         // still enforced by the engine before parsing and insertion.
         .layer(DefaultBodyLimit::max(16_000_000))

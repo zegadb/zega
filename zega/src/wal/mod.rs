@@ -17,6 +17,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use thiserror::Error;
 use crate::graph::{Graph, Node, NodeId, RelId, Relationship};
+use crate::index::IndexSpec;
 use crate::value::Value;
 
 const WAL_MAGIC: &[u8; 4] = b"ZWAL";
@@ -105,6 +106,9 @@ pub enum Operation {
     /// keep the externally tagged wire contract independent of bincode.
     Linked { bytes: Vec<u8> },
     ReplaceLinkedGraph { file: String, bytes: Vec<u8> },
+    /// Replace the schema declarations carried by the current graph. Appended
+    /// to preserve all existing bincode operation discriminants.
+    SetSchema { source: String, uniques: Vec<(String, String)>, indexes: Vec<IndexSpec> },
 }
 
 #[cfg(not(target_arch = "wasm32"))]

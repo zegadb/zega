@@ -6,7 +6,9 @@
   "scripts": {
     "build": "node npm/build.mjs",
     "pack:package": "node npm/pack.mjs",
-    "test": "node npm/check-server-packs.mjs && node npm/check-consumers.mjs && node npm/check-next.mjs",
+    "check:client-types": "node npm/check-client-types.mjs",
+    "test": "node npm/check-server-packs.mjs && node npm/check-client.mjs && node npm/check-consumers.mjs && node npm/check-next.mjs",
+    "test:client-server": "node npm/check-client.mjs --server .target/debug/zega-server",
     "test:exports": "node npm/check-consumers.mjs --break-exports"
   },
   "devDependencies": {

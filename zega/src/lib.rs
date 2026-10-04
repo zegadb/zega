@@ -1,4 +1,5 @@
 pub mod linked;
+pub(crate) mod builtin;
 pub mod location;
 pub mod vector;
 mod vector_view;
@@ -558,13 +559,22 @@ impl Zega {
         Ok(())
     }
 
-    /// Replace the graph with an empty one, durably, as one WAL entry (an
-    /// import of an empty graph). What an earlier import carried (schema
-    /// text, declarations, metadata) goes with it; the id counters stay, so
-    /// no id is ever given out twice.
+    /// Replace the graph's data with an empty graph, durably, as one WAL entry.
+    /// A schema set with `set_schema` remains; import metadata is discarded.
     pub fn clear(&self) -> Result<()> {
         let mut empty = Graph::new();
-        empty.reset_next_ids(self.lock_graph()?.next_ids());
+        let current = self.lock_graph()?;
+        empty.reset_next_ids(current.next_ids());
+        let carried = current.carried();
+        if carried.meta.get("zega.schema").is_some_and(|value| value == "stored") {
+            let mut stored = graph_file::Carried::default();
+            stored.schema = carried.schema.clone();
+            stored.uniques = carried.uniques.clone();
+            stored.indexes = carried.indexes.clone();
+            stored.meta.insert("zega.schema".into(), "stored".into());
+            empty.set_carried(stored);
+        }
+        drop(current);
         let mut bytes = Vec::new();
         graph_file::write(&empty, &graph_file::ExportOptions::default(), CREATED_BY, &mut bytes)?;
         self.import(&bytes[..])?;
@@ -617,6 +627,14 @@ impl Drop for Zega {
 fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path) -> Result<()> {
     match op {
         Operation::Linked { bytes } => crate::linked::replay(graph, bytes)?,
+        Operation::SetSchema { source, uniques, indexes } => {
+            let mut carried = graph.carried().clone();
+            carried.schema = Some(source.clone());
+            carried.uniques = uniques.clone();
+            carried.indexes = indexes.clone();
+            carried.meta.insert("zega.schema".into(), "stored".into());
+            graph.set_carried(carried);
+        }
         Operation::ReplaceLinkedGraph { file, bytes } => {
             apply_op_to_memory(graph, &Operation::ReplaceGraph { file: file.clone() }, data)?;
             graph.linked = serde_json::from_slice(bytes).map_err(|e| ZegaError::Execution(e.to_string()))?;

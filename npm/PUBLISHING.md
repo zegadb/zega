@@ -91,7 +91,7 @@ against that release's `manifest.json`, packs, and publishes.
 
 | Package | What it is |
 | --- | --- |
-| `@zegadb/lib` | The embeddable engine: WASM + JS API, built by `build.mjs`. |
+| `@zegadb/lib` | The embeddable engine (WASM + JS API) and, as `@zegadb/lib/client`, the fetch-only client for a running zega (no wasm, no dependencies); built by `build.mjs`. |
 | `@zegadb/server-darwin-arm64`, `-darwin-x64`, `-linux-x64`, `-win32-x64` | The `zega-server` executable, one binary per package, `os`/`cpu` restricted, no install scripts, no dependencies (`pack-server.mjs`). |
 
 The server packages exist for the future `zegadb` CLI package (its own

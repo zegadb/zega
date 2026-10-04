@@ -85,6 +85,33 @@ async fn zql_mutation_then_query_returns_typed_json() {
 }
 
 #[tokio::test]
+async fn stored_schema_routes_allow_schema_less_queries_and_report_mismatch() {
+    let server = start_server().await;
+    let client = Client::new();
+    let schema = "type Person { name: String }";
+    let saved: Value = client.put(format!("{}/schema", server.base_url)).bearer_auth(TOKEN)
+        .json(&json!({"schema":schema})).send().await.unwrap().json().await.unwrap();
+    assert_eq!(saved["ok"], true);
+    let got: Value = client.get(format!("{}/schema", server.base_url)).bearer_auth(TOKEN)
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(got["result"]["builtin"], json!(["Auth"]));
+    assert!(got["result"]["schema"].as_str().unwrap().contains("type Auth"));
+
+    let created: Value = client.post(format!("{}/zql", server.base_url)).bearer_auth(TOKEN)
+        .json(&json!({"query":r#"mutation { Person(name: "Ada") { name } }"#})).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"], true, "{created}");
+    let read: Value = client.request(reqwest::Method::from_bytes(b"QUERY").unwrap(), format!("{}/zql", server.base_url))
+        .bearer_auth(TOKEN).json(&json!({"query":"{ Person { name } }"})).send().await.unwrap().json().await.unwrap();
+    assert_eq!(read["result"][0]["name"], "Ada");
+    let raw: Value = client.request(reqwest::Method::from_bytes(b"QUERY").unwrap(), format!("{}/zql", server.base_url))
+        .bearer_auth(TOKEN).header("content-type", "application/zql").body("query { Person { name } }").send().await.unwrap().json().await.unwrap();
+    assert_eq!(raw["result"][0]["name"], "Ada");
+    let mismatch: Value = client.post(format!("{}/zql", server.base_url)).bearer_auth(TOKEN)
+        .json(&json!({"schema":"type Person { age: Int }","query":"{ Person { age } }"})).send().await.unwrap().json().await.unwrap();
+    assert_eq!(mismatch["code"], "schema_mismatch");
+}
+
+#[tokio::test]
 async fn vector_view_endpoint_uses_native_vectors_for_both_dimensions() {
     let server = start_server().await;
     let client = Client::new();
@@ -1279,10 +1306,10 @@ async fn query_answers_a_refused_statement_with_422_where_post_says_400() {
     assert_eq!(queried.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(queried.json::<Value>().await.unwrap(), posted, "the same engine message");
 
-    // A schema-less request (the server keeps no schema): the engine's own error.
-    let queried = query_json(&client, &server, &json!({"query": READ})).send().await.unwrap();
-    assert_eq!(queried.status(), StatusCode::UNPROCESSABLE_ENTITY);
-    assert!(queried.json::<Value>().await.unwrap()["error"].as_str().unwrap().contains("schema has no types"));
+    // A schema-less request can use the engine's built-in Auth type.
+    let queried = query_json(&client, &server, &json!({"query": "{ Auth { uid } }"})).send().await.unwrap();
+    assert_eq!(queried.status(), StatusCode::OK);
+    assert_eq!(queried.json::<Value>().await.unwrap()["ok"], true);
 }
 
 #[tokio::test]

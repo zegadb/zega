@@ -170,7 +170,7 @@ jobs:
     # its canary tag) and manual dispatches. Every PR that reaches main
     # crosses this job on the tag push right after merge, so skipping it on
     # the PR itself does not skip the check, only when it runs.
-    if: needs.resolve.outputs.full_matrix == 'true'
+    if: always() && needs.resolve.result == 'success' && needs.resolve.outputs.full_matrix == 'true'
     runs-on: ${{ matrix.runner }}
     environment: public-ci
     strategy:
@@ -207,6 +207,27 @@ jobs:
           path: artifacts/npm-package/
           if-no-files-found: error
 
+  # Cheap PR guard for the installed package's client declaration contract.
+  # The full package job still exercises the packed tarball and WASM consumers
+  # on release refs; this runs the exact client declarations without building
+  # WASM, installing browsers, or using R2 credentials.
+  package-types:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: public-ci
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install locked package tooling
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check client declarations for Node and browser consumers
+        run: npm run check:client-types
+
   # Deliberately does not `need` `changes` directly: that job is skipped
   # outside pull_request, and an unqualified `if:` here would let a skipped
   # need cascade into skipping this job too (see `plan`, which already
@@ -219,7 +240,7 @@ jobs:
     # skips even linux-x64 (docs/markdown-only PRs). On a tag push or manual
     # dispatch: every platform, unconditionally. See the `plan` job: which
     # legs run is a job output, since matrix isn't visible from a job `if:`.
-    if: needs.plan.outputs.run_native == 'true'
+    if: always() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.plan.outputs.run_native == 'true'
     runs-on: ${{ matrix.runner }}
     environment: public-ci
     defaults:
@@ -270,6 +291,11 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm run test:cli
+      - name: Test the npm client against the real zega-server
+        if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
+        # npm/check-client.mjs needs only Node: the client has no dependencies, and
+        # --server makes a missing or unstartable binary a failure, not a skip.
+        run: node npm/check-client.mjs --server .target/debug/zega-server
       - name: Build CLI with embedded explorer
         run: cargo build --locked --release -p zega-cli
       - name: Check canonical ZQL/JSON files and embedded samples
@@ -305,32 +331,28 @@ jobs:
 
   # A single, stable name for branch protection to require, regardless of
   # which native legs actually ran for a given PR. Runs unconditionally
-  # (needs' own skips would otherwise cascade and skip this too) and fails
-  # only on a real failure upstream, never on a leg that was correctly
-  # skipped by path filtering.
+  # (needs' own skips would otherwise cascade and skip this too). PR path
+  # filtering may skip native; release refs must run native and publish.
   release-required:
     name: Release required checks
     if: always()
-    needs: [resolve, changes, plan, package, native]
+    needs: [resolve, changes, plan, package, package-types, native, publish]
     runs-on: ubuntu-latest
     environment: public-ci
     steps:
+      # The check is a script in the repo, so this job needs the checkout too.
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
       - name: No upstream failures
         env:
           NEEDS_JSON: ${{ toJson(needs) }}
-        run: |
-          python3 -c "
-          import json, os, sys
-          needs = json.loads(os.environ['NEEDS_JSON'])
-          bad = {k: v['result'] for k, v in needs.items() if v['result'] not in ('success', 'skipped')}
-          if bad:
-              print('failed upstream jobs:', bad)
-              sys.exit(1)
-          print('ok:', {k: v['result'] for k, v in needs.items()})
-          "
+          FULL_MATRIX: ${{ needs.resolve.outputs.full_matrix }}
+        run: python3 scripts/check-release-needs.py
 
   publish:
-    if: needs.resolve.outputs.tag != '' && github.repository == 'zegadb/zega'
+    if: always() && needs.resolve.result == 'success' && needs.package.result == 'success' && needs.native.result == 'success' && needs.resolve.outputs.tag != '' && github.repository == 'zegadb/zega'
     needs: [resolve, package, native]
     runs-on: ubuntu-latest
     environment: release
