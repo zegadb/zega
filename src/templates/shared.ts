@@ -18,13 +18,13 @@ export const wrangler = { wrangler: WRANGLER }
 
 /** Names only: a real value never goes in a file that is committed. */
 export const DEV_VARS_EXAMPLE = text(`
-# Copy this file to .dev.vars (it is git-ignored) and fill in the values.
+# Copy this file to .env (it is git-ignored) and fill in the values.
 # ${GRAPH_URL_VAR}: the graph's address. ${GRAPH_KEY_VAR}: a graph key (zk_...), made in the dashboard.
 ${GRAPH_URL_VAR}=
 ${GRAPH_KEY_VAR}=
 `)
 
-export const gitignore = (...more: string[]): string => text(['node_modules', '.dev.vars', 'dist', ...more].join('\n'))
+export const gitignore = (...more: string[]): string => text(['node_modules', '.env', 'dist', ...more].join('\n'))
 
 /** What a worker on the Workers runtime needs, recorded in `zega.json` rather than in a wrangler file to keep. */
 export const RUNTIME = {

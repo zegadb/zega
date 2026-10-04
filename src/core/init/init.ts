@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import inquirer from 'inquirer'
 
-import { projectConfig, regionChoices, type Globals } from '@/handlers'
+import { openSessionIfAny, projectConfig, regionChoices, type Globals } from '@/handlers'
 import * as questions from '@/questions'
 import { DEFAULT_TEMPLATE, TEMPLATES, starter, type Template } from '@/templates'
 import { LocalFailure } from '@/utils/errors'
@@ -11,9 +12,26 @@ export type InitOptions = Globals & {
     name?: string
     region?: string
     force?: boolean
+    here?: boolean
+    install?: boolean
     function?: string
     entry?: string
     template?: string
+}
+
+export function packageManager(userAgent = process.env.npm_config_user_agent ?? ''): string {
+    const agent = userAgent.split(/[ /]/)[0]
+    if (agent === 'bun') return 'bun'
+    if (agent === 'npm') return 'npm'
+    if (agent === 'pnpm') return 'pnpm'
+    if (agent === 'yarn') return 'yarn'
+    return 'bun'
+}
+
+export async function installDependencies(dir: string, pm: string, spawn = Bun.spawn): Promise<void> {
+    const child = spawn([pm, 'install'], { cwd: dir, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })
+    const code = await child.exited
+    if (code !== 0) throw new LocalFailure(`dependency installation failed: ${pm} install exited with ${code}`, 'install_failed')
 }
 
 /**
@@ -22,7 +40,8 @@ export type InitOptions = Globals & {
  * money and is done in the dashboard, signed in. It never overwrites a file without `--force`.
  */
 export async function init(options: InitOptions): Promise<void> {
-    const dir = process.cwd()
+    const cwd = process.cwd()
+    let dir = cwd
     const prompt = canPrompt(options)
     if (prompt) await welcome('init', 'start a zega project here')
 
@@ -48,7 +67,7 @@ export async function init(options: InitOptions): Promise<void> {
     // The files this starter writes, to see before asking anything what is already there.
     const planned = starter(template, { name: 'x', entry: entryFlag ?? questions.DEFAULT_ENTRY })
     const writes = [projectConfig.CONFIG_FILE, ...Object.keys(planned.files)]
-    const inTheWay = writes.filter((file) => fs.existsSync(path.join(dir, file)))
+    let inTheWay: string[] = []
 
     // Nothing is asked without --human on a terminal: name every flag that is missing at once.
     if (!prompt) {
@@ -64,18 +83,6 @@ export async function init(options: InitOptions): Promise<void> {
         }
     }
 
-    if (inTheWay.length > 0 && options.force !== true) {
-        const replace = await answer({
-            flag: '--force',
-            given: undefined,
-            hint: `${inTheWay.join(', ')} ${inTheWay.length === 1 ? 'exists' : 'exist'} already; --force replaces ${inTheWay.length === 1 ? 'it' : 'them'}`,
-            prompt,
-            validate: () => null,
-            ask: () => questions.overwrite(inTheWay),
-        })
-        if (!replace) throw new LocalFailure(`${inTheWay.join(', ')} ${inTheWay.length === 1 ? 'exists' : 'exist'} already: left as they are`)
-    }
-
     const name = await answer({
         flag: '--name',
         given: options.name,
@@ -85,9 +92,11 @@ export async function init(options: InitOptions): Promise<void> {
         ask: () => questions.name(path.basename(dir)),
     })
 
-    const choices = await regionChoices(null, options.human === true)
-    const defaultRegion = choices.some((choice) => choice.id === 'yyz') ? 'yyz' : choices[0]!.id
-    const region = options.region ?? defaultRegion
+    const session = await openSessionIfAny(options)
+    const choices = await regionChoices(session, options.human === true)
+    if (session === null) choices.sort((a, b) => Number(b.id === 'yyz') - Number(a.id === 'yyz'))
+    const defaultRegion = session !== null ? choices[0]!.id : choices.some((choice) => choice.id === 'yyz') ? 'yyz' : choices[0]!.id
+    const region = options.region ?? (prompt ? await questions.region(choices) : defaultRegion)
     const badRegion = questions.validateRegion(region, choices)
     if (badRegion !== null) throw new LocalFailure(`--region: ${badRegion}`, 'invalid_flag')
 
@@ -106,23 +115,51 @@ export async function init(options: InitOptions): Promise<void> {
         }
     }
 
-    const projectName = name.trim()
+    const projectName = name.trim() === '.' ? path.basename(cwd) : name.trim()
+    const inPlace = options.here === true || name.trim() === '.'
+    if (!inPlace) {
+        if (projectName.includes('/') || projectName.includes('\\') || projectName === '..') throw new LocalFailure('--name must be a folder name, or use --here', 'invalid_flag')
+        dir = path.resolve(cwd, projectName)
+        if (!dir.startsWith(cwd + path.sep)) throw new LocalFailure('project folder must be inside the current directory', 'invalid_flag')
+        if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0 && options.force !== true) throw new LocalFailure(`${projectName}/ is not empty; use --force to write into it`, 'already_exists')
+        fs.mkdirSync(dir, { recursive: true })
+    }
+    inTheWay = writes.filter((file) => fs.existsSync(path.join(dir, file)))
+    if (!prompt && inTheWay.length > 0 && options.force !== true) {
+        throw new LocalFailure(`${inTheWay.join(', ')} already exists in the target; pass --force`, 'missing_flag')
+    }
+    if (inTheWay.length > 0 && options.force !== true) {
+        const replace = await answer({ flag: '--force', given: undefined, hint: `${inTheWay.join(', ')} already exists; --force replaces it`, prompt, validate: () => null, ask: () => questions.overwrite(inTheWay) })
+        if (!replace) throw new LocalFailure(`${inTheWay.join(', ')} already exists: left as they are`)
+    }
     const made = starter(template, { name: projectName, functionId, entry })
     const config: projectConfig.ProjectConfig = { version: 1, name: projectName, region, ...made.config }
 
+    const pm = packageManager()
+    const install = options.install ?? (prompt ? await askInstall() : false)
     const written = writeFiles(dir, made.files)
     const file = projectConfig.write(dir, config)
     written.unshift(projectConfig.CONFIG_FILE)
+    if (install) {
+        await installDependencies(dir, pm)
+    }
     if (options.human !== true) {
-        await result(options, { template, file, config, files: written, next: made.next })
+        const next = made.next.map((step) => step.replaceAll('bun', pm).replace('zega deploy', `${pm} run deploy`))
+        await result(options, { template, file, config, files: written, next: [...(inPlace ? [] : [`cd ${path.basename(dir)}`]), ...(install ? next.slice(1) : next)] })
         return
     }
     const deploys = (config.functions ?? []).map((item) => `Function  ${item.id ?? item.name} from ${item.entry}\n`).join('')
+    const next = made.next.map((step) => step.replaceAll('bun', pm).replace('zega deploy', `${pm} run deploy`))
     await write(
         'stdout',
-        `wrote ${file}\nTemplate  ${template}\nName      ${config.name}\nRegion    ${config.region}${options.region === undefined ? ' (default)' : ''}\n${deploys}` +
-            `Files     ${written.join(', ')}\n\nNext\n${made.next.map((step, index) => `  ${index + 1}. ${step}\n`).join('')}`,
+        `Created ${path.basename(dir)}/ (${template === 'nextjs' ? 'Next.js' : template === 'astro' ? 'Astro' : 'function'} starter)\nName      ${config.name}\nRegion    ${config.region}\n${deploys}` +
+            `\nNext\n${[...(inPlace ? [] : [`cd ${path.basename(dir)}`]), ...(install ? next.slice(1) : next)].map((step, index) => `  ${index + 1}. ${step}\n`).join('')}`,
     )
+}
+
+async function askInstall(): Promise<boolean> {
+    const { result } = await inquirer.prompt<{ result: boolean }>({ type: 'confirm', name: 'result', message: 'Install dependencies now?', default: true })
+    return result
 }
 
 /** Write each file (making its directories); the relative paths written, in order. Nothing outside `dir`. */

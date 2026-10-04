@@ -91,8 +91,8 @@ export default { fetch() { return new Response(env.NAME) } }
                 { id: SECOND, entry: 'g.ts' },
             ],
         )
-        fs.writeFileSync(path.join(dir, '.dev.vars'), 'NAME=shared\n')
-        fs.writeFileSync(path.join(dir, `.dev.vars.${SECOND}`), 'NAME=second\n')
+        fs.writeFileSync(path.join(dir, '.env'), 'NAME=shared\n')
+        fs.writeFileSync(path.join(dir, `.env.${SECOND}`), 'NAME=second\n')
         const { dev, port, url } = await serve(dir, [])
         expect(await (await fetch(url)).text()).toBe('shared/shared')
         expect(await (await fetch(`http://127.0.0.1:${port + 1}`)).text()).toBe('second') // two functions, two envs, one process
@@ -102,10 +102,10 @@ export default { fetch() { return new Response(env.NAME) } }
 })
 
 describe('zega dev: env and secrets', () => {
-    test('env is .dev.vars, then .dev.vars.<id> over it; names are printed, values never; the shell and the token never reach it', async () => {
+    test('env is .env, then .env.<id> over it; names are printed, values never; the shell and the token never reach it', async () => {
         const dir = writeProject({ 'f.ts': echoEnv }, [{ id: FN, entry: 'f.ts' }])
-        fs.writeFileSync(path.join(dir, '.dev.vars'), '# a comment\nREGION=yyz\nexport API_KEY="s3cret value"\nPLAIN=one # trailing\n')
-        fs.writeFileSync(path.join(dir, `.dev.vars.${FN}`), "API_KEY='from-the-function-file'\n")
+        fs.writeFileSync(path.join(dir, '.env'), '# a comment\nREGION=yyz\nexport API_KEY="s3cret value"\nPLAIN=one # trailing\n')
+        fs.writeFileSync(path.join(dir, `.env.${FN}`), "API_KEY='from-the-function-file'\n")
         // A real token stored where `zega login` keeps it, and one in the shell.
         const config = path.join(home, '.config', 'zega')
         fs.mkdirSync(config, { recursive: true })
@@ -115,7 +115,7 @@ describe('zega dev: env and secrets', () => {
         expect(body.env).toEqual({ REGION: 'yyz', API_KEY: 'from-the-function-file', PLAIN: 'one' })
         expect(JSON.stringify(body)).not.toContain('shell-secret')
         expect(JSON.stringify(body)).not.toContain(TOKEN)
-        expect(dev.stdout()).toContain('env: API_KEY, PLAIN, REGION  (.dev.vars + .dev.vars.' + FN + ')')
+        expect(dev.stdout()).toContain('env: API_KEY, PLAIN, REGION  (.env + .env.' + FN + ')')
         expect(dev.stdout() + dev.stderr()).not.toContain('from-the-function-file')
         expect(dev.stdout() + dev.stderr()).not.toContain('s3cret value')
         expect(dev.stdout() + dev.stderr()).not.toContain(TOKEN)
@@ -125,10 +125,10 @@ describe('zega dev: env and secrets', () => {
     test('a name or value Zega Cloud would refuse stops zega dev before it serves', async () => {
         const dir = writeProject({ 'f.ts': echoEnv }, [{ id: FN, entry: 'f.ts' }])
         dirs.push(dir)
-        fs.writeFileSync(path.join(dir, '.dev.vars'), 'OK=1\nbad-name=2\n')
+        fs.writeFileSync(path.join(dir, '.env'), 'OK=1\nbad-name=2\n')
         const dev = await startDev([], { cwd: dir, home })
         expect(await dev.exited).toBe(1)
-        expect(dev.stderr()).toContain('.dev.vars:2: "bad-name" is not a name Zega Cloud accepts')
+        expect(dev.stderr()).toContain('.env:2: "bad-name" is not a name Zega Cloud accepts')
         expect(dev.stdout()).toBe('')
     })
 
@@ -170,12 +170,12 @@ describe('zega dev: reload', () => {
         expect(await eventually(url, (body) => body === 'three')).toBe('three')
     })
 
-    test('a change to .dev.vars reloads the env', async () => {
+    test('a change to .env reloads the env', async () => {
         const dir = writeProject({ 'f.ts': echoEnv }, [{ id: FN, entry: 'f.ts' }])
-        fs.writeFileSync(path.join(dir, '.dev.vars'), 'A=1\n')
+        fs.writeFileSync(path.join(dir, '.env'), 'A=1\n')
         const { url } = await serve(dir, [])
         expect(((await (await fetch(url)).json()) as { env: object }).env).toEqual({ A: '1' })
-        fs.writeFileSync(path.join(dir, '.dev.vars'), 'A=2\nB=3\n')
+        fs.writeFileSync(path.join(dir, '.env'), 'A=2\nB=3\n')
         await eventually(url, (body) => (JSON.parse(body) as { env: Record<string, string> }).env.B === '3')
     })
 
@@ -220,7 +220,7 @@ describe('zega dev: which graph', () => {
         const api = fakeApi({ [`GET /v1/graphs/${graph.id}`]: { body: { graph } } })
         try {
             const dir = writeProject({ 'f.ts': echoEnv }, [{ id: FN, entry: 'f.ts' }])
-            fs.writeFileSync(path.join(dir, '.dev.vars'), 'ZEGA_GRAPH_KEY=zk_local_test\nZEGA_GRAPH_URL=http://stale.example\n')
+            fs.writeFileSync(path.join(dir, '.env'), 'ZEGA_GRAPH_KEY=zk_local_test\nZEGA_GRAPH_URL=http://stale.example\n')
             const { dev, url } = await serve(dir, ['--cloud-graph', graph.id, '--api', api.url, '--token-file', tokenFile])
             const body = (await (await fetch(url)).json()) as { env: Record<string, string> }
             expect(body.env).toEqual({ ZEGA_GRAPH_KEY: 'zk_local_test', ZEGA_GRAPH_URL: graph.hostUrl })
@@ -228,14 +228,14 @@ describe('zega dev: which graph', () => {
             expect(api.seen).toHaveLength(1)
             expect(api.seen[0]).toMatchObject({ method: 'GET', pathname: `/v1/graphs/${graph.id}`, authorization: `Bearer ${TOKEN}` })
             expect(dev.stdout()).toContain(`graph: CLOUD graph ${graph.id} "${graph.name}" at ${graph.hostUrl} as ZEGA_GRAPH_URL`)
-            expect(dev.stderr()).toContain('ZEGA_GRAPH_URL from .dev.vars is replaced by the graph you chose')
+            expect(dev.stderr()).toContain('ZEGA_GRAPH_URL from .env is replaced by the graph you chose')
             expect(dev.stderr()).not.toContain('no ZEGA_GRAPH_KEY')
         } finally {
             api.stop()
         }
     })
 
-    test('--cloud-graph without a key in .dev.vars warns; with --local-graph too it is refused; by default the start is one `ready` event', async () => {
+    test('--cloud-graph without a key in .env warns; with --local-graph too it is refused; by default the start is one `ready` event', async () => {
         const api = fakeApi({ [`GET /v1/graphs/${graph.id}`]: { body: { graph } } })
         try {
             const dir = writeProject({ 'f.ts': echoEnv }, [{ id: FN, entry: 'f.ts' }])
@@ -254,9 +254,9 @@ describe('zega dev: which graph', () => {
                 graph: { kind: 'cloud', url: graph.hostUrl, id: graph.id, name: graph.name, urlVar: 'ZEGA_GRAPH_URL' },
                 watching: true,
             })
-            await dev.until('no ZEGA_GRAPH_KEY in .dev.vars')
+            await dev.until('no ZEGA_GRAPH_KEY in .env')
             const events = dev.stdout().trim().split('\n').map((line) => JSON.parse(line))
-            expect(events[1]).toEqual({ event: 'warning', function: FN, message: `${FN}: no ZEGA_GRAPH_KEY in .dev.vars; the cloud graph will answer 401` })
+            expect(events[1]).toEqual({ event: 'warning', function: FN, message: `${FN}: no ZEGA_GRAPH_KEY in .env; the cloud graph will answer 401` })
             expect(dev.stderr()).toBe('')
         } finally {
             api.stop()

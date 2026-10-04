@@ -43,7 +43,7 @@ export default {
                 include: ['**/*.ts'],
                 exclude: ['node_modules', 'dist'],
             }),
-            '.dev.vars.example': DEV_VARS_EXAMPLE,
+            '.env.example': DEV_VARS_EXAMPLE,
             '.gitignore': gitignore(),
             'README.md': text(`
 # ${context.name}
@@ -52,7 +52,7 @@ A [Zega Cloud](https://zega.dev) function that reads from a graph with \`@zegadb
 
 \`\`\`
 bun install
-cp .dev.vars.example .dev.vars   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
+cp .env.example .env   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
 bun run dev                      # serves ${context.entry} on http://127.0.0.1:8787
 bun run build                    # bundles it into dist/
 bun run deploy${listed ? '' : ' --project <id>'}    # creates it on first deploy and uploads it (needs a manage token: zega login)
@@ -62,7 +62,7 @@ bun run deploy${listed ? '' : ' --project <id>'}    # creates it on first deploy
         config: { functions: [{ ...(listed ? { id: context.functionId! } : { name: context.name }), entry: context.entry }] },
         next: [
             'bun install',
-            `copy .dev.vars.example to .dev.vars and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
+            `copy .env.example to .env and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
             'bun run dev',
             listed ? 'bun run deploy' : 'bun run deploy --project <project id>',
         ],

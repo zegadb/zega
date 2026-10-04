@@ -52,6 +52,26 @@ afterAll(() => {
 })
 
 describe.skipIf(process.platform === 'win32')('on a terminal', () => {
+    test('init asks for name, region and dependency installation, then shows concise next steps', async () => {
+        const dir = scratch()
+        try {
+            const session = await onTerminal(['init', '--human', '--template', 'function', '--api', api.url, '--token-file', tokenFile], { home, cwd: dir })
+            await session.waitFor('Project name:')
+            session.type('pty-init\r')
+            await session.waitFor('Region:')
+            session.type('\r')
+            await session.waitFor('Install dependencies now?')
+            session.type('n\r')
+            expect(await session.exited).toBe(0)
+            expect(session.output).toContain('Created pty-init/ (function starter)')
+            expect(session.output).toContain('Toronto (yyz)')
+            expect(session.output).toContain('cd pty-init')
+            expect(session.output).toContain('bun install')
+            expect(session.output).not.toContain('Files ')
+            expect(fs.existsSync(path.join(dir, 'pty-init', 'zega.json'))).toBe(true)
+        } finally { remove(dir) }
+    })
+
     test('init asks which starter first, with the function selected and listed first; Enter takes it, and a down arrow moves to nextjs', async () => {
         const dir = scratch()
         try {

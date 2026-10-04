@@ -76,7 +76,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
             if (!before.has(warning)) await say({ event: 'warning', function: fn.target.id, message: `${fn.target.entry}: ${warning}` })
         }
         if (overrides) {
-            await say({ event: 'warning', function: fn.target.id, message: `${fn.target.id}: ${urlVar} from .dev.vars is replaced by the graph you chose` })
+            await say({ event: 'warning', function: fn.target.id, message: `${fn.target.id}: ${urlVar} from .env is replaced by the graph you chose` })
         }
         return true
     }
@@ -107,7 +107,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
             : graph.kind === 'local'
               ? `LOCAL zega-server at ${graph.url} as ${urlVar}` +
                 (graph.reachable ? '' : ' (nothing answers there yet: start it with `zega start`)')
-              : `CLOUD graph ${graph.id} "${graph.name}" at ${graph.url} as ${urlVar}; its key must be ${keyVar} in .dev.vars (this command never sends your API token to a function or to the graph)`
+              : `CLOUD graph ${graph.id} "${graph.name}" at ${graph.url} as ${urlVar}; its key must be ${keyVar} in .env (this command never sends your API token to a function or to the graph)`
     if (!human) {
         await write(
             'stdout',
@@ -123,7 +123,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
         for (const item of described) {
             lines.push(`  ${item.id}  ${item.entry}  ${item.url}`)
             lines.push(
-                `    env: ${item.env.length === 0 ? 'empty (no .dev.vars here)' : `${item.env.join(', ')}${item.files.length > 0 ? `  (${item.files.join(' + ')})` : ''}`}`,
+                `    env: ${item.env.length === 0 ? 'empty (no .env here)' : `${item.env.join(', ')}${item.files.length > 0 ? `  (${item.files.join(' + ')})` : ''}`}`,
             )
         }
         lines.push(`  graph: ${graphLine}`)
@@ -136,7 +136,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
     if (graph.kind === 'cloud') {
         for (const item of described) {
             if (!item.env.includes(keyVar)) {
-                await say({ event: 'warning', function: item.id, message: `${item.id}: no ${keyVar} in .dev.vars; the cloud graph will answer 401` })
+                await say({ event: 'warning', function: item.id, message: `${item.id}: no ${keyVar} in .env; the cloud graph will answer 401` })
             }
         }
     }
@@ -176,7 +176,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
 }
 
 /**
- * `zega dev` in an app: the framework's own dev server (`next dev`, `astro dev`) with `.dev.vars` in its
+ * `zega dev` in an app: the framework's own dev server (`next dev`, `astro dev`) with `.env` in its
  * environment (the framework does not read that file itself). Its output is passed on, and its exit code is ours.
  */
 async function devApp(dir: string, config: Parameters<typeof devCommand>[1], options: DevOptions): Promise<void> {
@@ -192,7 +192,7 @@ async function devApp(dir: string, config: Parameters<typeof devCommand>[1], opt
         await write(
             'stdout',
             `zega dev: ${config.framework} app, running \`${shown.join(' ')}\`\n` +
-                `  env: ${server.names.length === 0 ? 'nothing added (no .dev.vars here)' : `${server.names.join(', ')}  (${server.files.join(' + ') || 'graph flag'})`}\n`,
+                `  env: ${server.names.length === 0 ? 'nothing added (no .env here)' : `${server.names.join(', ')}  (${server.files.join(' + ') || 'graph flag'})`}\n`,
         )
     } else {
         await write('stdout', eventLine({ event: 'starting', framework: config.framework, command: shown, env: server.names }))

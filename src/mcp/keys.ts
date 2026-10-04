@@ -5,7 +5,7 @@
  * (`zc_...`) is refused at both. The API can make a key (`POST /v1/graphs/{graph}/keys`, a manage token; the secret
  * is in that one answer and nowhere else), so this finds one in this order:
  *
- *   1. one the person gave: `--graph-key-file` / `--storage-key-file`, or for a graph `ZEGA_GRAPH_KEY` in `.dev.vars`
+ *   1. one the person gave: `--graph-key-file` / `--storage-key-file`, or for a graph `ZEGA_GRAPH_KEY` in `.env`
  *      (the file `zega dev` reads; skipped when its `ZEGA_GRAPH_URL` names another graph);
  *   2. one made for this session, when the token is `manage` and the server is not `--read-only` (making a key changes
  *      the account). It is named `zega mcp <time>`, lives in memory only and is revoked when the server stops.
@@ -27,7 +27,7 @@ type Made = { id: string; secret: string; revoke: (session: Session) => Promise<
 
 export type KeyOptions = {
     session: () => Promise<Session>
-    /** The project directory, where `.dev.vars` is. */
+    /** The project directory, where `.env` is. */
     cwd: string
     /** Whether a key may be made: a manage token, and not `--read-only`. */
     mayMake: boolean
@@ -105,7 +105,7 @@ export class KeyRing {
     }
 
     private async make(kind: 'graph' | 'bucket', id: string): Promise<string> {
-        const flag = kind === 'graph' ? 'a graph key: pass --graph-key-file <file> or put ZEGA_GRAPH_KEY in .dev.vars' : 'a storage key: pass --storage-key-file <file>'
+        const flag = kind === 'graph' ? 'a graph key: pass --graph-key-file <file> or put ZEGA_GRAPH_KEY in .env' : 'a storage key: pass --storage-key-file <file>'
         if (!this.options.mayMake) {
             throw new LocalFailure(
                 `no key for ${kind} ${id}: ${this.options.whyNot}, so none is made. Give ${flag} (a key is made in the dashboard).`,

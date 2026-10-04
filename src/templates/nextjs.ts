@@ -14,7 +14,7 @@ export function nextjs(context: Context): Starter {
                 name: context.packageName,
                 private: true,
                 type: 'module',
-                scripts: { dev: 'zega dev', build: NEXT_BUILD.join(' ') },
+                scripts: { dev: 'zega dev', build: NEXT_BUILD.join(' '), deploy: 'zega deploy' },
                 dependencies: { ...base.dependencies, next: NEXT, react: REACT, 'react-dom': REACT },
                 devDependencies: {
                     ...base.devDependencies,
@@ -91,7 +91,7 @@ export default async function Page() {
     )
 }
 `),
-            '.dev.vars.example': DEV_VARS_EXAMPLE,
+            '.env.example': DEV_VARS_EXAMPLE,
             '.gitignore': gitignore('.next', '.open-next', 'next-env.d.ts'),
             'README.md': text(`
 # ${context.name}
@@ -100,8 +100,8 @@ A Next.js app for [Zega Cloud](https://zega.dev), set up for the Workers runtime
 
 \`\`\`
 bun install
-cp .dev.vars.example .dev.vars   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
-bun run dev                      # next dev, with .dev.vars in its environment
+cp .env.example .env   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
+bun run dev                      # next dev, with .env in its environment
 bun run build                    # the worker (.open-next/worker.js) and its static assets (.open-next/assets)
 \`\`\`
 
@@ -118,7 +118,7 @@ ${AUTH_LINE}
         },
         next: [
             'bun install',
-            `copy .dev.vars.example to .dev.vars and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
+            `copy .env.example to .env and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
             'bun run dev',
             'zega deploy',
         ],
