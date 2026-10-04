@@ -340,6 +340,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: public-ci
     steps:
+      # The check is a script in the repo, so this job needs the checkout too.
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
       - name: No upstream failures
         env:
           NEEDS_JSON: ${{ toJson(needs) }}
