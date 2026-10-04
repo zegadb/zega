@@ -83,7 +83,7 @@ ${AUTH_LINE}
             'npm install',
             `copy .dev.vars.example to .dev.vars and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
             'npm run dev',
-            'npm run build (makes dist/server/entry.mjs and dist/client; deploying an app is not supported yet)',
+            'zega deploy',
         ],
     }
 }

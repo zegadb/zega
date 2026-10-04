@@ -43,6 +43,10 @@ describe('the starters', () => {
                 for (const file of printed.files) expect(fs.existsSync(path.join(dir, file))).toBe(true)
                 expect(printed.next.length).toBeGreaterThan(2)
                 expect(printed.next[0]).toBe('npm install')
+                if (template === 'nextjs' || template === 'astro') {
+                    expect(printed.next).toContain('zega deploy')
+                    expect(printed.next.join('\n')).not.toContain('not supported')
+                }
                 // The client library, as the one dependency the code imports (and exactly pinned).
                 const pkg = readJson(path.join(dir, 'package.json'))
                 expect(pkg.dependencies['@zegadb/lib']).toBe(ZEGA_LIB)
