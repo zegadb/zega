@@ -59,6 +59,6 @@ async function app(dir: string, config: Parameters<typeof buildApp>[1], options:
     if (!human) return await result(options, built)
     await write(
         'stdout',
-        `Built  ${built.framework} app: worker ${built.worker} (${built.workerBytes.toLocaleString('en-US')} bytes), assets ${built.assets}\n`,
+        `Built  ${built.framework} app: server entry ${built.worker} (${built.workerBytes.toLocaleString('en-US')} bytes), assets ${built.assets}\n`,
     )
 }

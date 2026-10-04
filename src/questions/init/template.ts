@@ -4,8 +4,8 @@ import { DEFAULT_TEMPLATE, TEMPLATES, validateTemplate, type Template } from '@/
 
 export { validateTemplate }
 
-const ABOUT: Record<Template, string> = {
-    function: 'function: one Workers-style function',
+export const TEMPLATE_CHOICES: Record<Template, string> = {
+    function: 'function: an Edge function',
     nextjs: 'nextjs: a Next.js app',
     astro: 'astro: an Astro app',
 }
@@ -17,7 +17,7 @@ export async function template(): Promise<Template> {
         name: 'result',
         message: 'Starter:',
         default: DEFAULT_TEMPLATE,
-        choices: TEMPLATES.map((name) => ({ name: ABOUT[name], value: name })),
+        choices: TEMPLATES.map((name) => ({ name: TEMPLATE_CHOICES[name], value: name })),
     })
     return result
 }

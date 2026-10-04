@@ -12,10 +12,10 @@ const SOURCE_CHECKS: { pattern: RegExp; warning: string }[] = [
     { pattern: /\b(?:request|req)\.cf\b/, warning: '`request.cf` is not set by zega dev (it is undefined here)' },
     { pattern: /\bcaches\s*\.\s*(?:default|open)\b/, warning: 'the Cache API (`caches`) does not exist in zega dev' },
     { pattern: /\bWebSocketPair\b/, warning: '`WebSocketPair` does not exist in zega dev (no WebSocket upgrade responses)' },
-    { pattern: /\bDigestStream\b|\btimingSafeEqual\b/, warning: 'crypto.DigestStream and crypto.subtle.timingSafeEqual are Workers-only and missing in zega dev' },
+    { pattern: /\bDigestStream\b|\btimingSafeEqual\b/, warning: 'crypto.DigestStream and crypto.subtle.timingSafeEqual are edge runtime APIs missing in zega dev' },
     { pattern: /\bpassThroughOnException\b/, warning: '`ctx.passThroughOnException()` has no origin to fall through to in zega dev; an error answers 500' },
     { pattern: /\bprocess\s*\.\s*env\b/, warning: '`process.env` exists here and not in Zega Cloud: read `env.NAME` (and note it holds your shell, not your .dev.vars)' },
-    { pattern: /\bfrom\s*["']cloudflare:(?!workers["'])|\bimport\s*\(\s*["']cloudflare:(?!workers["'])/, warning: 'a `cloudflare:` module other than `cloudflare:workers` is imported; zega dev provides only `env` and `waitUntil` from that one' },
+    { pattern: /\bfrom\s*["']cloudflare:(?!workers["'])|\bimport\s*\(\s*["']cloudflare:(?!workers["'])/, warning: 'an unsupported platform module is imported; zega dev provides only `env` and `waitUntil` from the standard module' },
 ]
 
 /** One line per thing the bundled code uses that Bun cannot imitate. */

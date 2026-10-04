@@ -38,7 +38,7 @@ import { defineCloudflareConfig } from '@opennextjs/cloudflare'
 
 export default {
     ...defineCloudflareConfig(),
-    // \`bun run build\` is the OpenNext build, so the Next.js build it runs is named here.
+// \`bun run build\` invokes the Next.js build through the adapter.
     buildCommand: 'next build',
 }
 `),
@@ -76,7 +76,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             'app/page.tsx': text(`
 import { connect } from '@zegadb/lib/client'
 
-// Read on every request, on the server: the graph's key never reaches the browser.
+// Edge function deployed to Zega Cloud. Read on every request on the server, so the graph key never reaches the browser.
 export const dynamic = 'force-dynamic'
 
 export default async function Page() {
@@ -96,16 +96,16 @@ export default async function Page() {
             'README.md': text(`
 # ${context.name}
 
-A Next.js app for [Zega Cloud](https://zega.dev), set up for the Workers runtime with OpenNext. \`app/page.tsx\` reads from a graph on the server with \`@zegadb/lib\`.
+A Next.js app for [Zega Cloud](https://zega.dev). \`app/page.tsx\` reads from a graph on the server with \`@zegadb/lib\`.
 
 \`\`\`
 bun install
 cp .dev.vars.example .dev.vars   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
 bun run dev                      # next dev, with .dev.vars in its environment
-bun run build                    # the worker (.open-next/worker.js) and its static assets (.open-next/assets)
+bun run build                    # the server entry and its static assets
 \`\`\`
 
-What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Cloud project.
+What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Zega Cloud project.
 
 ${AUTH_LINE}
 `),

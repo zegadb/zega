@@ -22,7 +22,7 @@ export function astro(context: Context): Starter {
 import cloudflare from '@astrojs/cloudflare'
 import { defineConfig } from 'astro/config'
 
-// Server-rendered, with the images left as they are: Zega Cloud gives a worker no bindings.
+// Server-rendered, with the images left as they are: Zega Cloud gives an edge function no bindings.
 export default defineConfig({ output: 'server', adapter: cloudflare({ imageService: 'passthrough' }) })
 `),
             'tsconfig.json': json({
@@ -35,7 +35,7 @@ export default defineConfig({ output: 'server', adapter: cloudflare({ imageServi
 import { env } from 'cloudflare:workers'
 import { connect } from '@zegadb/lib/client'
 
-// Rendered on every request, on the server: the graph's key never reaches the browser.
+// Edge function deployed to Zega Cloud. Render on every request on the server, so the graph key never reaches the browser.
 export const prerender = false
 
 const graph = connect({ url: env.${GRAPH_URL_VAR}, key: env.${GRAPH_KEY_VAR} })
@@ -59,16 +59,16 @@ const people = await graph.query('{ Person { name } }')
             'README.md': text(`
 # ${context.name}
 
-An Astro app for [Zega Cloud](https://zega.dev), set up for the Workers runtime with \`@astrojs/cloudflare\`. \`src/pages/index.astro\` reads from a graph on the server with \`@zegadb/lib\`.
+An Astro app for [Zega Cloud](https://zega.dev). \`src/pages/index.astro\` reads from a graph on the server with \`@zegadb/lib\`.
 
 \`\`\`
 bun install
 cp .dev.vars.example .dev.vars   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
 bun run dev                      # astro dev, with .dev.vars in its environment
-bun run build                    # the worker (dist/server/entry.mjs) and its static assets (dist/client)
+bun run build                    # the server entry and its static assets
 \`\`\`
 
-What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Cloud project.
+What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Zega Cloud project.
 
 ${AUTH_LINE}
 `),
