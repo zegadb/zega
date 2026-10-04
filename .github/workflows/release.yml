@@ -207,6 +207,27 @@ jobs:
           path: artifacts/npm-package/
           if-no-files-found: error
 
+  # Cheap PR guard for the installed package's client declaration contract.
+  # The full package job still exercises the packed tarball and WASM consumers
+  # on release refs; this runs the exact client declarations without building
+  # WASM, installing browsers, or using R2 credentials.
+  package-types:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: public-ci
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install locked package tooling
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check client declarations for Node and browser consumers
+        run: npm run check:client-types
+
   # Deliberately does not `need` `changes` directly: that job is skipped
   # outside pull_request, and an unqualified `if:` here would let a skipped
   # need cascade into skipping this job too (see `plan`, which already
@@ -316,7 +337,7 @@ jobs:
   release-required:
     name: Release required checks
     if: always()
-    needs: [resolve, changes, plan, package, native]
+    needs: [resolve, changes, plan, package, package-types, native]
     runs-on: ubuntu-latest
     environment: public-ci
     steps:
