@@ -138,6 +138,7 @@ class HttpDatabase {
 class NativeDatabase extends HttpDatabase {
   resolvesSources = true;
   constructor(parser, base = '') { super(parser, base); }
+  pushSchema(schema) { return this.request('/schema', 'PUT', { schema }); }
 }
 
 /**

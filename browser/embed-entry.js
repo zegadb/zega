@@ -34,8 +34,38 @@ export async function mountExplorer(root, options = {}) {
   const loader = document.createElement('script');
   loader.src = `${assetBase}/monaco/vs/loader.js`;
   await new Promise((resolve, reject) => { loader.onload = resolve; loader.onerror = reject; document.head.append(loader); });
+  if (options.database) {
+    const response = await fetch(`${options.database.replace(/\/$/, '')}/schema`, { headers: { accept: 'application/json' } });
+    const answer = await response.json();
+    if (!response.ok || !answer.ok) throw new Error(answer.error ?? `Cannot read graph schema: HTTP ${response.status}`);
+    localStorage.setItem('zega.v2.schema', answer.result.schema || 'type Person {\n  name: String\n}\n');
+    const queryKey = options.graphId ? `zega.console.${options.graphId}.query` : 'zega.v2.query';
+    localStorage.setItem('zega.v2.query', localStorage.getItem(queryKey) || '{\n  Person {\n    name\n  }\n}\n');
+    localStorage.removeItem('zega.v2.sample');
+  }
   await import('./repl.js');
   await import('./panes.js');
+  if (options.database) {
+    const push = options.chrome?.querySelector('#btn-push-schema') ?? root.querySelector('#btn-push-schema');
+    const editor = window.monaco?.editor.getEditors().find((item) => item.getContainerDomNode().id === 'schema');
+    const queryEditor = window.monaco?.editor.getEditors().find((item) => item.getContainerDomNode().id === 'query');
+    const queryKey = options.graphId ? `zega.console.${options.graphId}.query` : 'zega.v2.query';
+    queryEditor?.onDidChangeModelContent(() => localStorage.setItem(queryKey, queryEditor.getValue()));
+    if (push && editor) {
+      push.hidden = false;
+      push.textContent = 'Push schema';
+      push.onclick = async () => {
+        if (!window.confirm('Push this schema to the graph? This updates its saved schema.')) return;
+        const database = window.__zega;
+        try {
+          const answer = await database.pushSchema(editor.getValue());
+          localStorage.setItem('zega.v2.schema', answer.schema);
+          push.textContent = 'Schema pushed';
+          setTimeout(() => { push.textContent = 'Push schema'; }, 1600);
+        } catch (error) { window.alert(error instanceof Error ? error.message : String(error)); }
+      };
+    }
+  }
   if (options.chrome) {
     const conn = options.chrome.querySelector('.conn');
     if (conn && options.label) conn.querySelector('#conn-label').textContent = options.label;
