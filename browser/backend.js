@@ -17,6 +17,7 @@ import { mayWrite } from './zql-edit.js';
 //                                            the page's requests on, so no CORS)
 // and `graphs` is an optional list of the signed-in account's graphs by name.
 export async function loadConfig() {
+  if (window.__zegaExplorerOptions?.database) return { backend: 'native', ui: 'embed', base: window.__zegaExplorerOptions.database };
   const response = await fetch('/explorer-config.json');
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Cannot configure explorer: HTTP ${response.status}`);
@@ -27,7 +28,7 @@ export async function loadConfig() {
 
 export async function connectDatabase(parser, config) {
   if (config === null) return parser;
-  const db = new NativeDatabase(parser);
+  const db = new NativeDatabase(parser, config.base ?? '');
   await db.refresh();
   return db;
 }
@@ -136,6 +137,7 @@ class HttpDatabase {
 /** `zega-server explorer`: the CLI serves this page and answers /zql and /graph itself, reading local files named in ZQL. */
 class NativeDatabase extends HttpDatabase {
   resolvesSources = true;
+  constructor(parser, base = '') { super(parser, base); }
 }
 
 /**

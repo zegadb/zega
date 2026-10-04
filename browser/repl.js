@@ -374,7 +374,7 @@ const editorsReady = createEditors({
   query: savedQuery || (CLI ? '' : QUERY),
 });
 
-await init();
+await init(window.__zegaExplorerOptions?.wasmUrl);
 // The page's own database: wasm in the browser, or the CLI's native backend.
 // `db` is what every operation uses; it becomes a RemoteDatabase while
 // connected to a Zega Cloud graph, and `localDb` again on Disconnect.
