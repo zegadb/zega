@@ -8,7 +8,7 @@ db.free();
 const input: InitInput = new Uint8Array();
 void [init, initSync, input, result];
 
-import { connect, zql, ZegaError, ZegaNetworkError, type CallOptions, type Client } from '@zegadb/lib/client';
+import { connect, zql, ZegaError, ZegaNetworkError, type CallOptions, type Client, type StoredSchema } from '@zegadb/lib/client';
 
 // The client's types, checked the way a consumer would meet them (never run).
 export async function clientTypes(): Promise<void> {
@@ -16,7 +16,8 @@ export async function clientTypes(): Promise<void> {
   const options: CallOptions = { signal: AbortSignal.timeout(1000), document: false };
   const people: { name: string }[] = await zega.query<{ name: string }[]>(zql`{ Person(name: ${'Ada'}) { name } }`, options);
   const created: unknown = await zega.mutate('mutation { Person(name: "Ada") { name } }');
-  const stored: { schema: string; updatedAt: string | null } = await zega.schema();
+  const stored: StoredSchema = await zega.schema();
+  stored.builtin.includes('Auth');
   try {
     void [people, created, stored];
   } catch (error) {

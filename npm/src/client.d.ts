@@ -92,9 +92,9 @@ export interface CallOptions {
 export interface StoredSchema {
   schema: string;
   /** Built-in types available to the graph, including Auth. */
-  builtin?: string[];
+  builtin: string[];
   /** ISO time of the last push, or null before the first (Zega Cloud only). */
-  updatedAt?: string | null;
+  updatedAt: string | null;
 }
 
 export interface Client {
