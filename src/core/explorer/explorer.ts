@@ -17,6 +17,8 @@ export type ExplorerOptions = Globals & {
     server?: string
     /** Serve this directory's build of the page instead of the vendored one (development). */
     assets?: string
+    /** Injectable package lookup roots for tests. Not exposed as a CLI option. */
+    serverRoots?: string[]
 }
 
 export { DEFAULT_PORT }
@@ -51,7 +53,7 @@ async function consoleUrl(id: string, options: ExplorerOptions): Promise<void> {
 
 async function serveLocal(options: ExplorerOptions): Promise<void> {
     const data = path.resolve(options.data ?? DEFAULT_DATA)
-    const binary = resolveServer({ override: options.server })
+    const binary = resolveServer({ override: options.server, roots: options.serverRoots })
     const local = await startLocal(binary, data)
     let web: Serving
     try {
