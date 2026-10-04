@@ -45,6 +45,13 @@ export async function mountExplorer(root, options = {}) {
   }
   await import('./repl.js');
   await import('./panes.js');
+  const syncTheme = () => {
+    const theme = root.dataset.theme;
+    if (theme) document.documentElement.dataset.theme = theme;
+  };
+  const themeObserver = new MutationObserver(syncTheme);
+  themeObserver.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+  syncTheme();
   if (options.database) {
     const push = options.chrome?.querySelector('#btn-push-schema') ?? root.querySelector('#btn-push-schema');
     const note = options.chrome?.querySelector('#push-note') ?? root.querySelector('#push-note');
@@ -91,7 +98,7 @@ export async function mountExplorer(root, options = {}) {
     const conn = options.chrome.querySelector('.conn');
     if (conn && options.label) conn.querySelector('#conn-label').textContent = options.label;
   }
-  return { root, toolbar: options.chrome ?? root.querySelector('#topbar'), dispose() { root.replaceChildren(); options.chrome?.replaceChildren(); styles.remove(); root.classList.remove('zega-explorer'); } };
+  return { root, toolbar: options.chrome ?? root.querySelector('#topbar'), dispose() { themeObserver.disconnect(); root.replaceChildren(); options.chrome?.replaceChildren(); styles.remove(); root.classList.remove('zega-explorer'); } };
 }
 
 export { rootSelector };
