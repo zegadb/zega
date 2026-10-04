@@ -74,6 +74,20 @@ export class CloudClient {
         >
     }
 
+    /** A JSON POST used by API routes added after this CLI's pinned OpenAPI snapshot. */
+    async postJson(path: string, args: { path: Record<string, string>; body: unknown }): Promise<Reply<unknown>> {
+        return await this.send('POST', path, args.path, undefined, { text: JSON.stringify(args.body), contentType: 'application/json' })
+    }
+
+    /** Multipart bodies let fetch set their boundary; do not set Content-Type here. */
+    async postForm(path: string, args: { path: Record<string, string>; body: FormData }): Promise<Reply<unknown>> {
+        return await this.send('POST', path, args.path, undefined, { data: args.body })
+    }
+
+    async putForm(path: string, args: { path: Record<string, string>; body: FormData }): Promise<Reply<unknown>> {
+        return await this.send('PUT', path, args.path, undefined, { data: args.body })
+    }
+
     /** A POST with an optional JSON body (a create: `POST /v1/graphs/{graph}/keys` needs a manage token). */
     async post<P extends PostPath>(
         path: P,
@@ -94,7 +108,7 @@ export class CloudClient {
         template: string,
         params: Record<string, string>,
         query?: unknown,
-        body?: { text: string; contentType: string },
+        body?: { text: string; contentType: string } | { data: FormData },
     ): Promise<Reply<unknown>> {
         const url = new URL(this.base + fillPath(template, params))
         for (const [name, value] of Object.entries((query ?? {}) as Record<string, unknown>)) {
@@ -105,14 +119,14 @@ export class CloudClient {
             accept: 'application/json',
             'user-agent': `zega-cli/${pkg.version}`,
         }
-        if (body !== undefined) headers['content-type'] = body.contentType
+        if (body !== undefined && 'contentType' in body) headers['content-type'] = body.contentType
         let response: Response
         let raw: string
         try {
             response = await fetch(url, {
                 method,
                 headers,
-                body: body?.text,
+                body: body === undefined ? undefined : 'text' in body ? body.text : body.data,
                 // An API that redirects is not this API; never follow a redirect with a bearer token attached.
                 redirect: 'manual',
                 signal: AbortSignal.timeout(TIMEOUT_MS),

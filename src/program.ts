@@ -82,7 +82,7 @@ program
 
 program
     .command('deploy')
-    .description('deploy your functions')
+    .description('deploy your functions or app')
     .helpGroup('Project:')
     .argument('[id]', 'only this function')
     .option('--minify', 'minify the bundle')

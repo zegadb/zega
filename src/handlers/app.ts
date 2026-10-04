@@ -1,6 +1,6 @@
 /**
- * An app project (the `nextjs` and `astro` starters): what `zega build` and `zega dev` do with it, and why
- * `zega deploy` does not yet. The framework's own tools do the work; this runs them from the project's
+ * An app project (the `nextjs` and `astro` starters): what `zega build`, `zega dev` and `zega deploy` do with it.
+ * The framework's own tools do the work; this runs them from the project's
  * `node_modules/.bin` as `npm run` would, and reads what to run and what it produces from `zega.json`.
  */
 import fs from 'node:fs'
@@ -10,18 +10,15 @@ import { readDevVars } from '@/handlers/dev_vars'
 import type { AppBuild, ProjectConfig } from '@/handlers/project_config'
 import { LocalFailure } from '@/utils/errors'
 
-export type AppProject = ProjectConfig & { kind: 'app'; framework: NonNullable<ProjectConfig['framework']>; build: AppBuild }
+export type AppProject = ProjectConfig & {
+    kind: 'app'
+    framework: NonNullable<ProjectConfig['framework']>
+    build: AppBuild
+    runtime: NonNullable<ProjectConfig['runtime']>
+}
 
 export function isApp(config: ProjectConfig | null): config is AppProject {
     return config !== null && config.kind === 'app'
-}
-
-/** Deploying an app is not built yet: say so, and what is possible instead. */
-export function deployUnsupported(config: AppProject): LocalFailure {
-    return new LocalFailure(
-        `app deploys aren't supported yet: this is a ${config.framework} app, and \`zega deploy\` ships functions only. \`zega build\` makes the worker (${config.build.worker}) and its assets (${config.build.assets})`,
-        'app_deploy_unsupported',
-    )
 }
 
 /** A tool from the project's own `node_modules/.bin`, or an error saying to install. */
