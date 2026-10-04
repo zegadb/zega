@@ -17,7 +17,7 @@ import { mayWrite } from './zql-edit.js';
 //                                            the page's requests on, so no CORS)
 // and `graphs` is an optional list of the signed-in account's graphs by name.
 export async function loadConfig() {
-  if (window.__zegaExplorerOptions?.database) return { backend: 'native', ui: 'cli', local: { label: window.__zegaExplorerOptions.label ?? 'local', detail: '' }, base: window.__zegaExplorerOptions.database };
+  if (window.__zegaExplorerOptions?.database) return { backend: 'native', ui: 'embed', local: { label: window.__zegaExplorerOptions.label ?? 'local', detail: '' }, base: window.__zegaExplorerOptions.database };
   const response = await fetch('/explorer-config.json');
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Cannot configure explorer: HTTP ${response.status}`);

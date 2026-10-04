@@ -38,6 +38,7 @@ export async function mountExplorer(root, options = {}) {
     const response = await fetch(`${options.database.replace(/\/$/, '')}/schema`, { headers: { accept: 'application/json' } });
     const answer = await response.json();
     if (!response.ok || !answer.ok) throw new Error(answer.error ?? `Cannot read graph schema: HTTP ${response.status}`);
+    window.__zegaExplorerPushedSchema = answer.result.schema ?? '';
     localStorage.setItem('zega.v2.schema', answer.result.schema || 'type Person {\n  name: String\n}\n');
     const queryKey = options.graphId ? `zega.console.${options.graphId}.query` : 'zega.v2.query';
     localStorage.setItem('zega.v2.query', localStorage.getItem(queryKey) || '');
@@ -62,7 +63,7 @@ export async function mountExplorer(root, options = {}) {
     if (push && editor) {
       push.hidden = false;
       push.textContent = 'Push schema';
-      let pushedSchema = localStorage.getItem('zega.v2.schema') ?? '';
+      let pushedSchema = window.__zegaExplorerPushedSchema ?? '';
       const updateNote = () => {
         if (note) note.textContent = !pushedSchema ? 'schema: not pushed yet' : editor.getValue().trim() === pushedSchema.trim() ? 'schema: pushed' : 'schema: changed, not pushed';
       };

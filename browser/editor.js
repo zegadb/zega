@@ -1,4 +1,4 @@
-const MONACO = window.__zegaExplorerOptions?.monacoBase ?? 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min';
+const MONACO = new URL(window.__zegaExplorerOptions?.monacoBase ?? 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min', location.href).href;
 
 function loadMonaco() {
   if (window.monaco) return Promise.resolve(window.monaco);
