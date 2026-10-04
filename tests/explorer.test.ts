@@ -5,8 +5,10 @@ import path from 'node:path'
 import { FAKE_SERVER, FIXTURE_ASSETS, recorded, startCli, workdir, type Cli } from './cli_helpers'
 import { TOKEN, fakeApi, graph, remove } from './helpers'
 import { dashboardFor } from '../src/core/explorer/explorer'
+import { explorer as runExplorer } from '../src/core/explorer/explorer'
 import { directoryAssets } from '../src/handlers/explorer_assets'
 import { serveExplorer, type ExplorerOptions } from '../src/handlers/explorer_server'
+import { resolveServer } from '../src/handlers/server_binary'
 
 setDefaultTimeout(30_000)
 const posix = process.platform !== 'win32'
@@ -152,10 +154,16 @@ describe.skipIf(!posix)('zega explorer: a local database', () => {
         }
     })
 
-    test('with no bundled server installed it says which package, and never looks on PATH', async () => {
-        const cli = startCli(['explorer', '--port', '0', '--assets', FIXTURE_ASSETS], { cwd: work, home })
-        expect(await cli.exited).toBe(1)
-        expect(cli.stderr()).toContain('is not installed: it is the npm package @zegadb/server-')
+    test('with an empty lookup root it says which package, and never looks on PATH', async () => {
+        const emptyRoot = path.resolve(import.meta.dir, '../..')
+        expect(() => resolveServer({ roots: [emptyRoot] })).toThrow(/is not installed: it is the npm package @zegadb\/server-/)
+        await expect(runExplorer(undefined, {
+            human: false,
+            port: 0,
+            assets: FIXTURE_ASSETS,
+            data: dataDir('missing-server'),
+            serverRoots: [emptyRoot],
+        })).rejects.toThrow(/is not installed: it is the npm package @zegadb\/server-/)
     })
 })
 

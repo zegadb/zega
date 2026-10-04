@@ -50,9 +50,9 @@ export function runningBanner(running: Running, color?: boolean, mark?: boolean)
  * or with `--human` in a banner. With `--explorer` it also serves the explorer page, on the database this
  * server holds. Returns the code to exit with.
  */
-export async function start(rawArgs: string[], globals: Globals): Promise<number> {
+export async function start(rawArgs: string[], globals: Globals, serverRoots?: string[]): Promise<number> {
     const flags = takeStartFlags(rawArgs)
-    const binary = resolveServer({ override: flags.server })
+    const binary = resolveServer({ override: flags.server, roots: serverRoots })
     const human = flags.human || globals.human === true
     const out = relay(human)
     const child = Bun.spawn([binary, 'start', ...flags.rest], { stdin: 'inherit', stdout: 'pipe', stderr: 'inherit' })

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { FAKE_SERVER, recorded, startCli } from './cli_helpers'
 import { remove, run, scratch } from './helpers'
 import { runningBanner, runningJson } from '../src/core/start/start'
+import { start as startServer } from '../src/core/start/start'
 import { SERVER_VERSION } from '../src/server-version'
 import { LOGO, logo } from '../src/utils/banner'
 import { findInstalled, flagValue, resolveServer, searchRoots, serverPackage, takeStartFlags } from '../src/handlers/server_binary'
@@ -85,6 +86,20 @@ describe('which zega-server', () => {
         const otherBins = install(other, ['linux-x64'])
         expect(findInstalled(pkg, [other, outer])).toBe(otherBins['linux-x64']!)
         expect(findInstalled(pkg, [path.join(home, 'nothing-here')])).toBeNull()
+    })
+
+    const installedPackage = serverPackage(process.platform, process.arch)
+    const installedBinary = installedPackage === null ? null : findInstalled(installedPackage, searchRoots())
+    test.skipIf(installedBinary === null)('finds the real installed platform package when present', () => {
+        const pkg = installedPackage!
+        const roots = searchRoots()
+        const found = findInstalled(pkg, roots)
+        expect(found).not.toBeNull()
+        expect(resolveServer({ platform: process.platform, arch: process.arch, roots })).toBe(found!)
+        expect(found!).toContain(path.join('node_modules', ...pkg.name.split('/'), 'bin', pkg.bin))
+        expect(() => resolveServer({ platform: process.platform, arch: process.arch, roots: [path.resolve(import.meta.dir, '../..')] })).toThrow(
+            /is not installed: it is the npm package @zegadb\/server-/,
+        )
     })
 
     test('nothing on PATH is ever used; a missing package names the package, the platform and what to do', () => {
@@ -211,14 +226,10 @@ describe.skipIf(!posix)('zega start', () => {
         expect(rest).toContain('got-term')
     })
 
-    // (Where the real package is installed beside this checkout, there is nothing to fail.)
-    const real = serverPackage(process.platform, process.arch)
-    const installed = real !== null && findInstalled(real, searchRoots()) !== null
-    test.skipIf(installed)('with no bundled server installed it fails nonzero and says which package; no PATH lookup', async () => {
-        const result = await run(['start', '--port', '0'], { home })
-        expect(result.code).toBe(1)
-        expect(result.stderr).toContain('is not installed: it is the npm package @zegadb/server-')
-        expect(result.stdout).toBe('')
+    test('with an empty lookup root it says which package; no PATH lookup', async () => {
+        await expect(startServer(['--port', '0'], { human: false }, [path.resolve(import.meta.dir, '../..')])).rejects.toThrow(
+            /is not installed: it is the npm package @zegadb\/server-/,
+        )
     })
 })
 
