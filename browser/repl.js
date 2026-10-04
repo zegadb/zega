@@ -365,7 +365,7 @@ function setSample(key) {
 // null on the standalone site; the CLI's own page says `ui: 'cli'` (backend.js).
 const config = await loadConfig();
 // The CLI's page opens on its user's own database, never on the hockey example.
-const CLI = config?.ui === 'cli';
+const CLI = config?.ui === 'cli' || config?.ui === 'embed';
 document.documentElement.dataset.ui = CLI ? 'cli' : 'site';
 
 const savedQuery = localStorage.getItem(LS_QUERY);
@@ -374,7 +374,7 @@ const editorsReady = createEditors({
   query: savedQuery || (CLI ? '' : QUERY),
 });
 
-await init();
+await init(window.__zegaExplorerOptions?.wasmUrl);
 // The page's own database: wasm in the browser, or the CLI's native backend.
 // `db` is what every operation uses; it becomes a RemoteDatabase while
 // connected to a Zega Cloud graph, and `localDb` again on Disconnect.
@@ -776,8 +776,9 @@ let rerunRequested = false;
 // metered, so queries run only on Run or Cmd/Ctrl+Enter.
 function autorunPaused() {
   const remote = Boolean(db.remote);
-  const paused = remote || hasMutation(queryText());
-  autorunNote.textContent = remote ? 'auto-run off: remote graph' : 'auto-run paused: mutation';
+  const manual = remote || config?.ui === 'embed';
+  const paused = manual || hasMutation(queryText());
+  autorunNote.textContent = manual ? 'auto-run off: remote graph' : 'auto-run paused: mutation';
   autorunNote.hidden = !paused;
   return paused;
 }
