@@ -4,6 +4,7 @@ test('mounts the explorer in the host chrome and serves its editor and wasm loca
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-ready', 'yes');
   await expect(page.locator('#dashboard-chrome #btn-run')).toBeVisible();
+  await expect(page.locator('#dashboard-chrome #btn-push-schema')).toBeVisible();
   await expect(page.locator('#explorer #panes')).toBeVisible();
   await expect(page.locator('#explorer .monaco-editor')).toHaveCount(4);
   await expect(page.locator('#dashboard-chrome #conn-label')).toHaveText('Local explorer');
