@@ -311,7 +311,7 @@ describe.skipIf(process.env.SKIP_NETWORK_TESTS === '1')('app starters: installed
                 expect(fs.statSync(path.join(dir, assets)).isDirectory()).toBe(true)
                 // --human says it in a line.
                 const again = await run(['build', '--human'], { home, cwd: dir })
-                expect(again.stdout).toContain(`Built  ${template} app: worker ${worker}`)
+                expect(again.stdout).toContain(`Built  ${template} app: server entry ${worker}`)
 
                 // zega dev: the framework's own dev server, with .dev.vars in its environment.
                 fs.writeFileSync(path.join(dir, '.dev.vars'), `ZEGA_GRAPH_URL=http://127.0.0.1:${graph.port}\nZEGA_GRAPH_KEY=zk_from_dev_vars\n`)

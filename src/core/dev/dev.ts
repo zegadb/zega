@@ -119,7 +119,7 @@ export async function dev(id: string | undefined, options: DevOptions): Promise<
             }),
         )
     } else {
-        const lines = ['zega dev: Bun serves your function; this is not the Workers runtime (see `zega dev --help`)']
+        const lines = ['zega dev: Bun serves your function locally; the edge runtime differs in a few places (see `zega dev --help`)']
         for (const item of described) {
             lines.push(`  ${item.id}  ${item.entry}  ${item.url}`)
             lines.push(

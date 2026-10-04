@@ -103,9 +103,8 @@ Graph tools use a short-lived graph key. With a manage token, `zega mcp` creates
 
 ### deploy
 
-`zega deploy` bundles each function `zega.json` lists into one ES module and uploads it (`PUT /v1/functions/{function}/code`, a manage token). `zega deploy <id>` deploys one; `zega function deploy <id> [entry]` takes the entry as an argument and needs no `zega.json`. In an app project, `zega deploy` runs its configured framework build and uploads the worker modules and assets through the app deploy API. `zega deploy <id>` can target an existing app function. `--minify` applies to function bundles.
+`zega deploy` bundles each function `zega.json` lists into one ES module and uploads it (`PUT /v1/functions/{function}/code`, a manage token). `zega deploy <id>` deploys one; `zega function deploy <id> [entry]` takes the entry as an argument and needs no `zega.json`. In an app project, `zega deploy` runs its configured framework build and uploads the app modules and assets through the app deploy API. `zega deploy <id>` can target an existing app function. `--minify` applies to function bundles.
 
-- The bundle is made with Bun.build (inside the compiled executable too): target `browser`, ES module, the conditions `workerd`, `worker` and `browser`, npm dependencies bundled from `node_modules`, `process.env.NODE_ENV` set to `"production"` (Bun's default is development), no source map (Zega Cloud takes one file and the runtime ignores an inline map; it would only count against the limit), `cloudflare:` imports left as they are.
 - The size is printed on stderr before the upload. A bundle over the API's limit of 1,000,000 bytes is refused with its size, before anything is sent. All entries are bundled before the first upload, so a function that cannot be bundled stops the deploy while nothing has changed.
 - **Node built-ins are not available in Zega Cloud functions yet** (no `nodejs_compat`). An import of `node:crypto`, `node:buffer`, a bare `path` and the rest, in your code or in a dependency, is an error naming the import and the file. (Bun's browser target would otherwise swap in a polyfill: `node:crypto` alone is about 925 KB.)
 - Stdout is the API's answer unchanged, one JSON line per function. With `--human` it is a readable line each, and the size of each bundle is on stderr before the upload.
@@ -171,7 +170,7 @@ Built  f0bbbbbbbbbbbbbbbb  src/index.ts -> dist/f0bbbbbbbbbbbbbbbb.js (540 bytes
 
 ```
 $ zega dev --human
-zega dev: Bun serves your function; this is not the Workers runtime (see `zega dev --help`)
+zega dev: Bun serves your function locally; the edge runtime differs in a few places (see `zega dev --help`)
   f0bbbbbbbbbbbbbbbb  src/index.ts  http://127.0.0.1:8787
     env: GREETING, SECRET  (.dev.vars)
   graph: none (--local-graph points ZEGA_GRAPH_URL at a local zega-server, --cloud-graph <id> at a cloud graph)
@@ -184,14 +183,14 @@ zega dev: Bun serves your function; this is not the Workers runtime (see `zega d
 - **Which graph.** A function reaches a graph over HTTPS: the address in a variable, a graph key (`zk_...`) in a secret. `--local-graph [url]` sets that variable to a `zega-server start` on this machine (default `http://127.0.0.1:9342`; it says if nothing answers there). `--cloud-graph <id>` sets it to that cloud graph's address, asked of the API with your stored token (or `--token-file`); the key is a secret like any other and comes from `.dev.vars`, and the start-up says it is the CLOUD graph and warns when the key is missing. The variable is `ZEGA_GRAPH_URL` and the key `ZEGA_GRAPH_KEY`; `--graph-url-var` and `--graph-key-var` use the names your function reads. The two flags are alternatives, and with neither the function gets no graph address.
 - By default every line on stdout is a JSON event: `ready` at start (`functions` with their addresses and env names, the `graph`, `watching`), then `reloaded`, `build_failed` (the previous build keeps serving), `request`, `threw`, `wait_until_rejected` and `warning`; stderr stays empty. With `--human` the start is the text above on stdout and the rest are lines on stderr.
 
-**What Bun is not.** `zega dev` is not the Workers runtime, and says so. Where it can tell, it prints a one-line warning when a function uses something it cannot imitate; the rest is listed here:
+**Local development.** Bun serves functions locally; the edge runtime differs in a few places. Where it can tell, it prints a one-line warning when a function uses something it cannot imitate; the rest is listed here:
 
 - `request.cf` is undefined; there are no `cf-*` request headers; the request URL is `http://127.0.0.1:<port>/...`, not the function's address.
 - No Cache API (`caches`), no `WebSocketPair` or WebSocket upgrade responses, no `crypto.DigestStream`, no `crypto.subtle.timingSafeEqual`.
-- `cloudflare:workers` provides `env` and `waitUntil` only; other `cloudflare:` modules, Durable Object and entrypoint classes and any export besides the default are not provided. (Zega Cloud uploads a function with no bindings, so there is nothing to bind them to.)
+- The platform module provides `env` and `waitUntil` only; other platform modules, Durable Object and entrypoint classes and any export besides the default are not provided. (Zega Cloud uploads a function with no bindings, so there is nothing to bind them to.)
 - `ctx.passThroughOnException()` does nothing: there is no origin to fall through to, an error answers 500. `scheduled`, `queue`, `email` and `tail` handlers are never called (a function is only invoked over HTTP).
-- Bun has globals and modules Workers has not: `process` (so `process.env` is your shell here and absent in the cloud), `Buffer`, `Bun`, `require`; `navigator.userAgent` says Bun. Node built-in imports are refused at build as in `deploy`, but the globals are not removed.
-- Limits are not enforced: the function's CPU time and subrequest limits (`zega functions <id>`), memory, request and response sizes. Workers freezes `Date.now()` while code runs; Bun does not. Outbound `fetch` can reach `localhost`, which is how `--local-graph` works and which a deployed function cannot do.
+- Bun has globals and modules the edge runtime does not: `process` (so `process.env` is your shell here and absent in the cloud), `Buffer`, `Bun`, `require`; `navigator.userAgent` says Bun. Node built-in imports are refused at build as in `deploy`, but the globals are not removed.
+- Limits are not enforced: the function's CPU time and subrequest limits (`zega functions <id>`), memory, request and response sizes. The edge runtime freezes `Date.now()` while code runs; Bun does not. Outbound `fetch` can reach `localhost`, which is how `--local-graph` works and which a deployed function cannot do.
 - `console` output goes to your terminal, not to the function's cloud logs.
 
 ### output
@@ -232,9 +231,9 @@ writes a small project in the current directory, and `zega.json`. Nothing is run
 
 | `--template` | writes |
 |---|---|
-| `function` (default) | one Workers-style function (`src/index.ts`) that reads from a graph with `@zegadb/lib/client`, `package.json` (scripts `dev`, `build`, `deploy`), `tsconfig.json`, `.dev.vars.example`, `.gitignore`, `README.md` |
-| `nextjs` | a Next.js app set up for the Workers runtime with OpenNext (`app/page.tsx` reads a graph on the server), and the same support files |
-| `astro` | an Astro app set up for the Workers runtime with `@astrojs/cloudflare` (`src/pages/index.astro` reads a graph on the server), and the same support files |
+| `function` (default) | one Edge function (`src/index.ts`) that reads from a graph with `@zegadb/lib/client`, `package.json` (scripts `dev`, `build`, `deploy`), `tsconfig.json`, `.dev.vars.example`, `.gitignore`, `README.md` |
+| `nextjs` | a Next.js app for Zega Cloud (`app/page.tsx` reads a graph on the server), and the same support files |
+| `astro` | an Astro app for Zega Cloud (`src/pages/index.astro` reads a graph on the server), and the same support files |
 
 Every starter depends on `@zegadb/lib` (pinned) and imports `connect` from `@zegadb/lib/client`; `bun install` works once that version, with `/client`, is on npm. The graph's address and key are read from `ZEGA_GRAPH_URL` and `ZEGA_GRAPH_KEY`: copy `.dev.vars.example` to `.dev.vars` (git-ignored). The app starters have no auth set up: a zega auth package does not exist yet.
 
@@ -259,7 +258,7 @@ Every starter depends on `@zegadb/lib` (pinned) and imports `connect` from `@zeg
 
 `zega init --function <id> [--entry <path>]` writes an existing function id when you already have one. `init` never creates cloud resources.
 
-**An app** has no functions. `zega.json` says what it is, what `zega build` runs and what that produces (a deploy will read the same), and the flags the worker needs, instead of a wrangler file to keep:
+**An app** has no functions. `zega.json` says what it is, what `zega build` runs and what that produces (a deploy will read the same), and the runtime flags it needs:
 
 ```json
 {
@@ -268,7 +267,7 @@ Every starter depends on `@zegadb/lib` (pinned) and imports `connect` from `@zeg
   "region": "yyz",
   "kind": "app",
   "framework": "nextjs",
-  "build": { "command": ["opennextjs-cloudflare", "build", "--skipWranglerConfigCheck"], "worker": ".open-next/worker.js", "assets": ".open-next/assets" },
+  "build": { "command": ["<framework build command>"], "worker": "<server entry file>", "assets": "<static assets directory>" },
   "runtime": { "compatibilityDate": "2026-09-01", "compatibilityFlags": ["nodejs_compat"] }
 }
 ```
@@ -277,7 +276,7 @@ Every starter depends on `@zegadb/lib` (pinned) and imports `connect` from `@zeg
 
 - `zega build` runs `build.command` from the project's `node_modules/.bin` (so install first), checks that `worker` and `assets` exist and prints `{ "kind", "framework", "command", "worker", "assets", "workerBytes" }`. The framework's own output goes to stderr.
 - `zega dev` runs the framework's dev server (`next dev`, `astro dev --ignore-lock`) with `.dev.vars` added to its environment. Unlike a function, the dev server gets the shell's environment too (it needs PATH). `--port` and `--local-graph`/`--cloud-graph` work. Its output is passed on as `output` events (as `zega start`), after a `starting` event with the env names.
-- `zega deploy` builds the app, sends the asset manifest, uploads only hashes Cloudflare does not already hold, and sends the worker modules and runtime config. The first deploy finds the unique Cloud project whose name matches `zega.json`; if needed it creates an app function there, then saves `projectId` and `appId` in `zega.json`. If project names are ambiguous, set `projectId` to the dashboard's project id. Later deploys reuse `appId`. A function id may also be passed as `zega deploy <id>`.
+- `zega deploy` builds the app, sends the asset manifest and runtime config, and sends the app modules and assets. The first deploy finds the unique Zega Cloud project whose name matches `zega.json`; if needed it creates an app function there, then saves `projectId` and `appId` in `zega.json`. If project names are ambiguous, set `projectId` to the dashboard's project id. Later deploys reuse `appId`. A function id may also be passed as `zega deploy <id>`.
 - Progress is one JSON line per event by default; `--human` prints readable progress. The API's 413 error code and message name the module, asset, account or batch limit that was exceeded.
 
 ## develop
