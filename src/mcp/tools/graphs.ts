@@ -66,7 +66,7 @@ export const graphs = [
         title: 'Run a ZQL query on a cloud graph',
         description:
             'Run a ZQL read on a cloud graph. It is sent with the HTTP QUERY method, which the graph itself refuses to run a mutation with, so this tool cannot change data. Counts as one query on the graph\'s meter. ' +
-            'A graph is opened with a graph key (zk_...), not the API token: this server uses the one given with --graph-key-file or ZEGA_GRAPH_KEY in .dev.vars, else (a manage token, not --read-only) it makes a key for this session, named "zega mcp <time>", and revokes it when the server stops.',
+            'A graph is opened with a graph key (zk_...), not the API token: this server uses the one given with --graph-key-file or ZEGA_GRAPH_KEY in .env, else (a manage token, not --read-only) it makes a key for this session, named "zega mcp <time>", and revokes it when the server stops.',
         input: { graph: z.string().describe('A graph id.'), ...ZQL_FIELDS },
         run: async ({ graph, query, schema, document }, context) => {
             const target = await graphTarget(graph, context)

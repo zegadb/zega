@@ -1,6 +1,6 @@
 {
   "name": "zegadb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The Zega developer CLI: manage Zega Cloud from a terminal, a script or an agent.",
   "type": "module",
   "module": "src/zega.ts",

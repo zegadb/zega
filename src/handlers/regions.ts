@@ -13,14 +13,16 @@ export async function regionChoices(session: Session | null, human: boolean): Pr
     if (session !== null) {
         try {
             const { json } = await session.client.get('/v1/regions')
-            return json.regions.map((r) => ({ id: r.id, label: `${r.id}  ${r.city}, ${r.country}` }))
+            return json.regions.map((r) => ({ id: r.id, label: `${r.city} (${r.id})` }))
         } catch (error) {
             if (!(error instanceof NetworkFailure)) throw error
             if (human) await write('stderr', `zega: ${error.message}; checking the region against the built-in list\n`)
         }
     }
-    return builtInRegions().map((id) => ({ id, label: id }))
+    return builtInRegions().map((id) => ({ id, label: `${CITY[id] ?? id} (${id})` }))
 }
+
+const CITY: Record<string, string> = { dfw: 'Dallas', ewr: 'Newark', iad: 'Washington', lax: 'Los Angeles', ord: 'Chicago', sjc: 'San Jose', yyz: 'Toronto', ams: 'Amsterdam', arn: 'Stockholm', cdg: 'Paris', fra: 'Frankfurt', lhr: 'London', nrt: 'Tokyo', sin: 'Singapore', syd: 'Sydney', gru: 'São Paulo' }
 
 function builtInRegions(): string[] {
     return openapi.components.schemas.Region.properties.id.enum

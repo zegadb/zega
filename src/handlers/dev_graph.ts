@@ -4,7 +4,7 @@
  * A deployed function has no graph binding: it calls the graph's HTTPS address, which the
  * customer put in a variable, with a graph key (`zk_...`) the customer put in a secret. So
  * local dev sets that one variable, and says which graph it is. The key is a secret like
- * any other and comes from `.dev.vars`; the stored API token never reaches a function (it is
+ * any other and comes from `.env`; the stored API token never reaches a function (it is
  * used only to ask the API for the graph's address, and goes nowhere else).
  */
 import { openSession, type Globals } from '@/handlers/session'

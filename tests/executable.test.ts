@@ -84,7 +84,7 @@ describe('the compiled executable', () => {
     test('init works without a terminal, from flags', async () => {
         const result = await run(['init', '--name', 'compiled', '--region', 'yyz'])
         expect(result.code).toBe(0)
-        expect(JSON.parse(fs.readFileSync(path.join(dir, 'zega.json'), 'utf8')).name).toBe('compiled')
+        expect(JSON.parse(fs.readFileSync(path.join(dir, 'compiled', 'zega.json'), 'utf8')).name).toBe('compiled')
     })
 
     test('a missing flag fails naming it', async () => {
@@ -167,7 +167,7 @@ describe('the compiled executable', () => {
             },
             [{ id: FN, entry: 'src/index.ts' }],
         )
-        fs.writeFileSync(path.join(project, '.dev.vars'), 'NAME=exe\n')
+        fs.writeFileSync(path.join(project, '.env'), 'NAME=exe\n')
         const built = await run(['build'], { cwd: project, path: '/nonexistent' })
         expect(built.code).toBe(0)
         expect(fs.readFileSync(path.join(project, 'dist', `${FN}.js`), 'utf8')).toContain('cloudflare:workers')

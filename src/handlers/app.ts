@@ -50,7 +50,7 @@ export async function buildApp(dir: string, config: AppProject, human: boolean):
     const [tool, ...args] = config.build.command as [string, ...string[]]
     const child = Bun.spawn([projectTool(dir, tool), ...args], {
         cwd: dir,
-        env: toolEnv(dir),
+        env: toolEnv(dir, readDevVars(dir).vars),
         stdin: 'ignore',
         stdout: human ? 'inherit' : 2,
         stderr: 'inherit',
@@ -84,7 +84,7 @@ const DEV_SERVER: Record<string, { tool: string; args: string[]; port: (n: numbe
 
 export type DevCommand = { command: string[]; env: Record<string, string>; names: string[]; files: string[] }
 
-/** The framework's dev server command, and the environment it gets: the shell's own plus `.dev.vars` (and a chosen graph's address). */
+/** The framework's dev server command, and the environment it gets: the shell's own plus `.env` (and a chosen graph's address). */
 export function devCommand(dir: string, config: AppProject, options: { port?: number; graph?: { urlVar: string; url: string } }): DevCommand {
     const server = DEV_SERVER[config.framework]
     if (server === undefined) throw new LocalFailure(`there is no dev server for ${config.framework}`, 'app_unsupported')

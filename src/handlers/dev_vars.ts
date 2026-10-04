@@ -8,8 +8,8 @@
  * a variable and the key in a secret. Locally both come from one dotenv file, the
  * convention Workers tooling uses:
  *
- *     .dev.vars               every function in the project
- *     .dev.vars.<function id> that function only, over the shared file
+ *     .env               every function in the project
+ *     .env.<function id> that function only, over the shared file
  *
  * in the directory of `zega.json`, never from the shell's environment and never from
  * a stored token. The rules a name and a value must keep are the cloud's own
@@ -20,7 +20,7 @@ import path from 'node:path'
 
 import { LocalFailure } from '@/utils/errors'
 
-export const VARS_FILE = '.dev.vars'
+export const VARS_FILE = '.env'
 
 /** What a variable or secret may be called in code (zegadb/cloud). */
 const SETTING_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
@@ -73,7 +73,7 @@ function value(rest: string, at: string): string {
 
 export type DevVars = { vars: Record<string, string>; files: string[] }
 
-/** The values for one function: `.dev.vars`, then `.dev.vars.<id>` over it (an app has no function: `.dev.vars` alone). */
+/** The values for one function: `.env`, then `.env.<id>` over it (an app has no function: `.env` alone). */
 export function readDevVars(dir: string, functionId?: string): DevVars {
     const vars: Record<string, string> = {}
     const files: string[] = []

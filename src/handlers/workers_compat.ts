@@ -14,7 +14,7 @@ const SOURCE_CHECKS: { pattern: RegExp; warning: string }[] = [
     { pattern: /\bWebSocketPair\b/, warning: '`WebSocketPair` does not exist in zega dev (no WebSocket upgrade responses)' },
     { pattern: /\bDigestStream\b|\btimingSafeEqual\b/, warning: 'crypto.DigestStream and crypto.subtle.timingSafeEqual are edge runtime APIs missing in zega dev' },
     { pattern: /\bpassThroughOnException\b/, warning: '`ctx.passThroughOnException()` has no origin to fall through to in zega dev; an error answers 500' },
-    { pattern: /\bprocess\s*\.\s*env\b/, warning: '`process.env` exists here and not in Zega Cloud: read `env.NAME` (and note it holds your shell, not your .dev.vars)' },
+    { pattern: /\bprocess\s*\.\s*env\b/, warning: '`process.env` exists here and not in Zega Cloud: read `env.NAME` (and note it holds your shell, not your .env)' },
     { pattern: /\bfrom\s*["']cloudflare:(?!workers["'])|\bimport\s*\(\s*["']cloudflare:(?!workers["'])/, warning: 'an unsupported platform module is imported; zega dev provides only `env` and `waitUntil` from the standard module' },
 ]
 

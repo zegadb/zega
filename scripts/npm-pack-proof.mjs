@@ -79,16 +79,42 @@ try {
     fs.mkdirSync(starter)
     const init = runInstalled(['init', '--template', 'function', '--name', 't', '--region', 'yyz'], starter)
     assert.match(init, /"template":\s*"function"/)
-    const starterPackage = JSON.parse(fs.readFileSync(path.join(starter, 'package.json'), 'utf8'))
-    assert.equal(starterPackage.devDependencies.zegadb, '0.1.0')
+    const starterDir = path.join(starter, 't')
+    const starterPackage = JSON.parse(fs.readFileSync(path.join(starterDir, 'package.json'), 'utf8'))
+    assert.equal(starterPackage.devDependencies.zegadb, manifest.version)
     assert.equal(starterPackage.dependencies['@zegadb/lib'], '0.2.0')
+
+    const inPlace = path.join(temp, 'in-place')
+    fs.mkdirSync(inPlace)
+    runInstalled(['init', '--template', 'function', '--name', '.', '--region', 'yyz'], inPlace)
+    assert(fs.existsSync(path.join(inPlace, 'package.json')), '--name . did not write in place')
+    assert(!fs.existsSync(path.join(inPlace, path.basename(inPlace), 'package.json')), '--name . created a child folder')
+
+    // Use a local package-manager fixture so --install is proved without a registry or network.
+    const fakePm = path.join(temp, 'fake-pm')
+    const installMarker = path.join(temp, 'install-cwd')
+    fs.mkdirSync(fakePm)
+    const fakePnpm = path.join(fakePm, 'pnpm')
+    fs.writeFileSync(fakePnpm, `#!/bin/sh\npwd > ${JSON.stringify(installMarker)}\n`)
+    fs.chmodSync(fakePnpm, 0o755)
+    const installRoot = path.join(temp, 'install')
+    fs.mkdirSync(installRoot)
+    const human = run('zega', ['init', '--human', '--template', 'function', '--name', 'installed', '--region', 'yyz', '--install'], {
+        cwd: installRoot,
+        env: { ...env, PATH: `${fakePm}${path.delimiter}${env.PATH}`, npm_config_user_agent: 'pnpm/9.0.0' },
+    })
+    const installDir = path.join(installRoot, 'installed')
+    assert.equal(fs.readFileSync(installMarker, 'utf8').trim(), installDir, `--install did not run in the new project folder\n${human}`)
+    assert.match(human, /Created installed\/ \(function starter\)/)
+    assert(!/\bFiles\b/.test(human), '--human output contains a file list')
+    assert(!/cloudflare|workers?\b|wrangler|opennext|workerd/i.test(human), '--human output names the provider')
 
     for (const template of ['nextjs', 'astro']) {
         const directory = path.join(temp, template)
         fs.mkdirSync(directory)
         runInstalled(['init', '--template', template, '--name', 't', '--region', 'yyz'], directory)
-        const generated = JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8'))
-        assert.equal(generated.devDependencies.zegadb, '0.1.0', `${template} starter CLI version differs`)
+        const generated = JSON.parse(fs.readFileSync(path.join(directory, 't', 'package.json'), 'utf8'))
+        assert.equal(generated.devDependencies.zegadb, manifest.version, `${template} starter CLI version differs`)
         assert.equal(generated.dependencies['@zegadb/lib'], '0.2.0', `${template} starter lib version differs`)
     }
 

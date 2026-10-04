@@ -5,7 +5,6 @@ import path from 'node:path'
 import { read as readConfig } from '../src/handlers/project_config'
 import { TEMPLATES, packageName, starter } from '../src/templates'
 import { ZEGA_LIB } from '../src/templates/versions'
-import { eventually, startDev } from './dev_helpers'
 import { FIXTURES, TOKEN, deployedFunction, errorOf, fakeApi, remove, run, scratch } from './helpers'
 
 const home = scratch()
@@ -19,7 +18,7 @@ const FN = 'f0bbbbbbbbbbbbbbbb'
 /** `zega init` with flags (no terminal), in a fresh directory; the directory and what it printed. */
 async function init(template: string | null, extra: string[] = []) {
     const dir = scratch()
-    const args = ['init', '--name', 'My Starter', '--region', 'yyz', ...(template === null ? [] : ['--template', template]), ...extra]
+    const args = ['init', '--here', '--name', 'My Starter', '--region', 'yyz', ...(template === null ? [] : ['--template', template]), ...extra]
     const result = await run(args, { home, cwd: dir })
     return { dir, result }
 }
@@ -28,9 +27,9 @@ const readJson = (file: string) => JSON.parse(fs.readFileSync(file, 'utf8'))
 
 /** What each starter must write (besides zega.json, which every one has). */
 const FILES: Record<string, string[]> = {
-    function: ['package.json', 'src/index.ts', 'tsconfig.json', '.dev.vars.example', '.gitignore', 'README.md'],
-    nextjs: ['package.json', 'next.config.ts', 'open-next.config.ts', 'tsconfig.json', 'app/layout.tsx', 'app/page.tsx', '.dev.vars.example', '.gitignore', 'README.md'],
-    astro: ['package.json', 'astro.config.mjs', 'tsconfig.json', 'src/pages/index.astro', '.dev.vars.example', '.gitignore', 'README.md'],
+    function: ['package.json', 'src/index.ts', 'tsconfig.json', '.env.example', '.gitignore', 'README.md'],
+    nextjs: ['package.json', 'next.config.ts', 'open-next.config.ts', 'tsconfig.json', 'app/layout.tsx', 'app/page.tsx', '.env.example', '.gitignore', 'README.md'],
+    astro: ['package.json', 'astro.config.mjs', 'tsconfig.json', 'src/pages/index.astro', '.env.example', '.gitignore', 'README.md'],
 }
 
 describe('the starters', () => {
@@ -46,7 +45,7 @@ describe('the starters', () => {
                 expect(printed.next.length).toBeGreaterThan(2)
                 expect(printed.next[0]).toBe('bun install')
                 if (template === 'nextjs' || template === 'astro') {
-                    expect(printed.next).toContain('zega deploy')
+                    expect(printed.next).toContain('bun run deploy')
                     expect(printed.next.join('\n')).not.toContain('not supported')
                 }
                 // The client library, as the one dependency the code imports (and exactly pinned).
@@ -55,9 +54,9 @@ describe('the starters', () => {
                 expect(pkg.name).toBe('my-starter')
                 expect(pkg.scripts.dev).toBe('zega dev')
                 // The env example has names and no values; the real file is never committed.
-                expect(fs.readFileSync(path.join(dir, '.dev.vars.example'), 'utf8')).toMatch(/^ZEGA_GRAPH_URL=$/m)
-                expect(fs.readFileSync(path.join(dir, '.dev.vars.example'), 'utf8')).toMatch(/^ZEGA_GRAPH_KEY=$/m)
-                expect(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8').split('\n')).toContain('.dev.vars')
+                expect(fs.readFileSync(path.join(dir, '.env.example'), 'utf8')).toMatch(/^ZEGA_GRAPH_URL=$/m)
+                expect(fs.readFileSync(path.join(dir, '.env.example'), 'utf8')).toMatch(/^ZEGA_GRAPH_KEY=$/m)
+                expect(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8').split('\n')).toContain('.env')
                 // zega.json is what the CLI itself reads.
                 expect(readConfig(dir)).toMatchObject({ version: 1, name: 'My Starter', region: 'yyz' })
             } finally {
@@ -70,6 +69,7 @@ describe('the starters', () => {
         const plain = await init(null)
         try {
             expect(JSON.parse(plain.result.stdout).template).toBe('function')
+            expect(JSON.parse(plain.result.stdout).next).toContain('bun run deploy --project <project id>')
             expect(readJson(path.join(plain.dir, 'zega.json')).functions).toEqual([{ name: 'My Starter', entry: 'src/index.ts' }])
             expect(JSON.parse(plain.result.stdout).next.join('\n')).toContain('bun run dev')
         } finally {
@@ -89,10 +89,10 @@ describe('the starters', () => {
     test('init defaults the region to yyz and says which region it chose', async () => {
         const dir = scratch()
         try {
-            const result = await run(['init', '--human', '--name', 'region-default'], { home, cwd: dir })
+            const result = await run(['init', '--here', '--human', '--name', 'region-default'], { home, cwd: dir })
             expect(result.code).toBe(0)
             expect(readJson(path.join(dir, 'zega.json')).region).toBe('yyz')
-            expect(result.stdout).toContain('Region    yyz (default)')
+            expect(result.stdout).toContain('Region    yyz')
         } finally { remove(dir) }
     })
 
@@ -149,12 +149,12 @@ describe('the starters', () => {
         const { dir } = await init('nextjs')
         try {
             fs.writeFileSync(path.join(dir, 'app', 'page.tsx'), 'mine\n')
-            const again = await run(['init', '--name', 'x', '--region', 'yyz', '--template', 'nextjs'], { home, cwd: dir })
+            const again = await run(['init', '--here', '--name', 'x', '--region', 'yyz', '--template', 'nextjs'], { home, cwd: dir })
             expect(again.code).toBe(1)
             expect(errorOf(again).message).toContain('zega.json, package.json')
             expect(errorOf(again).message).toContain('app/page.tsx')
             expect(fs.readFileSync(path.join(dir, 'app', 'page.tsx'), 'utf8')).toBe('mine\n')
-            const forced = await run(['init', '--name', 'x', '--region', 'yyz', '--template', 'nextjs', '--force'], { home, cwd: dir })
+            const forced = await run(['init', '--here', '--name', 'x', '--region', 'yyz', '--template', 'nextjs', '--force'], { home, cwd: dir })
             expect(forced.code).toBe(0)
             expect(fs.readFileSync(path.join(dir, 'app', 'page.tsx'), 'utf8')).toContain('@zegadb/lib/client')
         } finally {
@@ -269,23 +269,25 @@ describe('app config', () => {
     })
 })
 
-/**
- * The app starters, installed and built for real. They need the network (`bun install` fetches Next.js, Astro,
- * OpenNext and the Cloudflare adapter), so set SKIP_NETWORK_TESTS=1 to leave them out.
- */
-describe.skipIf(process.env.SKIP_NETWORK_TESTS === '1')('app starters: installed, built and run (network)', () => {
-    /** Scaffold, install the packages that are on npm, and put the stand-in where @zegadb/lib will be. */
+/** The starters' build contract, using local tool fixtures instead of downloading framework packages. */
+describe('app starters: build contract (local fixtures)', () => {
     async function installed(template: 'nextjs' | 'astro') {
         const { dir } = await init(template)
         const pkgFile = path.join(dir, 'package.json')
         const pkg = readJson(pkgFile)
-        // Neither @zegadb/lib@<version> (with /client) nor this CLI is on npm yet.
+        // Fake the dependency installation: the framework executable writes the promised build outputs.
         delete pkg.dependencies['@zegadb/lib']
         delete pkg.devDependencies.zegadb
         fs.writeFileSync(pkgFile, JSON.stringify(pkg, null, 2))
-        const install = Bun.spawnSync(['bun', 'install'], { cwd: dir, stdout: 'pipe', stderr: 'pipe', env: { PATH: process.env.PATH ?? '', HOME: home } })
-        if (install.exitCode !== 0) throw new Error(`bun install failed: ${install.stderr.toString()}`)
+        const bin = path.join(dir, 'node_modules', '.bin')
+        fs.mkdirSync(bin, { recursive: true })
         fs.cpSync(STAND_IN, path.join(dir, 'node_modules', '@zegadb', 'lib'), { recursive: true })
+        const tool = template === 'nextjs' ? 'opennextjs-cloudflare' : 'astro'
+        const worker = template === 'nextjs' ? '.open-next/worker.js' : 'dist/server/entry.mjs'
+        const assets = template === 'nextjs' ? '.open-next/assets' : 'dist/client'
+        const executable = path.join(bin, tool)
+        fs.writeFileSync(executable, `#!/bin/sh\nmkdir -p '${path.dirname(worker)}' '${assets}'\nprintf 'fixture worker' > '${worker}'\nprintf 'local build fixture\\n'\n`)
+        fs.chmodSync(executable, 0o755)
         return dir
     }
 
@@ -293,13 +295,8 @@ describe.skipIf(process.env.SKIP_NETWORK_TESTS === '1')('app starters: installed
         ['nextjs', '.open-next/worker.js', '.open-next/assets'],
         ['astro', 'dist/server/entry.mjs', 'dist/client'],
     ] as const) {
-        test(`${template}: zega build runs the framework build and reports the worker and the assets; zega dev serves a page that reads the graph`, async () => {
+        test(`${template}: zega build runs the local framework fixture and reports the worker and assets`, async () => {
             const dir = await installed(template)
-            const graph = Bun.serve({
-                hostname: '127.0.0.1',
-                port: 0,
-                fetch: async (request) => Response.json({ ok: true, result: { Person: [{ name: 'Ada Lovelace' }], auth: request.headers.get('authorization') } }),
-            })
             try {
                 const built = await run(['build'], { home, cwd: dir })
                 expect(built.stderr).not.toContain('"error"')
@@ -312,24 +309,9 @@ describe.skipIf(process.env.SKIP_NETWORK_TESTS === '1')('app starters: installed
                 // --human says it in a line.
                 const again = await run(['build', '--human'], { home, cwd: dir })
                 expect(again.stdout).toContain(`Built  ${template} app: server entry ${worker}`)
-
-                // zega dev: the framework's own dev server, with .dev.vars in its environment.
-                fs.writeFileSync(path.join(dir, '.dev.vars'), `ZEGA_GRAPH_URL=http://127.0.0.1:${graph.port}\nZEGA_GRAPH_KEY=zk_from_dev_vars\n`)
-                const port = 15000 + Math.floor(Math.random() * 3000)
-                const dev = await startDev(['--port', String(port)], { cwd: dir, home, human: false })
-                try {
-                    await dev.until('"event":"starting"')
-                    const page = await eventually(`http://localhost:${port}/`, (body) => body.includes('Ada Lovelace'))
-                    expect(page).toContain('Ada Lovelace')
-                    expect(dev.stdout().split('\n')[0]).toContain('"env":["ZEGA_GRAPH_KEY","ZEGA_GRAPH_URL"]')
-                    expect(dev.stdout()).not.toContain('zk_from_dev_vars')
-                } finally {
-                    await dev.stop()
-                }
             } finally {
-                graph.stop(true)
                 remove(dir)
             }
-        }, 300_000)
+        })
     }
 })

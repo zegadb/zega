@@ -14,7 +14,7 @@ export function astro(context: Context): Starter {
                 name: context.packageName,
                 private: true,
                 type: 'module',
-                scripts: { dev: 'zega dev', build: ASTRO_BUILD.join(' ') },
+                scripts: { dev: 'zega dev', build: ASTRO_BUILD.join(' '), deploy: 'zega deploy' },
                 dependencies: { ...base.dependencies, astro: ASTRO, '@astrojs/cloudflare': ASTRO_CLOUDFLARE },
                 devDependencies: { ...base.devDependencies, typescript: TYPESCRIPT, wrangler: WRANGLER },
             }),
@@ -54,7 +54,7 @@ const people = await graph.query('{ Person { name } }')
   </body>
 </html>
 `),
-            '.dev.vars.example': DEV_VARS_EXAMPLE,
+            '.env.example': DEV_VARS_EXAMPLE,
             '.gitignore': gitignore('.astro', '.wrangler'),
             'README.md': text(`
 # ${context.name}
@@ -63,9 +63,9 @@ An Astro app for [Zega Cloud](https://zega.dev). \`src/pages/index.astro\` reads
 
 \`\`\`
 bun install
-cp .dev.vars.example .dev.vars   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
-bun run dev                      # astro dev, with .dev.vars in its environment
-bun run build                    # the server entry and its static assets
+cp .env.example .env   # then fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}
+bun run dev                      # astro dev, with .env in its environment
+bun run build                    # the server entry (dist/server/entry.mjs) and its static assets (dist/client)
 \`\`\`
 
 What \`zega build\` runs, what it produces and the runtime flags are in \`zega.json\`. Run \`zega deploy\` to build and deploy the app to a matching Zega Cloud project.
@@ -81,7 +81,7 @@ ${AUTH_LINE}
         },
         next: [
             'bun install',
-            `copy .dev.vars.example to .dev.vars and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
+            `copy .env.example to .env and fill in ${GRAPH_URL_VAR} and ${GRAPH_KEY_VAR}`,
             'bun run dev',
             'zega deploy',
         ],
