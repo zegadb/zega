@@ -93,7 +93,9 @@ jobs:
           if [ "$(npm view "zegadb@${NPM_VERSION}" version --registry=https://registry.npmjs.org/ 2>/dev/null || true)" = "$NPM_VERSION" ]; then
             echo "zegadb@${NPM_VERSION} is already on npm; skipping."
           else
-            npm publish --tag "$DIST_TAG" --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org/
+            # zegadb/cli is private, and npm accepts provenance only from public repos (E422).
+            # Trusted publishing (OIDC) still authenticates the publish. Turn provenance back on if the repo goes public.
+            npm publish --tag "$DIST_TAG" --access public --provenance=false --ignore-scripts --registry=https://registry.npmjs.org/
           fi
 
       - name: Verify by reading back
