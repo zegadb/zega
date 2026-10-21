@@ -66,6 +66,24 @@ uses `setpriv` (already in `bookworm-slim`, no extra package) to drop to
 `zega` (uid 10001) before `exec`ing the real `zega-server` binary. The server itself
 always runs as non-root; only the one-line ownership fixup runs as root.
 
+## Certificate trust update (October 2026)
+
+The runtime remains on Debian Bookworm. Debian's
+[eMudhra incident update](https://bugs.debian.org/1151413) blacklists
+`emSign ECC Root CA - G3` and `Comodo AAA Services root`; Bookworm ships it
+in `ca-certificates` **20250419~deb12u2**. Both Docker stages install the current
+package and fail the build if its version is older than that minimum.
+This uses Debian's maintained package rather than editing the trust store
+by hand. The build stage uses `rust:1.96.0-bookworm`; the application locks
+`rustls-webpki` 0.103.16 and `webpki-roots` 1.0.10, the
+[upstream verifier](https://github.com/rustls/webpki/releases/tag/v%2F0.103.16)
+and [root-store](https://github.com/rustls/webpki-roots/releases/tag/v%2F1.0.10)
+updates for the incident.
+
+An existing image or running machine does not gain these changes merely
+because source or the Debian package index changes. A reviewed rebuild and
+operator rollout are required; this source change does not perform either.
+
 ## Build
 
 ```sh
