@@ -22,6 +22,12 @@
 # See docs/cloud-image.md for the full build/push/verify runbook.
 
 FROM rust:1.96.0-bookworm AS build
+# Cargo's HTTPS downloads need the distro distrust update during the build too.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge \
+      '20250419~deb12u2' \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
@@ -37,6 +43,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates \
+ # Debian #1151413: require the eMudhra/AAA distrust update (or newer).
+ && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge \
+      '20250419~deb12u2' \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --no-create-home --shell /usr/sbin/nologin --uid 10001 --user-group zega \
  && mkdir -p /data /etc/zega \
