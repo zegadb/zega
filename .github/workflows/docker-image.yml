@@ -1,17 +1,19 @@
-name: Cloud image (zega-g)
+name: Docker images
 
-# Build-only smoke check for the Fly Machines image Zega Cloud runs
-# (registry.fly.io/zega-g:latest, docs/cloud-image.md). Never pushes: there
-# is no registry credential in this job. Proves the Dockerfile still builds
-# `zega-cli` --locked --release whenever it, or the crates it packages,
-# change; pushing the built image is a manual step Ava runs (AGENTS.md
-# §0.1 — CIs here never publish).
+# Build-only smoke check for both images, whenever their Dockerfiles or the
+# crates they package change. Never pushes: there is no registry credential
+# in this job.
+# - zega-g: the Fly Machines image Zega Cloud runs (registry.fly.io/zega-g,
+#   docs/cloud-image.md); pushing it is a manual step Ava runs.
+# - zega: the plain server image (docker/zega). promote.yml publishes it as
+#   addiscorp/zega:<version> when a stable version is promoted.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'docker/zega-g/**'
+      - 'docker/**'
+      - '.dockerignore'
       - 'zega/**'
       - 'zega-server/**'
       - 'zega-cli/**'
@@ -20,7 +22,8 @@ on:
       - '.github/workflows/docker-image.yml'
   pull_request:
     paths:
-      - 'docker/zega-g/**'
+      - 'docker/**'
+      - '.dockerignore'
       - 'zega/**'
       - 'zega-server/**'
       - 'zega-cli/**'
@@ -52,5 +55,16 @@ jobs:
           platforms: linux/amd64
           push: false
           tags: zega-g:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # The plain server image promote.yml publishes as addiscorp/zega.
+      - name: Build the plain server image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/zega/Dockerfile
+          platforms: linux/amd64
+          push: false
+          tags: zega:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
