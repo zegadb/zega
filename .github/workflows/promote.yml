@@ -122,13 +122,28 @@ jobs:
           done
           echo "::error::zega $VERSION did not appear on crates.io"; exit 1
 
-  docker:
-    # Stable only, like crates: addiscorp/zega:<version> and :latest, built from
-    # the promoted commit (docker/zega/Dockerfile). pg_zega and Simien's local
-    # stack pin these tags.
+  # Stable only, like crates: addiscorp/zega:<version> and :latest, built from
+  # the promoted commit (docker/zega/Dockerfile), for linux/amd64 and
+  # linux/arm64 (Apple Silicon Macs run arm64 images; Intel Macs and most
+  # Linux run amd64). pg_zega and Simien's local stack pin these tags.
+  # Each architecture builds natively and is pushed by digest; docker-merge
+  # joins them under the tags; docker-readback pulls the tag on both
+  # architectures and runs it.
+  docker-build:
+    name: docker build (${{ matrix.platform }})
     if: always() && needs.promote.result == 'success'
     needs: promote
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     environment: release
     permissions:
       contents: read
@@ -147,38 +162,108 @@ jobs:
           if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKER_TOKEN" ]; then
             echo '::error::Needs Sami: DOCKER_TOKEN and DOCKERHUB_USERNAME on zegadb/zega/release'; exit 1
           fi
-          STABLE="${CANARY%%-canary-*}"; echo "VERSION=${STABLE#v}" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Build and push
+      - name: Build and push by digest
         id: push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/zega/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ vars.DOCKERHUB_USERNAME }}/zega:${{ env.VERSION }}
-            ${{ vars.DOCKERHUB_USERNAME }}/zega:latest
-      # Read the image back from the registry by digest and run it: the tag must
-      # serve the bytes just built, and they must start with a token.
-      - name: Read it back and run it
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ vars.DOCKERHUB_USERNAME }}/zega,push-by-digest=true,name-canonical=true,push=true
+      - name: Record the digest
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
+          mkdir -p digests
+          printf '%s\n' "$DIGEST" > "digests/${{ matrix.arch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zega-digest-${{ matrix.arch }}
+          path: digests/${{ matrix.arch }}
+          retention-days: 1
+
+  docker-merge:
+    name: docker tags (both architectures)
+    needs: docker-build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+    env:
+      CANARY: ${{ inputs.canary }}
+      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+    outputs:
+      version: ${{ steps.tags.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: zega-digest-*
+          path: digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Tag both digests as one image
+        id: tags
+        run: |
+          set -euo pipefail
+          STABLE="${CANARY%%-canary-*}"; VERSION="${STABLE#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          image="$DOCKERHUB_USERNAME/zega"
+          docker buildx imagetools create \
+            -t "$image:$VERSION" -t "$image:latest" \
+            "$image@$(cat digests/amd64)" "$image@$(cat digests/arm64)"
+      # The tag must hold exactly the two digests just built.
+      - name: The tag lists both architectures
+        env:
+          VERSION: ${{ steps.tags.outputs.version }}
+        run: |
+          set -euo pipefail
           image="$DOCKERHUB_USERNAME/zega:$VERSION"
-          served=$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')
-          if [ "$served" != "$DIGEST" ]; then
-            echo "::error::$image serves $served, not the pushed $DIGEST"; exit 1
-          fi
-          docker run -d --name zega-readback -e ZEGA_TOKEN=readback-token -p 9342:9342 "$image@$DIGEST"
-          for attempt in $(seq 1 30); do
+          docker buildx imagetools inspect "$image" --raw > index.json
+          python3 - index.json digests/amd64 digests/arm64 <<'PY'
+          import json, sys
+          index = json.load(open(sys.argv[1]))
+          served = {f'{m["platform"]["os"]}/{m["platform"]["architecture"]}': m["digest"]
+                    for m in index["manifests"] if m["platform"]["os"] != "unknown"}
+          want = {"linux/amd64": open(sys.argv[2]).read().strip(), "linux/arm64": open(sys.argv[3]).read().strip()}
+          assert served == want, f"tag serves {served}, expected {want}"
+          print("tag serves", served)
+          PY
+
+  docker-readback:
+    name: docker read-back (${{ matrix.platform }})
+    needs: docker-merge
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+      VERSION: ${{ needs.docker-merge.outputs.version }}
+    steps:
+      # Pulled by tag from Docker Hub, as Simien's local stack pulls it.
+      - name: Pull the tag and run it
+        run: |
+          image="$DOCKERHUB_USERNAME/zega:$VERSION"
+          docker pull "$image"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = "${{ matrix.platform }}"
+          docker run -d --name zega-readback -e ZEGA_TOKEN=readback-token -p 9342:9342 "$image"
+          for _ in $(seq 1 30); do
             if curl -fsS -H "Authorization: Bearer readback-token" http://127.0.0.1:9342/health; then
-              echo; echo "$image ($DIGEST) serves"; exit 0
+              echo; echo "$image serves on ${{ matrix.platform }}"; exit 0
             fi
             sleep 2
           done
