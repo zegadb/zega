@@ -39,7 +39,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  zega-g:
+    name: zega-g image (linux/amd64, Fly)
     runs-on: ubuntu-latest
     environment: public-ci
     steps:
@@ -57,14 +58,47 @@ jobs:
           tags: zega-g:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # The plain server image promote.yml publishes as addiscorp/zega.
+
+  # The plain server image promote.yml publishes as addiscorp/zega, on both
+  # architectures Docker users have: amd64 (Linux, Intel Macs) and arm64
+  # (Apple Silicon, ARM Linux). Each builds natively on its own runner (an
+  # emulated Rust build would take hours), and each must start and answer.
+  zega:
+    name: zega image (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    environment: public-ci
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
       - name: Build the plain server image (no push)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/zega/Dockerfile
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
           push: false
+          load: true
           tags: zega:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=zega-${{ matrix.runner }}
+          cache-to: type=gha,mode=max,scope=zega-${{ matrix.runner }}
+      - name: It starts and answers on ${{ matrix.platform }}
+        run: |
+          test "$(docker image inspect zega:ci --format '{{.Os}}/{{.Architecture}}')" = "${{ matrix.platform }}"
+          docker run -d --name zega-ci -e ZEGA_TOKEN=ci-token -p 9342:9342 zega:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS -H "Authorization: Bearer ci-token" http://127.0.0.1:9342/health; then
+              echo; echo "zega:ci (${{ matrix.platform }}) serves"; exit 0
+            fi
+            sleep 2
+          done
+          docker logs zega-ci; exit 1
