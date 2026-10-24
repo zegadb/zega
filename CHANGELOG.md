@@ -4,6 +4,18 @@ Changes that affect code using the `zega` crate, newest first. File formats
 (WAL, snapshot, `.graph`) have their own versions; see
 [docs/graph-format.md](docs/graph-format.md).
 
+## 0.2.1
+
+- **The `addiscorp/zega` Docker image runs on Apple Silicon.** It is published
+  for `linux/amd64` and `linux/arm64` (one tag, both architectures), each built
+  natively; Intel Macs and most Linux pull amd64, Apple Silicon pulls arm64.
+  Before, it was amd64 only, and Simien's local stack could not start on an
+  Apple Silicon Mac. No change to the `zega` crate.
+- **The plain server image is published from this repository** as
+  `addiscorp/zega:<version>` and `:latest` when a version is promoted.
+- **Updated certificate verification and trust roots** (rustls-webpki,
+  webpki-roots), and the image requires Debian's patched CA package.
+
 ## Unreleased
 
 - **`@zegadb/lib/client`: a `fetch`-only client for a running zega.** A second
