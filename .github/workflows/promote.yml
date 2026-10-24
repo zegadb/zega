@@ -220,22 +220,31 @@ jobs:
           docker buildx imagetools create \
             -t "$image:$VERSION" -t "$image:latest" \
             "$image@$(cat digests/amd64)" "$image@$(cat digests/arm64)"
-      # The tag must hold exactly the two digests just built.
+      # Each build's digest is an index (buildx adds a provenance
+      # attestation); the tag lists the platform images inside them. The tag
+      # must list, for each architecture, the platform image its build
+      # pushed, and nothing else.
       - name: The tag lists both architectures
         env:
           VERSION: ${{ steps.tags.outputs.version }}
         run: |
           set -euo pipefail
-          image="$DOCKERHUB_USERNAME/zega:$VERSION"
-          docker buildx imagetools inspect "$image" --raw > index.json
-          python3 - index.json digests/amd64 digests/arm64 <<'PY'
-          import json, sys
-          index = json.load(open(sys.argv[1]))
-          served = {f'{m["platform"]["os"]}/{m["platform"]["architecture"]}': m["digest"]
-                    for m in index["manifests"] if m["platform"]["os"] != "unknown"}
-          want = {"linux/amd64": open(sys.argv[2]).read().strip(), "linux/arm64": open(sys.argv[3]).read().strip()}
-          assert served == want, f"tag serves {served}, expected {want}"
-          print("tag serves", served)
+          python3 - "$DOCKERHUB_USERNAME/zega" "$VERSION" <<'PY'
+          import json, subprocess, sys
+          image, tag = sys.argv[1:3]
+          def raw(ref):
+              return json.loads(subprocess.run(["docker", "buildx", "imagetools", "inspect", ref, "--raw"],
+                                               check=True, capture_output=True, text=True).stdout)
+          def platforms(index):
+              return {f'{m["platform"]["os"]}/{m["platform"]["architecture"]}': m["digest"]
+                      for m in index.get("manifests", []) if m.get("platform", {}).get("os") not in (None, "unknown")}
+          want = {}
+          for arch in ("amd64", "arm64"):
+              pushed = open(f"digests/{arch}").read().strip()
+              want[f"linux/{arch}"] = platforms(raw(f"{image}@{pushed}")).get(f"linux/{arch}", pushed)
+          served = platforms(raw(f"{image}:{tag}"))
+          assert served == want, f"{image}:{tag} serves {served}, expected {want}"
+          print(f"{image}:{tag} serves", served)
           PY
 
   docker-readback:
