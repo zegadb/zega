@@ -20,6 +20,22 @@ use crate::graph::{Graph, Node, NodeId, RelId, Relationship};
 use crate::index::IndexSpec;
 use crate::value::Value;
 
+#[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+mod sqlite;
+#[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+pub use sqlite::SQLITE_LOG_FILE;
+
+/// Where the native store keeps its log (APS 54 phase 1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Storage {
+    /// `wal.bin`: Zega's own append-only file.
+    #[default]
+    File,
+    /// `zega.db`: rows of a SQLite database (Turso's Rust engine).
+    #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+    Sqlite,
+}
+
 const WAL_MAGIC: &[u8; 4] = b"ZWAL";
 const WAL_VERSION: u16 = 2;
 /// A WAL that holds a [`Operation::ReplaceGraph`] entry is marked version 3
@@ -140,6 +156,9 @@ pub struct Wal {
     group: Arc<GroupCommit>,
     #[cfg(not(target_arch = "wasm32"))]
     worker: Option<JoinHandle<()>>,
+    /// Set for [`Storage::Sqlite`]: every method below goes to it instead.
+    #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+    sqlite: Option<sqlite::SqliteLog>,
 }
 
 impl Wal {
@@ -168,8 +187,21 @@ impl Wal {
                     flush_every: false,
                 }),
                 worker: None,
+                #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+                sqlite: None,
             }
         }
+    }
+
+    /// The log kept as rows of the SQLite database at `path`
+    /// ([`Storage::Sqlite`]). Every append is its own durable transaction.
+    #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+    pub(crate) fn sqlite(path: &Path) -> Result<Self, WalError> {
+        let log = sqlite::SqliteLog::open(path)?;
+        let mut wal = Self::in_memory();
+        wal.path = path.to_path_buf();
+        wal.sqlite = Some(log);
+        Ok(wal)
     }
 
     // Only this module's own durability tests call `new`/`flush` directly;
@@ -257,6 +289,8 @@ impl Wal {
             path: path.to_path_buf(),
             group,
             worker,
+            #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+            sqlite: None,
         }
     }
 
@@ -284,6 +318,10 @@ impl Wal {
             let len = u64::try_from(bytes.len())
                 .map_err(|_| WalError::Durability("WAL entry exceeds u64 length".to_string()))?;
             let crc = crc32fast::hash(&bytes);
+            #[cfg(feature = "sqlite")]
+            if let Some(log) = &self.sqlite {
+                return log.append(&bytes, crc);
+            }
             let mut state = self
                 .group
                 .state
@@ -370,6 +408,10 @@ impl Wal {
     /// every write appends (and waits for durability) under it.
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn end(&self) -> Result<u64, WalError> {
+        #[cfg(feature = "sqlite")]
+        if let Some(log) = &self.sqlite {
+            return log.end();
+        }
         let mut state = self
             .group
             .state
@@ -400,6 +442,10 @@ impl Wal {
         use crate::checkpoint::{crash_point, Step};
 
         let payload = bincode::serialize(head)?;
+        #[cfg(feature = "sqlite")]
+        if let Some(log) = &self.sqlite {
+            return log.rotate(from, &payload);
+        }
         let mut state = self
             .group
             .state
@@ -517,6 +563,10 @@ impl Wal {
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
+            #[cfg(feature = "sqlite")]
+            if let Some(log) = &self.sqlite {
+                return log.iter();
+            }
             let mut file = OpenOptions::new().read(true).write(true).open(&self.path)?;
             let file_len = file.metadata()?.len();
             let mut reader = BufReader::new(file.try_clone()?);
