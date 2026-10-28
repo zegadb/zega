@@ -4,6 +4,20 @@ Changes that affect code using the `zega` crate, newest first. File formats
 (WAL, snapshot, `.graph`) have their own versions; see
 [docs/graph-format.md](docs/graph-format.md).
 
+## 0.2.2
+
+- **Zega + SQLite (APS 54 phases 1 and 2).** With the `sqlite` feature (on in
+  the server and CLI), `--storage sqlite` keeps the log in a SQLite database
+  beside the graph. `Zega::sql` and `POST /sql` run SQL against it, and
+  `Zega::transaction` (`POST /transaction`) commits SQL and ZQL steps together
+  or not at all.
+- **Deliveries (APS 52).** `Zega::deliver` and `POST /deliveries` apply a
+  payload once per `(source_id, txid)` and keep a receipt with its writes; the
+  same identity with another payload is refused. A payload may carry a schema
+  to store first and a `flush` (`{"all": true}`, or `labels` and
+  `relationships`) to delete before that, all in one transaction. pg_zega's
+  journal mode delivers through it.
+
 ## 0.2.1
 
 - **The `addiscorp/zega` Docker image runs on Apple Silicon.** It is published
