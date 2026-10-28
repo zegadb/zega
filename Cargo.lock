@@ -3759,7 +3759,7 @@ dependencies = [
 
 [[package]]
 name = "zega"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "bincode",
  "blake3",
@@ -3788,7 +3788,7 @@ dependencies = [
 
 [[package]]
 name = "zega-bench"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "bincode",
  "libc",
@@ -3801,7 +3801,7 @@ dependencies = [
 
 [[package]]
 name = "zega-cli"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "clap",
@@ -3820,7 +3820,7 @@ dependencies = [
 
 [[package]]
 name = "zega-server"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "axum",
  "base64 0.22.1",
