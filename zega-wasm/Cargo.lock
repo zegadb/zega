@@ -836,7 +836,7 @@ dependencies = [
 
 [[package]]
 name = "zega"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "bincode",
  "blake3",
@@ -859,7 +859,7 @@ dependencies = [
 
 [[package]]
 name = "zega-wasm"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "base64",
  "serde_json",
