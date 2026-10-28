@@ -36,6 +36,19 @@ pub enum Storage {
     Sqlite,
 }
 
+impl Storage {
+    /// The storage the data directory `data` was created with, from the log
+    /// file it holds; `None` for a new or empty directory.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn of(data: &Path) -> Option<Storage> {
+        #[cfg(feature = "sqlite")]
+        if data.join(SQLITE_LOG_FILE).exists() {
+            return Some(Storage::Sqlite);
+        }
+        data.join("wal.bin").exists().then_some(Storage::File)
+    }
+}
+
 const WAL_MAGIC: &[u8; 4] = b"ZWAL";
 const WAL_VERSION: u16 = 2;
 /// A WAL that holds a [`Operation::ReplaceGraph`] entry is marked version 3

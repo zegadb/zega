@@ -7,7 +7,7 @@ use axum::{
     response::Response,
     routing::get,
 };
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use include_dir::{include_dir, Dir};
 use std::{
     io,
@@ -15,7 +15,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio::net::TcpListener;
-use zega::Zega;
+use zega::{Storage, Zega};
 use zega_server::AppState;
 
 static EXPLORER: Dir<'_> = include_dir!("$OUT_DIR/explorer");
@@ -77,6 +77,11 @@ enum Command {
         /// automatic checkpoints off.
         #[arg(long, value_name = "MIB", default_value_t = zega::DEFAULT_SNAPSHOT_EVERY_BYTES >> 20)]
         snapshot_every_mb: u64,
+        /// Where a new database keeps its log: `file` (wal.bin) or `sqlite`
+        /// (zega.db, APS 54). An existing database keeps the storage it was
+        /// created with.
+        #[arg(long, value_enum)]
+        storage: Option<StorageArg>,
     },
     /// Write the database to a .graph file (docs/graph-format.md). `-` writes to stdout.
     Export {
@@ -133,6 +138,11 @@ enum Command {
         /// automatic checkpoints off.
         #[arg(long, value_name = "MIB", default_value_t = zega::DEFAULT_SNAPSHOT_EVERY_BYTES >> 20)]
         snapshot_every_mb: u64,
+        /// Where a new database keeps its log: `file` (wal.bin) or `sqlite`
+        /// (zega.db, APS 54). An existing database keeps the storage it was
+        /// created with.
+        #[arg(long, value_enum)]
+        storage: Option<StorageArg>,
     },
 }
 
@@ -340,10 +350,26 @@ fn lock_data(data: &Path) -> Result<std::fs::File, Box<dyn std::error::Error>> {
     Ok(data_lock)
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+enum StorageArg {
+    File,
+    Sqlite,
+}
+
+/// The storage to open `data` with: what was asked for, else what the
+/// directory already holds, else the file log.
+fn storage(data: &Path, asked: Option<StorageArg>) -> Storage {
+    match asked {
+        Some(StorageArg::File) => Storage::File,
+        Some(StorageArg::Sqlite) => Storage::Sqlite,
+        None => Storage::of(data).unwrap_or_default(),
+    }
+}
+
 fn open_data(data: &Path) -> Result<(std::fs::File, Zega), Box<dyn std::error::Error>> {
     let lock = lock_data(data)?;
     let path = data.to_str().ok_or("data path must be UTF-8")?;
-    let db = Zega::open(path).build().map_err(io::Error::other)?;
+    let db = Zega::open(path).storage(storage(data, None)).build().map_err(io::Error::other)?;
     Ok((lock, db))
 }
 
@@ -447,7 +473,7 @@ fn serve_command(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    let (data, host, port, token_file, allow_private, explorer, time_limit, max_import, snapshot_every_mb) = match cli.command {
+    let (data, host, port, token_file, allow_private, explorer, time_limit, max_import, snapshot_every_mb, asked_storage) = match cli.command {
         Command::Fmt { .. }
         | Command::Cloud(_)
         | Command::Export { .. }
@@ -465,11 +491,12 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             query_time_limit,
             max_import_bytes,
             snapshot_every_mb,
+            storage,
         } => {
             let limit = std::time::Duration::try_from_secs_f64(query_time_limit)
                 .map_err(|_| "--query-time-limit must be a number of seconds, 0 or more")?;
             let limit = (!limit.is_zero()).then_some(limit);
-            (data, host, port, token_file, allow_private_imports, false, limit, max_import_bytes, snapshot_every_mb)
+            (data, host, port, token_file, allow_private_imports, false, limit, max_import_bytes, snapshot_every_mb, storage)
         }
         Command::Explorer {
             data,
@@ -477,6 +504,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             allow_private_imports,
             max_import_bytes,
             snapshot_every_mb,
+            storage,
         } => (
             data,
             IpAddr::V4(Ipv4Addr::LOCALHOST),
@@ -488,6 +516,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             None,
             max_import_bytes,
             snapshot_every_mb,
+            storage,
         ),
     };
     let token = token_file.map(std::fs::read_to_string).transpose()?;
@@ -506,6 +535,7 @@ async fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         .checked_mul(1 << 20)
         .ok_or("--snapshot-every-mb is too large")?;
     let mut db = Zega::open(path)
+        .storage(storage(&data, asked_storage))
         .allow_private_imports(allow_private)
         .snapshot_every(snapshot_every);
     if let Some(limit) = time_limit {

@@ -21,7 +21,8 @@ tokio = { workspace = true, features = ["net", "rt-multi-thread", "signal"] }
 # loads (same version, same rustls), so no new crate for the transport.
 ureq = { version = "~3.4.2", default-features = false, features = ["rustls"] }
 url = "2.5"
-zega = { workspace = true }
+# One binary with SQLite storage built in (Sami, 27 Oct; APS 54).
+zega = { workspace = true, features = ["sqlite"] }
 zega-server = { path = "../zega-server" }
 
 [build-dependencies]

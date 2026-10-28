@@ -869,13 +869,13 @@ fn remove_stale_imports(data: &std::path::Path, keep: Option<&str>) -> Result<()
 /// the other one would start an empty log beside the real one.
 #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
 fn refuse_other_storage(data: &std::path::Path, storage: Storage) -> Result<()> {
-    let (found, named) = match storage {
-        Storage::File => (data.join(crate::wal::SQLITE_LOG_FILE), "sqlite"),
-        Storage::Sqlite => (data.join("wal.bin"), "file"),
+    let (found, named) = match Storage::of(data) {
+        Some(existing) if existing != storage => match existing {
+            Storage::File => (data.join("wal.bin"), "file"),
+            Storage::Sqlite => (data.join(crate::wal::SQLITE_LOG_FILE), "sqlite"),
+        },
+        _ => return Ok(()),
     };
-    if !found.exists() {
-        return Ok(());
-    }
     Err(ZegaError::Execution(format!(
         "{} keeps its log in {}; open it with storage {named}",
         data.display(),
