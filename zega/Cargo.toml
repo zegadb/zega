@@ -15,7 +15,7 @@ default = ["http"]
 http = ["dep:ureq"]
 # APS 54 phase 1: `Storage::Sqlite`, the log kept as rows of a SQLite
 # database. Native only; off by default.
-sqlite = ["dep:turso_core"]
+sqlite = ["dep:turso_core", "dep:turso_parser"]
 
 [dependencies]
 csv = "1.3"
@@ -52,6 +52,9 @@ flate2 = "1"
 # exactly: the engine moves weekly and its file format is our log's.
 # Default features: 0.8.3 does not build with them trimmed (uuid, json).
 turso_core = { version = "=0.8.3", optional = true }
+# Its parser, to check application SQL before it runs (one statement, an
+# allowed kind, no zega_* table). Same pin as turso_core.
+turso_parser = { version = "=0.8.3", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3"

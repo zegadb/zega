@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod handlers;
 pub mod routes;
+pub mod sql;
 pub mod server;
 pub mod sync;
 

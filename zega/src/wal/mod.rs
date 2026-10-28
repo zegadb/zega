@@ -21,7 +21,7 @@ use crate::index::IndexSpec;
 use crate::value::Value;
 
 #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
-mod sqlite;
+pub(crate) mod sqlite;
 #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
 pub use sqlite::SQLITE_LOG_FILE;
 
@@ -311,12 +311,17 @@ impl Wal {
     /// operation for one (the same bytes a single write always had), and a
     /// [`Operation::Statement`] entry for more, so a failure part-way through
     /// cannot leave half a statement in the log.
-    pub fn append_statement(&self, mut ops: Vec<Operation>) -> Result<(), WalError> {
-        match ops.len() {
-            0 => Ok(()),
-            1 => self.append(&ops.remove(0)),
-            _ => self.append(&Operation::Statement { ops }),
+    pub fn append_statement(&self, ops: Vec<Operation>) -> Result<(), WalError> {
+        match entry(ops) {
+            None => Ok(()),
+            Some(op) => self.append(&op),
         }
+    }
+
+    /// The SQLite log, when this is [`Storage::Sqlite`].
+    #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+    pub(crate) fn sqlite_log(&self) -> Option<&sqlite::SqliteLog> {
+        self.sqlite.as_ref()
     }
 
     pub fn append(&self, op: &Operation) -> Result<(), WalError> {
@@ -649,6 +654,18 @@ impl Wal {
             file.seek(SeekFrom::End(0))?;
             Ok(ops)
         }
+    }
+}
+
+/// The one entry a statement's writes become: nothing for none, the bare
+/// operation for one (the same bytes a single write always had), and an
+/// [`Operation::Statement`] for more, so a failure part-way through cannot
+/// leave half a statement in the log.
+pub(crate) fn entry(mut ops: Vec<Operation>) -> Option<Operation> {
+    match ops.len() {
+        0 => None,
+        1 => Some(ops.remove(0)),
+        _ => Some(Operation::Statement { ops }),
     }
 }
 

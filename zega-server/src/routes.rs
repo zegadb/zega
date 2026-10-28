@@ -21,6 +21,9 @@ pub fn app(state: AppState) -> Router {
         // the rest) goes to `zql_other`.
         .route("/zql", post(handlers::zql).fallback(handlers::zql_other))
         .route("/vector-view", post(handlers::vector_view))
+        // APS 54: application SQL beside the graph (needs --storage sqlite).
+        .route("/sql", post(crate::sql::sql))
+        .route("/transaction", post(crate::sql::transaction))
         // A `.graph` upload streams into the engine, so the JSON body limit
         // below does not apply to it.
         .route(

@@ -22,7 +22,8 @@ hmac = "0.12"
 base64 = "0.22"
 flate2 = "1"
 tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
-zega = { workspace = true }
+# SQLite storage is always built in (Sami, 27 Oct; APS 54).
+zega = { workspace = true, features = ["sqlite"] }
 
 [dev-dependencies]
 tempfile = "3"

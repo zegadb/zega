@@ -3779,6 +3779,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "turso_core",
+ "turso_parser",
  "unicode-normalization",
  "ureq",
  "url",

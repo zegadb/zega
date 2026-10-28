@@ -17,9 +17,10 @@
 
 use std::num::NonZero;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::Instant;
 
-use turso_core::{Connection, Database, PlatformIO, SqliteDialect, Value, IO};
+use turso_core::{Connection, Database, LimboError, PlatformIO, SqliteDialect, Value, IO};
 
 use super::{decode_exact, Operation, WalError, ENTRY_HEADER_LEN, WAL_FILE_HEADER_LEN};
 
@@ -238,6 +239,162 @@ impl SqliteLog {
         }
         state.end = (state.end as i64 + shift) as u64;
         Ok(state.end)
+    }
+}
+
+/// Why an application SQL statement, or a transaction's commit, failed.
+#[derive(Debug)]
+pub(crate) enum SqlFailure {
+    /// A UNIQUE, CHECK, NOT NULL or FOREIGN KEY constraint, at the statement
+    /// or at commit. Nothing was kept.
+    Constraint(String),
+    /// The statement is not valid SQL here, or failed while running.
+    Statement(String),
+    /// Stopped by the time limit.
+    Interrupted,
+    /// The result passed [`Limits::max_rows`] or [`Limits::max_bytes`].
+    TooLarge(String),
+    /// The log could not be written, or a commit's outcome is unknown.
+    Durability(WalError),
+}
+
+fn failure(error: LimboError) -> SqlFailure {
+    match error {
+        LimboError::Constraint(message) | LimboError::ForeignKeyConstraint(message) => SqlFailure::Constraint(message),
+        LimboError::Interrupt => SqlFailure::Interrupted,
+        other => SqlFailure::Statement(other.to_string()),
+    }
+}
+
+/// What a statement may cost, and whether its row count means anything.
+pub(crate) struct Limits {
+    pub(crate) deadline: Option<Instant>,
+    pub(crate) max_rows: usize,
+    pub(crate) max_bytes: usize,
+    /// Only INSERT, UPDATE and DELETE report changed rows.
+    pub(crate) counts_changes: bool,
+}
+
+/// A statement's result: its column names, rows and changed-row count.
+pub(crate) struct Rows {
+    pub(crate) columns: Vec<String>,
+    pub(crate) rows: Vec<Vec<Value>>,
+    pub(crate) changes: u64,
+}
+
+/// A SQLite transaction on the log's connection, held from `BEGIN` until
+/// [`LogTx::commit`] or drop (which rolls back). Holding it holds the log's
+/// lock, so appends and checkpoint rotations wait for it.
+pub(crate) struct LogTx<'a> {
+    state: MutexGuard<'a, State>,
+    open: bool,
+}
+
+impl SqliteLog {
+    pub(crate) fn begin(&self) -> Result<LogTx<'_>, WalError> {
+        let state = self.lock()?;
+        run(&state.conn, "BEGIN IMMEDIATE", &[])?;
+        Ok(LogTx { state, open: true })
+    }
+}
+
+impl LogTx<'_> {
+    /// Run one application statement inside the transaction.
+    pub(crate) fn execute(&mut self, sql: &str, params: &[Value], limits: &Limits) -> Result<Rows, SqlFailure> {
+        let conn = Arc::clone(&self.state.conn);
+        let mut statement = conn.prepare(sql).map_err(failure)?;
+        for (index, value) in params.iter().enumerate() {
+            statement.bind_at(param(index + 1), value.clone()).map_err(failure)?;
+        }
+        let columns = (0..statement.num_columns()).map(|i| statement.get_column_name(i).into_owned()).collect();
+        if let Some(deadline) = limits.deadline {
+            conn.set_progress_handler(1000, Some(Box::new(move || Instant::now() >= deadline)));
+        }
+        let (mut rows, mut bytes, mut too_large) = (Vec::new(), 0usize, None);
+        let ran = statement.run_with_row_callback(|row| {
+            let values: Vec<Value> = row.get_values().cloned().collect();
+            bytes += values.iter().map(|value| match value {
+                Value::Text(text) => text.as_str().len(),
+                Value::Blob(blob) => blob.len(),
+                _ => 8,
+            }).sum::<usize>();
+            rows.push(values);
+            if rows.len() > limits.max_rows || bytes > limits.max_bytes {
+                too_large = Some(format!(
+                    "the result passed {} rows or {} MiB; add a LIMIT",
+                    limits.max_rows,
+                    limits.max_bytes >> 20
+                ));
+                return Err(LimboError::Interrupt);
+            }
+            Ok(())
+        });
+        if limits.deadline.is_some() {
+            conn.set_progress_handler(0, None);
+        }
+        if let Some(message) = too_large {
+            return Err(SqlFailure::TooLarge(message));
+        }
+        ran.map_err(failure)?;
+        let changes = if limits.counts_changes { conn.changes().max(0) as u64 } else { 0 };
+        Ok(Rows { columns, rows, changes })
+    }
+
+    /// Commit the transaction, with `entry` (a statement's graph writes) as
+    /// one `zega_log` row in it. A constraint checked at commit rolls back and
+    /// keeps nothing. A commit whose outcome is unknown refuses every later
+    /// write until the store is reopened.
+    pub(crate) fn commit(mut self, entry: Option<&Operation>) -> Result<(), SqlFailure> {
+        let added = match entry {
+            None => None,
+            Some(op) => {
+                let payload = bincode::serialize(op).map_err(|e| SqlFailure::Durability(e.into()))?;
+                let (seq, pos) = (self.state.next_seq, self.state.end);
+                run(
+                    &self.state.conn,
+                    "INSERT INTO zega_log (seq, pos, crc, ops) VALUES (?1, ?2, ?3, ?4)",
+                    &[
+                        Value::from_i64(seq),
+                        Value::from_i64(pos as i64),
+                        Value::from_i64(i64::from(crc32fast::hash(&payload))),
+                        Value::from_blob(payload.clone()),
+                    ],
+                )
+                .map_err(SqlFailure::Durability)?;
+                Some(entry_len(&payload))
+            }
+        };
+        self.open = false;
+        match self.state.conn.execute("COMMIT") {
+            Ok(()) => {
+                if let Some(len) = added {
+                    self.state.next_seq += 1;
+                    self.state.end += len;
+                }
+                Ok(())
+            }
+            Err(LimboError::Constraint(message) | LimboError::ForeignKeyConstraint(message)) => {
+                let _ = self.state.conn.execute("ROLLBACK");
+                Err(SqlFailure::Constraint(message))
+            }
+            Err(error) => {
+                let message = format!(
+                    "SQLite commit failed ({error}); the log refuses writes until the store is reopened"
+                );
+                self.state.durability_error = Some(message.clone());
+                Err(SqlFailure::Durability(WalError::Durability(message)))
+            }
+        }
+    }
+}
+
+impl Drop for LogTx<'_> {
+    fn drop(&mut self) {
+        if self.open && self.state.conn.execute("ROLLBACK").is_err() {
+            // A connection that cannot roll back cannot be trusted with the
+            // next transaction either.
+            self.state.durability_error = Some("SQLite rollback failed; the log refuses writes until the store is reopened".into());
+        }
     }
 }
 

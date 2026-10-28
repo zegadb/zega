@@ -28,6 +28,10 @@ pub mod bundle;
 mod idset;
 mod index;
 mod journal;
+mod transaction;
+pub use transaction::Transaction;
+#[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+pub use transaction::{SqlResult, SqlValue};
 mod lang;
 mod path;
 mod text_fold;
@@ -70,6 +74,12 @@ pub enum ZegaError {
     /// On import, nothing was changed.
     #[error(transparent)]
     GraphFile(#[from] crate::graph_file::Error),
+    /// An application SQL statement or transaction was refused or failed
+    /// ([`Zega::sql`], [`Zega::transaction`]). `code` is one of
+    /// `sql_unavailable`, `sql_error`, `reserved_table`, `constraint` and
+    /// `too_large`. Nothing was kept.
+    #[error("{message}")]
+    Sql { code: &'static str, message: String },
 }
 
 /// Who wrote a `.graph` file, as its manifest records it.
