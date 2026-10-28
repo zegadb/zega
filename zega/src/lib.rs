@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use crate::graph::Graph;
 pub use crate::value::Value;
+pub use crate::wal::Storage;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::wal::restore;
 use crate::wal::Operation;
@@ -27,6 +28,10 @@ pub mod bundle;
 mod idset;
 mod index;
 mod journal;
+mod transaction;
+pub use transaction::Transaction;
+#[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+pub use transaction::{SqlResult, SqlValue};
 mod lang;
 mod path;
 mod text_fold;
@@ -69,6 +74,12 @@ pub enum ZegaError {
     /// On import, nothing was changed.
     #[error(transparent)]
     GraphFile(#[from] crate::graph_file::Error),
+    /// An application SQL statement or transaction was refused or failed
+    /// ([`Zega::sql`], [`Zega::transaction`]). `code` is one of
+    /// `sql_unavailable`, `sql_error`, `reserved_table`, `constraint` and
+    /// `too_large`. Nothing was kept.
+    #[error("{message}")]
+    Sql { code: &'static str, message: String },
 }
 
 /// Who wrote a `.graph` file, as its manifest records it.
@@ -126,6 +137,7 @@ pub struct ZegaBuilder {
     allow_private_imports: bool,
     #[cfg(not(target_arch = "wasm32"))]
     snapshot_every: u64,
+    storage: Storage,
 }
 
 const DEFAULT_TRAVERSAL_WORK_BUDGET: usize = 1_000_000;
@@ -136,6 +148,12 @@ impl ZegaBuilder {
             wal_flush_every: true,
             ..self
         }
+    }
+
+    /// Where a disk database keeps its log. A data directory keeps the
+    /// storage it was created with: opening it with the other one is refused.
+    pub fn storage(self, storage: Storage) -> Self {
+        ZegaBuilder { storage, ..self }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -195,6 +213,7 @@ impl Zega {
             allow_private_imports: false,
             #[cfg(not(target_arch = "wasm32"))]
             snapshot_every: DEFAULT_SNAPSHOT_EVERY_BYTES,
+            storage: Storage::File,
         }
     }
 
@@ -210,6 +229,7 @@ impl Zega {
             allow_private_imports: false,
             #[cfg(not(target_arch = "wasm32"))]
             snapshot_every: DEFAULT_SNAPSHOT_EVERY_BYTES,
+            storage: Storage::File,
         }
     }
 
@@ -230,23 +250,29 @@ impl Zega {
         let snapshot_path = path.join(SNAPSHOT_FILE);
         let wal_path = path.join("wal.bin");
 
+        #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+        if !builder.in_memory {
+            refuse_other_storage(&path, builder.storage)?;
+        }
+
         // A rotation a crash interrupted is settled before the log is opened.
         #[cfg(not(target_arch = "wasm32"))]
-        if !builder.in_memory {
+        if !builder.in_memory && builder.storage == Storage::File {
             crate::wal::settle_rotation(&wal_path)?;
         }
 
         // Replay WAL
         #[cfg(not(target_arch = "wasm32"))]
-        let wal = if builder.in_memory {
-            Wal::in_memory()
-        } else {
-            Wal::with_group_commit(
+        let wal = match builder.storage {
+            _ if builder.in_memory => Wal::in_memory(),
+            Storage::File => Wal::with_group_commit(
                 &wal_path,
                 builder.wal_flush_every,
                 std::time::Duration::from_millis(builder.wal_flush_interval_ms.unwrap_or(5)),
                 64,
-            )?
+            )?,
+            #[cfg(feature = "sqlite")]
+            Storage::Sqlite => Wal::sqlite(&path.join(crate::wal::SQLITE_LOG_FILE))?,
         };
         #[cfg(target_arch = "wasm32")]
         let wal = Wal::in_memory();
@@ -254,7 +280,7 @@ impl Zega {
         let mut base_bytes = 0;
         #[cfg(not(target_arch = "wasm32"))]
         if !builder.in_memory {
-            let ops = if wal_path.exists() { wal.iter()? } else { Vec::new() };
+            let ops = if builder.storage != Storage::File || wal_path.exists() { wal.iter()? } else { Vec::new() };
             // The last import replaces everything before it, snapshot
             // included: replay starts there, and reads only that one file.
             let last_import = ops
@@ -849,6 +875,24 @@ fn remove_stale_imports(data: &std::path::Path, keep: Option<&str>) -> Result<()
 /// graph is in that file. Opening would start an empty database; refuse, and
 /// say how to get the graph back.
 #[cfg(not(target_arch = "wasm32"))]
+/// A data directory keeps the storage it was created with. Opening it with
+/// the other one would start an empty log beside the real one.
+#[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+fn refuse_other_storage(data: &std::path::Path, storage: Storage) -> Result<()> {
+    let (found, named) = match Storage::of(data) {
+        Some(existing) if existing != storage => match existing {
+            Storage::File => (data.join("wal.bin"), "file"),
+            Storage::Sqlite => (data.join(crate::wal::SQLITE_LOG_FILE), "sqlite"),
+        },
+        _ => return Ok(()),
+    };
+    Err(ZegaError::Execution(format!(
+        "{} keeps its log in {}; open it with storage {named}",
+        data.display(),
+        found.display(),
+    )))
+}
+
 fn refuse_lost_log(data: &std::path::Path) -> Result<()> {
     let mut files: Vec<String> = match std::fs::read_dir(data.join(IMPORTS_DIR)) {
         Ok(entries) => entries

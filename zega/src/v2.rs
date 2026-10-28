@@ -24,7 +24,7 @@ use crate::lang::{
     Selection, Span, Statement,
 };
 use crate::value::Value;
-use crate::journal::{atomically, Journal};
+use crate::journal::{atomically, atomically_into, Journal, Pending, Target};
 use crate::wal::Operation;
 use serde_json::{json, Value as Json};
 
@@ -170,8 +170,20 @@ impl Zega {
         access: Access,
         loader: &dyn Fn(&str) -> Result<String, LangError>,
     ) -> Result<Json, ZegaError> {
-        let (effective_src, explicitly_stored) = {
-            let graph = self.lock_graph()?;
+        self.run_lang_in(&mut Hold::Lock, schema_src, source, access, loader)
+    }
+
+    /// [`Self::run_lang_with_loader`] on the graph `hold` names: locked for
+    /// this statement, or held by an open transaction.
+    fn run_lang_in(
+        &self,
+        hold: &mut Hold<'_>,
+        schema_src: &str,
+        source: &str,
+        access: Access,
+        loader: &dyn Fn(&str) -> Result<String, LangError>,
+    ) -> Result<Json, ZegaError> {
+        let (effective_src, explicitly_stored) = self.read_graph(hold, |graph| {
             let carried = graph.carried();
             let effective = if schema_src.trim().is_empty() {
                 crate::builtin::with_auth(carried.schema.as_deref().unwrap_or(""))
@@ -181,14 +193,13 @@ impl Zega {
                 }
                 crate::builtin::with_auth(schema_src)
             };
-            (effective, carried.meta.get("zega.schema").is_some_and(|v| v == "stored") && !schema_src.trim().is_empty())
-        };
+            Ok::<_, ZegaError>((effective, carried.meta.get("zega.schema").is_some_and(|v| v == "stored") && !schema_src.trim().is_empty()))
+        })??;
         if explicitly_stored {
-            let stored = self.stored_schema()?;
+            let stored = self.read_graph(hold, |graph| crate::builtin::with_auth(graph.carried().schema.as_deref().unwrap_or("")))?;
             let requested = crate::lang::parse_schema(&effective_src).map_err(|e| explain(e, "schema", schema_src))?;
             let stored_parsed = crate::lang::parse_schema(&stored).map_err(|e| explain(e, "schema", &stored))?;
-            let graph = self.lock_graph()?;
-            let report = crate::schema_diff::diff_schemas(&stored_parsed, &requested, &graph);
+            let report = self.read_graph(hold, |graph| crate::schema_diff::diff_schemas(&stored_parsed, &requested, graph))?;
             let stored_uniques = crate::lang::parse_uniques(&stored).unwrap_or_default();
             let requested_uniques = crate::lang::parse_uniques(&effective_src).unwrap_or_default();
             let stored_indexes = crate::lang::parse_indexes(&stored).unwrap_or_default();
@@ -209,7 +220,29 @@ impl Zega {
         let statement = crate::lang::parse_statement(source)
             .map_err(|error| explain(error, "query", source))?;
         let declared = Declared { uniques: &uniques, indexes: &indexes };
-        self.execute(&schema, declared, &statement, access, Origin { name: "query", text: source }, loader)
+        self.execute(hold, &schema, declared, &statement, access, Origin { name: "query", text: source }, loader)
+    }
+
+    /// [`Self::run_lang`] inside an open transaction.
+    pub(crate) fn run_lang_held(&self, graph: &mut Graph, pending: &mut Pending, schema_src: &str, source: &str) -> Result<Json, ZegaError> {
+        self.run_lang_in(&mut Hold::Held(graph, pending), schema_src, source, Access::Any, &|location| {
+            read_location(location, self.allow_private_imports)
+        })
+    }
+
+    /// [`Self::apply_zql`] inside an open transaction.
+    pub(crate) fn apply_zql_held(&self, graph: &mut Graph, pending: &mut Pending, source: &str) -> Result<Json, ZegaError> {
+        self.apply_zql_in(&mut Hold::Held(graph, pending), source, Access::Any, &|location| {
+            read_location(location, self.allow_private_imports)
+        })
+    }
+
+    /// Run `f` on the graph `hold` names, locking it if no transaction holds it.
+    fn read_graph<R>(&self, hold: &Hold<'_>, f: impl FnOnce(&Graph) -> R) -> Result<R, ZegaError> {
+        match hold {
+            Hold::Lock => Ok(f(&*self.lock_graph()?)),
+            Hold::Held(graph, _) => Ok(f(graph)),
+        }
     }
 
     /// Rows a ZQL filter has been tested on since this database opened. An
@@ -362,6 +395,17 @@ impl Zega {
         access: Access,
         loader: &dyn Fn(&str) -> Result<String, LangError>,
     ) -> Result<Json, ZegaError> {
+        self.apply_zql_in(&mut Hold::Lock, source, access, loader)
+    }
+
+    /// [`Self::apply_zql_with_loader`] on the graph `hold` names.
+    fn apply_zql_in(
+        &self,
+        hold: &mut Hold<'_>,
+        source: &str,
+        access: Access,
+        loader: &dyn Fn(&str) -> Result<String, LangError>,
+    ) -> Result<Json, ZegaError> {
         if crate::builtin::rejects_reserved(source) {
             return Err(ZegaError::Execution("reserved_type: Auth is built in".into()));
         }
@@ -370,12 +414,12 @@ impl Zega {
         // document grammar first so leading comments do not hide `schema`.
         if let Err(document_error) = crate::lang::parse_zql(source) {
             if let Ok(statement) = crate::lang::parse_statement(source) {
-            let schema_src = self.stored_schema()?;
+            let schema_src = self.read_graph(hold, |graph| crate::builtin::with_auth(graph.carried().schema.as_deref().unwrap_or("")))?;
             let schema = crate::lang::parse_schema(&schema_src).map_err(|e| explain(e, "schema", &schema_src))?;
             let uniques = crate::lang::parse_uniques(&schema_src).map_err(|e| explain(e, "schema", &schema_src))?;
             let indexes = crate::lang::parse_indexes(&schema_src).map_err(|e| explain(e, "schema", &schema_src))?;
             access.admit(&statement)?;
-            return self.execute(&schema, Declared { uniques: &uniques, indexes: &indexes }, &statement, access, Origin { name: "query", text: source }, loader);
+            return self.execute(hold, &schema, Declared { uniques: &uniques, indexes: &indexes }, &statement, access, Origin { name: "query", text: source }, loader);
             }
             return Err(explain(document_error, "schema", source));
         }
@@ -389,6 +433,7 @@ impl Zega {
         let mut last = Json::Null;
         for statement in &file.statements {
             last = self.execute(
+                hold,
                 &file.schema,
                 Declared { uniques: &file.uniques, indexes: &file.indexes },
                 statement,
@@ -400,8 +445,10 @@ impl Zega {
         Ok(last)
     }
 
+    #[allow(clippy::too_many_arguments)] // one call shape for locked and held graphs
     fn execute(
         &self,
+        hold: &mut Hold<'_>,
         schema: &Schema,
         declared: Declared<'_>,
         statement: &Statement,
@@ -425,10 +472,14 @@ impl Zega {
             Vec::new()
         };
         let uniques = declared.uniques;
-        let mut graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
+        let mut locked = None;
+        let (graph, target) = match hold {
+            Hold::Lock => {
+                let guard = locked.insert(self.lock_graph()?);
+                (&mut **guard, Target::Wal(&self.wal))
+            }
+            Hold::Held(graph, pending) => (&mut **graph, Target::Pending(pending)),
+        };
         // The schema of this statement says which indexes exist; the writes
         // below keep them current, and a rollback restores them with the rows.
         graph.sync_indexes(&crate::lang::effective_indexes(
@@ -442,7 +493,7 @@ impl Zega {
         // and nested selection is applied, or (on a validation error, a
         // refused WAL append, or the time limit) none is, in memory and in the
         // WAL alike.
-        let result = atomically(&mut graph, &self.wal, |graph, journal| {
+        let result = atomically_into(graph, target, |graph, journal| {
             run_statement(graph, journal, schema, uniques, statement, &mut work, &rows)
                 .map_err(|error| explain(error, source_name, source))
         });
@@ -463,6 +514,13 @@ impl Zega {
         rels.sort_by_key(|rel| rel["id"].as_u64().unwrap_or(0));
         Ok(json!({ "nodes": nodes, "rels": rels }))
     }
+}
+
+/// The graph a statement runs on: locked for that statement, or held (with
+/// its pending writes) by an open [`crate::Zega::transaction`].
+pub(crate) enum Hold<'a> {
+    Lock,
+    Held(&'a mut Graph, &'a mut Pending),
 }
 
 /// The text a statement came from, and the name its diagnostics call it.

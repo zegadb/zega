@@ -279,6 +279,10 @@ jobs:
           cargo check --locked --workspace --all-targets
           cargo clippy --locked --workspace --all-targets --all-features
           cargo test --locked --workspace
+          # APS 54: Storage::Sqlite is off by default, so its tests (and the
+          # file-vs-SQLite comparisons in zega/tests/storage.rs) only build
+          # with the feature. Without this line they would never run.
+          cargo test --locked -p zega --features sqlite
       - uses: actions/setup-node@v4
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
         with:

@@ -131,6 +131,48 @@ fn start_loads_local_json_and_persists_across_process_restart() {
 }
 
 #[test]
+fn storage_sqlite_is_chosen_once_and_kept_across_restarts() {
+    let directory = tempfile::tempdir().unwrap();
+    let db = directory.path().join("db");
+    std::fs::write(directory.path().join("players.json"), r#"[{"Name":"Ada","Salary":42}]"#).unwrap();
+    {
+        let server = Running::start("start", directory.path(), &["--storage", "sqlite"]);
+        server.zql("mutation json [\"./players.json\"] { Player(name: $Name && salary: $Salary) { name } }");
+    }
+    assert!(db.join("zega.db").exists() && !db.join("wal.bin").exists());
+    // No flag: the directory's own storage. The explorer and export too.
+    {
+        let server = Running::start("start", directory.path(), &[]);
+        assert_eq!(server.zql("{ Player { name salary } }"), json!([{"name":"Ada","salary":42}]));
+    }
+    succeeds(&["export", "out.graph", "--data", "db"], directory.path());
+    // Asking for the other storage is refused, and changes nothing.
+    let mut child = Command::new(BIN)
+        .args(["start", "--port", "0", "--data", "db", "--storage", "file"])
+        .current_dir(directory.path())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("start --storage file opened a SQLite directory");
+        }
+        thread::sleep(Duration::from_millis(50));
+    };
+    let mut stderr = String::new();
+    std::io::Read::read_to_string(&mut child.stderr.take().unwrap(), &mut stderr).unwrap();
+    assert!(!status.success());
+    assert!(stderr.contains("keeps its log in"), "{stderr}");
+    assert!(!db.join("wal.bin").exists());
+}
+
+#[test]
 fn token_file_requires_bearer_and_bad_configuration_fails() {
     let directory = tempfile::tempdir().unwrap();
     let token = directory.path().join("token");

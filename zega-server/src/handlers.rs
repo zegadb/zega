@@ -17,6 +17,54 @@ pub(crate) fn error(status: StatusCode, message: impl Into<String>) -> Response 
     (status, Json(json!({"ok": false, "error": message.into()}))).into_response()
 }
 
+/// The response for a statement the engine refused, or a failed write.
+/// `refused` is the status of a plain refusal (400 for POST, 422 for QUERY);
+/// `step` names a transaction's failing step.
+pub(crate) fn refusal(cause: ZegaError, refused: StatusCode, step: Option<usize>) -> Response {
+    let (status, mut body) = match cause {
+        // Its own code, so a client can tell "this query is too slow" from
+        // "this query is wrong". A 4xx, like any other refused query: a 5xx
+        // or 408 invites an automatic retry of the same slow query.
+        cause @ ZegaError::QueryTimeLimit { .. } => (
+            refused,
+            json!({"ok": false, "error": cause.to_string(), "code": "query_time_limit"}),
+        ),
+        // Only the read-only entry points (QUERY) can say this: a statement
+        // that writes, refused before it ran. Always 422, whatever `refused` is.
+        ZegaError::NotARead(what) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({
+                "ok": false,
+                "error": format!("QUERY /zql runs reads only, and this is {what}. Send it with POST /zql."),
+                "code": "not_a_read",
+            }),
+        ),
+        // APS 54: application SQL. A constraint is a conflict with what the
+        // database holds; a file-storage database has no SQL at all.
+        ZegaError::Sql { code, message } => (
+            match code {
+                "constraint" => StatusCode::CONFLICT,
+                "sql_unavailable" => StatusCode::UNPROCESSABLE_ENTITY,
+                _ => refused,
+            },
+            json!({"ok": false, "error": message, "code": code}),
+        ),
+        cause if cause.to_string().contains("schema_mismatch:") => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({"ok": false, "error": cause.to_string(), "code": "schema_mismatch"}),
+        ),
+        cause if cause.to_string().contains("reserved_type:") => (
+            StatusCode::BAD_REQUEST,
+            json!({"ok": false, "error": cause.to_string(), "code": "reserved_type"}),
+        ),
+        cause => (refused, json!({"ok": false, "error": cause.to_string()})),
+    };
+    if let (Some(step), Some(fields)) = (step, body.as_object_mut()) {
+        fields.insert("step".into(), json!(step));
+    }
+    (status, Json(body)).into_response()
+}
+
 pub(crate) fn authorized(headers: &HeaderMap, state: &AppState) -> bool {
     state
         .token_hash
@@ -66,34 +114,7 @@ async fn execute_refusing(
     .await
     {
         Ok(Ok(result)) => Json(json!({"ok": true, "result": result})).into_response(),
-        // Its own code, so a client can tell "this query is too slow" from
-        // "this query is wrong". A 4xx, like any other refused query: a 5xx
-        // or 408 invites an automatic retry of the same slow query.
-        Ok(Err(cause @ ZegaError::QueryTimeLimit { .. })) => (
-            refused,
-            Json(json!({"ok": false, "error": cause.to_string(), "code": "query_time_limit"})),
-        )
-            .into_response(),
-        // Only the read-only entry points (QUERY) can say this: a statement
-        // that writes, refused before it ran. Always 422, whatever `refused` is.
-        Ok(Err(ZegaError::NotARead(what))) => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({
-                "ok": false,
-                "error": format!("QUERY /zql runs reads only, and this is {what}. Send it with POST /zql."),
-                "code": "not_a_read",
-            })),
-        )
-            .into_response(),
-        Ok(Err(cause)) if cause.to_string().contains("schema_mismatch:") => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({"ok": false, "error": cause.to_string(), "code": "schema_mismatch"})),
-        ).into_response(),
-        Ok(Err(cause)) if cause.to_string().contains("reserved_type:") => (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"ok": false, "error": cause.to_string(), "code": "reserved_type"})),
-        ).into_response(),
-        Ok(Err(cause)) => error(refused, cause.to_string()),
+        Ok(Err(cause)) => refusal(cause, refused, None),
         Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "database worker failed"),
     }
 }

@@ -50,12 +50,80 @@ pub(crate) struct Journal {
     write_error: Option<String>,
 }
 
+/// Where a statement's writes go once it has run without error.
+pub(crate) enum Target<'a> {
+    /// Durable now: one WAL entry for the statement.
+    Wal(&'a Wal),
+    /// Kept in an open transaction ([`Pending`]), durable with its commit.
+    Pending(&'a mut Pending),
+}
+
+/// The writes of an open transaction's statements, and how to take them
+/// back: what a [`crate::Zega::transaction`] commits as one WAL entry, or
+/// undoes as one.
+#[derive(Default)]
+pub(crate) struct Pending {
+    ops: Vec<Operation>,
+    undo: Vec<Undo>,
+    /// The id counters before the first statement that wrote.
+    next_ids: Option<(NodeId, RelId)>,
+}
+
+impl Pending {
+    /// Make every pending write durable with `commit`, which is given the
+    /// operations for one WAL entry (empty when nothing was written). If
+    /// `commit` fails, every pending write is taken back.
+    pub(crate) fn commit<E: From<WalError>>(
+        self,
+        graph: &mut Graph,
+        commit: impl FnOnce(Vec<Operation>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let Pending { mut ops, undo, next_ids } = self;
+        let next_ids = next_ids.unwrap_or_else(|| graph.next_ids());
+        let removed: Vec<_> = undo.iter().filter_map(|u| match u { Undo::DeletedRel(r) => Some(r.clone()), _ => None }).collect();
+        let record = match crate::linked::record(graph, &ops, &removed) {
+            Ok(record) => record,
+            Err(error) => {
+                roll_back(graph, undo, next_ids);
+                return Err(WalError::Rejected(error.to_string()).into());
+            }
+        };
+        if let Some(record) = &record {
+            ops.push(crate::linked::operation(&crate::linked::Metadata::Commit { record: record.clone() }));
+        }
+        if let Err(error) = commit(ops) {
+            roll_back(graph, undo, next_ids);
+            return Err(error);
+        }
+        if let Some(record) = record { crate::linked::apply_metadata(graph, crate::linked::Metadata::Commit { record }); }
+        Ok(())
+    }
+
+    /// Take back every pending write.
+    pub(crate) fn abandon(self, graph: &mut Graph) {
+        if let Some(next_ids) = self.next_ids {
+            roll_back(graph, self.undo, next_ids);
+        }
+    }
+}
+
 /// Run one statement's writes against `graph` and make them durable as a
 /// unit. Returns the statement's result only once the WAL has accepted every
 /// write; on any error, `graph` is exactly what it was before the call.
 pub(crate) fn atomically<T, E: From<WalError>>(
     graph: &mut Graph,
     wal: &Wal,
+    statement: impl FnOnce(&mut Graph, &mut Journal) -> Result<T, E>,
+) -> Result<T, E> {
+    atomically_into(graph, Target::Wal(wal), statement)
+}
+
+/// [`atomically`], with the writes going to `target`: the WAL now, or an
+/// open transaction. On any error the statement's own writes are taken back
+/// either way; an open transaction keeps what earlier statements wrote.
+pub(crate) fn atomically_into<T, E: From<WalError>>(
+    graph: &mut Graph,
+    target: Target<'_>,
     statement: impl FnOnce(&mut Graph, &mut Journal) -> Result<T, E>,
 ) -> Result<T, E> {
     let mut journal = Journal {
@@ -78,8 +146,17 @@ pub(crate) fn atomically<T, E: From<WalError>>(
         Some(reason) => Err(WalError::Corruption { offset: 0, reason }.into()),
         None => result,
     };
-    match result {
-        Ok(value) => {
+    match (result, target) {
+        (Ok(value), Target::Pending(pending)) => {
+            let Journal { ops, undo, next_ids, .. } = journal;
+            if !undo.is_empty() || !ops.is_empty() {
+                pending.next_ids.get_or_insert(next_ids);
+            }
+            pending.ops.extend(ops);
+            pending.undo.extend(undo);
+            Ok(value)
+        }
+        (Ok(value), Target::Wal(wal)) => {
             let Journal {
                 mut ops,
                 undo,
@@ -104,7 +181,7 @@ pub(crate) fn atomically<T, E: From<WalError>>(
             if let Some(record) = record { crate::linked::apply_metadata(graph, crate::linked::Metadata::Commit { record }); }
             Ok(value)
         }
-        Err(error) => {
+        (Err(error), _) => {
             roll_back(graph, journal.undo, journal.next_ids);
             Err(error)
         }
