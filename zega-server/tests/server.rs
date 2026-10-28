@@ -719,8 +719,9 @@ async fn put_graph_replaces_the_graph_and_get_returns_it() {
     assert_eq!(body["result"]["nodes"], 3);
     assert_eq!(body["result"]["relationships"], 2);
     assert_eq!(body["result"]["meta"]["licence"], "CC0-1.0");
-    // Import then export is the same file, schema and metadata included.
-    assert_eq!(download(&client, &server).await, golden);
+    // Import then export is the same file, schema and metadata included,
+    // written by this zega.
+    assert_eq!(download(&client, &server).await, zega::graph_file::restamp(&golden, zega::CREATED_BY).unwrap());
 }
 
 #[tokio::test]
