@@ -137,3 +137,76 @@ fn both_stores_report_the_same_log_positions() {
     );
     assert!(sqlite.wal_bytes_before > sqlite.wal_bytes_after, "the checkpoint shortened the log");
 }
+
+/// Set only for the child process [`killed_mid_stream_keeps_every_acknowledged_write`]
+/// starts: the data directory and the storage it writes to.
+const CHILD_DIR: &str = "ZEGA_STORAGE_CRASH_CHILD_DIR";
+const CHILD_STORAGE: &str = "ZEGA_STORAGE_CRASH_CHILD_STORAGE";
+
+/// The child: writes `P(name: "n<i>")` for i = 1, 2, … and prints `i` once
+/// each write is acknowledged, until it is killed.
+#[test]
+#[ignore = "run only as the child of killed_mid_stream_keeps_every_acknowledged_write"]
+fn crash_child() {
+    let (Ok(dir), Ok(storage)) = (std::env::var(CHILD_DIR), std::env::var(CHILD_STORAGE)) else {
+        return;
+    };
+    let storage = if storage == "sqlite" { Storage::Sqlite } else { Storage::File };
+    let zega = Zega::open(&dir).storage(storage).build().unwrap();
+    use std::io::Write;
+    let mut out = std::io::stdout().lock();
+    for i in 1.. {
+        write(&zega, &format!(r#"mutation {{ P(name: "n{i}") }}"#));
+        writeln!(out, "ack {i}").unwrap();
+        out.flush().unwrap();
+    }
+}
+
+/// Kill a writer with SIGKILL after `kill_after` acknowledged writes: on
+/// reopen, every acknowledged write is there, and what is there is exactly
+/// writes 1..=k for some k (no gap, no torn entry).
+fn killed_mid_stream(storage: Storage, kill_after: usize) {
+    use std::io::BufRead;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "crash_child", "--ignored", "--nocapture", "--test-threads=1"])
+        .env(CHILD_DIR, path)
+        .env(CHILD_STORAGE, if storage == Storage::Sqlite { "sqlite" } else { "file" })
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut acked = 0;
+    for line in std::io::BufReader::new(child.stdout.take().unwrap()).lines() {
+        let line = line.unwrap();
+        if let Some(i) = line.strip_prefix("ack ") {
+            acked = i.parse::<usize>().unwrap();
+            if acked >= kill_after {
+                break;
+            }
+        }
+    }
+    child.kill().unwrap();
+    child.wait().unwrap();
+    assert!(acked >= kill_after, "{storage:?}: the child stopped after {acked} writes");
+    let zega = Zega::open(path).storage(storage).build().unwrap();
+    let mut found: Vec<usize> = names(&zega).iter().map(|name| name[1..].parse().unwrap()).collect();
+    found.sort_unstable();
+    let k = found.len();
+    assert_eq!(found, (1..=k).collect::<Vec<_>>(), "{storage:?}: writes 1..=k, no gaps");
+    assert!(k >= acked, "{storage:?}: {acked} writes were acknowledged, {k} survived");
+    // The log is whole: the next write lands and survives another reopen.
+    write(&zega, r#"mutation { P(name: "after") }"#);
+    drop(zega);
+    assert_eq!(names(&open(path, storage)).len(), k + 1);
+}
+
+#[test]
+fn killed_mid_stream_keeps_every_acknowledged_write() {
+    for storage in [Storage::File, Storage::Sqlite] {
+        for kill_after in [1, 7, 40] {
+            killed_mid_stream(storage, kill_after);
+        }
+    }
+}
