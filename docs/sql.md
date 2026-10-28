@@ -58,6 +58,7 @@ curl -X POST localhost:9342/deliveries -H 'Content-Type: application/json' -d '{
 - An optional `"flush"` is deleted before that: `{"all": true}` for every node and relationship, or `{"labels": [...], "relationships": [...]}` for the nodes with those labels (with their relationships) and the relationships of those types. Receipts are kept. pg_zega's `zega.import` in journal mode sends one, so a type can be emptied, given a schema its old nodes could not satisfy, and loaded again as one delivery.
 - Its receipt `{source_id, txid, payload_sha256, result}` is written in the **same** log entry as the document's writes, so the two are durable together or not at all.
 - Receipts are graph state: they are replayed, carried by checkpoints and exports (the `.graph` file's `RCPT` section), and copied wherever the log goes.
+- `"forget_earlier": true` says the source will never send an earlier delivery again: Zega keeps this delivery's receipt and drops the source's others, in the same log entry. Without it, receipts are kept forever. pg_zega's worker sends it on every delivery, so a graph keeps one receipt per database. It is not part of `payload_sha256`.
 
 | answer | meaning | the source should |
 |---|---|---|
@@ -67,4 +68,4 @@ curl -X POST localhost:9342/deliveries -H 'Content-Type: application/json' -d '{
 | 400 | the engine refused the document; nothing written | fix the document |
 | 503 `outcome_unknown` | the write may or may not be on disk | retry the identical request |
 
-In Rust: `zega.deliver(source_id, txid, &Payload { flush, schema, document })` (`Payload::document(document)` for a document alone; `zega::receipts::{Payload, Flush}`) and `zega.receipt(source_id, txid)`.
+In Rust: `zega.deliver(source_id, txid, &Payload { flush, schema, document, forget_earlier })` (`Payload::document(document)` for a document alone; `zega::receipts::{Payload, Flush}`) and `zega.receipt(source_id, txid)`.

@@ -4,6 +4,16 @@ Changes that affect code using the `zega` crate, newest first. File formats
 (WAL, snapshot, `.graph`) have their own versions; see
 [docs/graph-format.md](docs/graph-format.md).
 
+## 0.2.3
+
+- **Delivery receipts can be pruned (APS 52).** A delivery with
+  `forget_earlier` (`Payload::forget_earlier`, `"forget_earlier": true` on
+  `POST /deliveries`) keeps its own receipt and drops the source's others, in
+  the same WAL entry. pg_zega's delivery worker sends it on every delivery, so
+  a graph keeps one receipt per database. `Payload` gains the field: build it
+  with `..Payload::document(doc)` or `..Payload::default()`. A WAL holding such
+  a delivery records a new operation that Zega 0.2.2 cannot read.
+
 ## 0.2.2
 
 - **Zega + SQLite (APS 54 phases 1 and 2).** With the `sqlite` feature (on in

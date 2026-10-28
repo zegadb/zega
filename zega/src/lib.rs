@@ -764,6 +764,9 @@ fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path)
         Operation::Delivered { receipt } => {
             graph.receipts.insert(receipt.key(), receipt.clone());
         }
+        Operation::Forgot { source_id, txid } => {
+            graph.receipts.remove(&(source_id.clone(), txid.clone()));
+        }
         Operation::ReplaceGraph { file } => {
             #[cfg(not(target_arch = "wasm32"))]
             { let replacement = read_imported_graph(data, file)?; *graph = replacement; }
