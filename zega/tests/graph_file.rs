@@ -15,6 +15,11 @@ fn golden() -> Vec<u8> {
     std::fs::read(GOLDEN).unwrap()
 }
 
+/// The golden file as this zega writes it (see `graph_file::restamp`).
+fn as_written_now(bytes: &[u8]) -> Vec<u8> {
+    graph_file::restamp(bytes, zega::CREATED_BY).expect("a .graph file")
+}
+
 fn export(zega: &Zega) -> Vec<u8> {
     let mut bytes = Vec::new();
     zega.export(&mut bytes).unwrap();
@@ -276,9 +281,9 @@ fn the_stored_copy_of_an_import_is_what_replay_needs() {
 
 #[test]
 fn import_then_export_gives_back_the_same_file_in_memory_on_disk_and_through_snapshots() {
-    let golden = golden();
+    let golden = as_written_now(&golden());
     let zega = Zega::in_memory().build().unwrap();
-    zega.import(&golden[..]).unwrap();
+    zega.import(&self::golden()[..]).unwrap();
     assert_eq!(export(&zega), golden);
 
     // The explorer's localStorage path (`export_base64`) carries it too.
@@ -288,7 +293,7 @@ fn import_then_export_gives_back_the_same_file_in_memory_on_disk_and_through_sna
 
     let dir = tempfile::tempdir().unwrap();
     let zega = open(dir.path());
-    zega.import(&golden[..]).unwrap();
+    zega.import(&self::golden()[..]).unwrap();
     zega.snapshot().unwrap();
     drop(zega);
     assert_eq!(export(&open(dir.path())), golden);
@@ -304,7 +309,7 @@ fn the_wal_is_marked_version_3_once_it_holds_an_import() {
     zega.import(&golden()[..]).unwrap();
     assert_eq!(header(), b"ZWAL\x03\x00");
     drop(zega);
-    assert_eq!(export(&open(dir.path())), golden());
+    assert_eq!(export(&open(dir.path())), as_written_now(&golden()));
 }
 
 /// A graph of `n` people, loaded in one statement.
@@ -387,7 +392,7 @@ fn the_spec_s_empty_graph_is_what_zega_writes() {
                 .collect::<Vec<_>>()
         })
         .collect();
-    assert_eq!(bytes, export(&Zega::in_memory().build().unwrap()));
+    assert_eq!(as_written_now(&bytes), export(&Zega::in_memory().build().unwrap()));
 }
 
 /// Two imports racing on one disk database: each commits its own file, and
@@ -420,7 +425,7 @@ fn concurrent_imports_leave_a_database_that_reopens() {
             .build()
             .unwrap_or_else(|error| panic!("round {round}: reopen failed: {error}"));
         assert_eq!(export(&reopened), live, "round {round}");
-        assert!(live == golden || live == empty, "round {round}");
+        assert!(live == as_written_now(&golden) || live == empty, "round {round}");
     }
 }
 

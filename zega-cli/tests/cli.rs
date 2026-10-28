@@ -364,8 +364,9 @@ fn import_then_export_round_trips_and_every_later_export_is_identical() {
     succeeds(&["import", "a.graph", "--data", "b"], dir);
     succeeds(&["export", "b.graph", "--data", "b"], dir);
     let a = std::fs::read(dir.join("a.graph")).unwrap();
-    // Import then export is the same file, schema and metadata included.
-    assert_eq!(a, std::fs::read(GOLDEN).unwrap());
+    // Import then export is the same file, schema and metadata included,
+    // written by this zega.
+    assert_eq!(a, zega::graph_file::restamp(&std::fs::read(GOLDEN).unwrap(), zega::CREATED_BY).unwrap());
     assert_eq!(std::fs::read(dir.join("b.graph")).unwrap(), a);
     // `-` is stdout.
     assert_eq!(succeeds(&["export", "-", "--data", "b"], dir).stdout, a);

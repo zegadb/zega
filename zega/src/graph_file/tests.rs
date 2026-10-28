@@ -149,6 +149,20 @@ fn write_golden_v1() {
 }
 
 #[test]
+fn restamp_changes_only_who_wrote_the_file() {
+    let bytes = std::fs::read(GOLDEN).unwrap();
+    assert_eq!(restamp(&bytes, "zega 0.2.0").unwrap(), bytes, "same writer, same bytes");
+    let later = restamp(&bytes, "zega 10.20.30-canary").unwrap();
+    assert_ne!(later, bytes);
+    let (graph, summary) = read(&later[..]).unwrap();
+    assert_same(&graph, &golden_graph());
+    assert_eq!(summary.created_by, "zega 10.20.30-canary");
+    assert_eq!(summary.meta, golden_meta());
+    assert_eq!(restamp(&later, "zega 0.2.0").unwrap(), bytes, "restamping back is exact");
+    assert_eq!(restamp(b"not a graph file", "zega"), None);
+}
+
+#[test]
 fn golden_v1_reads_back_as_the_graph_it_was_written_from() {
     let bytes = std::fs::read(GOLDEN).unwrap();
     let (graph, summary) = read(&bytes[..]).unwrap();

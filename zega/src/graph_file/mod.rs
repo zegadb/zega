@@ -1424,3 +1424,35 @@ fn index_code(kind: IndexKind) -> u8 {
 pub(crate) fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
+
+/// `bytes`, a whole `.graph` file, as the zega named `created_by` would
+/// write the same graph: the manifest's first field (who wrote it) replaced,
+/// and the manifest's length and CRC to match. Every other byte is kept, so
+/// two files that differ only in who wrote them compare equal after this.
+/// `None` when `bytes` does not start with a manifest.
+///
+/// An export always names the zega that wrote it, so a test that a file
+/// imports and exports unchanged compares against the file restamped with
+/// [`crate::CREATED_BY`]; the golden file itself stays as it was written.
+pub fn restamp(bytes: &[u8], created_by: &str) -> Option<Vec<u8>> {
+    let header = MAGIC.len() + 4;
+    let tag = bytes.get(header..header + 4)?;
+    if tag != Section::Manifest.tag() {
+        return None;
+    }
+    let len = u64::from_le_bytes(bytes.get(header + 4..header + 12)?.try_into().ok()?) as usize;
+    let start = header + 12;
+    let payload = bytes.get(start..start.checked_add(len)?)?;
+    let old = u32::from_le_bytes(payload.get(..4)?.try_into().ok()?) as usize;
+    let fields = payload.get(4usize.checked_add(old)?..)?;
+    let rest = bytes.get(start + len + 4..)?;
+    let mut manifest = u32::try_from(created_by.len()).ok()?.to_le_bytes().to_vec();
+    manifest.extend_from_slice(created_by.as_bytes());
+    manifest.extend_from_slice(fields);
+    let mut out = bytes[..header + 4].to_vec();
+    out.extend_from_slice(&(manifest.len() as u64).to_le_bytes());
+    out.extend_from_slice(&manifest);
+    out.extend_from_slice(&crc32fast::hash(&manifest).to_le_bytes());
+    out.extend_from_slice(rest);
+    Some(out)
+}
