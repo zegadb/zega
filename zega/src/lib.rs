@@ -887,6 +887,7 @@ fn remove_stale_imports(data: &std::path::Path, keep: Option<&str>) -> Result<()
 /// A data directory keeps the storage it was created with. Opening it with
 /// the other one would start an empty log beside the real one.
 #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
 fn refuse_other_storage(data: &std::path::Path, storage: Storage) -> Result<()> {
     let (found, named) = match Storage::of(data) {
         Some(existing) if existing != storage => match existing {
@@ -902,6 +903,7 @@ fn refuse_other_storage(data: &std::path::Path, storage: Storage) -> Result<()> 
     )))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn refuse_lost_log(data: &std::path::Path) -> Result<()> {
     let mut files: Vec<String> = match std::fs::read_dir(data.join(IMPORTS_DIR)) {
         Ok(entries) => entries
