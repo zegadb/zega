@@ -16,6 +16,7 @@ use axum::{
 use base64::Engine;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use zega::receipts::Payload;
 use zega::{SqlResult, SqlValue, ZegaError};
 
 use crate::handlers::{authorized, error, refusal};
@@ -175,6 +176,10 @@ pub async fn transaction(
 pub struct DeliveryRequest {
     source_id: String,
     txid: String,
+    /// Deleted before the schema is stored: `{"all": true}`, or `labels` and
+    /// `relationships` to empty.
+    #[serde(default)]
+    flush: zega::receipts::Flush,
     /// Stored as the graph's schema before the document runs (as `PUT /schema`).
     #[serde(default)]
     schema: Option<String>,
@@ -203,7 +208,10 @@ pub async fn deliver(
             .zega
             .lock()
             .map_err(|_| ZegaError::Execution("database lock poisoned".into()))
-            .and_then(|db| db.deliver(&request.source_id, &request.txid, request.schema.as_deref(), &request.document))
+            .and_then(|db| {
+                let payload = Payload { flush: request.flush, schema: request.schema.as_deref(), document: &request.document };
+                db.deliver(&request.source_id, &request.txid, &payload)
+            })
     })
     .await;
     match ran {

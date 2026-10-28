@@ -140,5 +140,14 @@ async fn a_delivery_is_applied_once_on_either_storage() {
         assert_eq!(status, StatusCode::OK, "{body}");
         let (_, body) = call(&server, "/zql", json!({"schema": p2, "query": "query { P(name: \"b\") { nick } }"})).await;
         assert_eq!(body["result"], json!({"nick": "bee"}), "{storage:?}");
+        // And types to flush before that: P is emptied, then loaded again.
+        let request = json!({"source_id": "pg:1", "txid": "44", "flush": {"labels": ["P"]}, "schema": p2,
+                             "document": format!("{p2}\nmutation {{ P(name: \"c\") {{ name }} }}")});
+        let (status, body) = call(&server, "/deliveries", request).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (_, body) = call(&server, "/zql", json!({"schema": p2, "query": "query { P { name } }"})).await;
+        assert_eq!(body["result"], json!([{"name": "c"}]), "{storage:?}");
+        let (status, _) = call(&server, "/deliveries", json!({"source_id": "pg:1", "txid": "45", "flush": {"types": ["P"]}, "document": p2})).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
     }
 }

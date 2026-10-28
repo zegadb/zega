@@ -13,7 +13,7 @@ use std::sync::MutexGuard;
 use serde_json::Value as Json;
 
 use crate::graph::Graph;
-use crate::journal::Pending;
+use crate::journal::{Pending, Target};
 use crate::{Result, Zega, ZegaError};
 
 /// The steps of one [`Zega::transaction`].
@@ -73,6 +73,32 @@ impl Transaction<'_> {
         let zega = self.zega;
         let stored = zega.set_schema_held(&mut self.graph, self.pending.as_mut().expect("open"), source);
         self.step(stored)
+    }
+
+    /// Delete what `flush` names (see [`crate::receipts::Flush`]): its
+    /// relationships, then its nodes with every relationship they still have.
+    pub fn flush(&mut self, flush: &crate::receipts::Flush) -> Result<()> {
+        let pending = self.pending.as_mut().expect("open");
+        let flushed = crate::journal::atomically_into(&mut self.graph, Target::Pending(pending), |graph, journal| {
+            let rels: Vec<_> = graph
+                .relationships()
+                .filter(|rel| flush.all || flush.relationships.iter().any(|kind| kind == rel.kind))
+                .map(|rel| rel.id)
+                .collect();
+            for id in rels {
+                journal.delete_relationship(graph, id);
+            }
+            let nodes: Vec<_> = graph
+                .nodes()
+                .filter(|node| flush.all || flush.labels.iter().any(|label| node.has_label(label)))
+                .map(|node| node.id)
+                .collect();
+            for id in nodes {
+                journal.delete_node(graph, id);
+            }
+            Ok::<_, ZegaError>(())
+        });
+        self.step(flushed)
     }
 
     /// The receipt of `(source_id, txid)`, if it was delivered.
