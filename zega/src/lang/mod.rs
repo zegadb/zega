@@ -894,7 +894,7 @@ pub(crate) const URL_HELP: &str = "write an absolute http:// or https:// URL wit
 
 pub(crate) const BLAKE3_HELP: &str = "write the file's blake3 hash as 64 lowercase hex characters, e.g. `af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262`";
 
-pub(crate) const FILE_HELP: &str = "write an absolute file:// URL with no host, normalised and percent-encoded, e.g. `file:///Users/ava/Photos/scan.png` or `file:///C:/Users/ava/Photos/scan.png`";
+pub(crate) const FILE_HELP: &str = "write an absolute file:// URL with no host, normalised and percent-encoded, e.g. `file:///srv/photos/scan.png` or `file:///C:/photos/scan.png`";
 
 /// A string checked against a unit on every write: `String<url>`, `String<iso2>`,
 /// `String<blake3>`, `String<file>`.
