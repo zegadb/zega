@@ -48,3 +48,15 @@ travel-shaped graphs (1k–1M nodes: `Place { name zid kind at description }`,
 
 Generated data and results live under `.tmp/scale-143/` (gitignored); the
 latest results and the recommendation are in `docs/scale-results.md`.
+
+## Zega + SQLite against Zega + Postgres (APS 54)
+
+`sql/bench.py` runs three setups one after the other on one machine, each from an empty data directory: `zega-server --storage sqlite` (a write is one `POST /transaction`: the SQL row and its graph node in one commit), and the `addiscorp/pg_zega` image in precommit mode and in journal mode (a tracked table, an `INSERT` per transaction). It reports write latency and throughput, SQL, ZQL and mixed reads by key, how long the graph trails the SQL commit, how fast journal mode's backlog drains, and resident memory idle and after the writes.
+
+```sh
+cargo build --release -p zega-cli
+python3 -m pip install 'psycopg[binary]==3.2.10'
+python3 zega-bench/sql/bench.py --zega-server .target/release/zega-server --out bench.json
+```
+
+It needs Docker. On GitHub: Actions → bench-sql → Run workflow; the table is in the run's summary and the numbers, with the machine, in the `bench-sql` artifact.

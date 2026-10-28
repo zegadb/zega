@@ -1,0 +1,78 @@
+# APS 54's benchmark: Zega + SQLite against Zega + Postgres (pg_zega precommit
+# and journal mode), one after the other on one runner. Manual: Actions →
+# bench-sql → Run workflow. The table goes to the run's summary, the numbers
+# and the machine to the bench-sql artifact. A pull request that changes the
+# benchmark runs it small, to prove it still runs; its numbers mean nothing.
+name: bench-sql
+
+on:
+  workflow_dispatch:
+    inputs:
+      writes:
+        description: 'Rows written, one per transaction'
+        default: '5000'
+      reads:
+        description: 'Reads of each kind'
+        default: '5000'
+      image:
+        description: 'pg_zega image'
+        default: 'addiscorp/pg_zega:17'
+  pull_request:
+    paths:
+      - '.github/workflows/bench-sql.yml'
+      - 'zega-bench/sql/**'
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    environment: public-ci
+    env:
+      RUSTC_WRAPPER: sccache
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      SCCACHE_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      SCCACHE_REGION: auto
+      SCCACHE_BUCKET: zega-sccache-linux-x64
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.target
+      WRITES: ${{ github.event_name == 'workflow_dispatch' && inputs.writes || '100' }}
+      READS: ${{ github.event_name == 'workflow_dispatch' && inputs.reads || '100' }}
+      IMAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.image || 'addiscorp/pg_zega:17' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: '1.96.0'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: ./.github/actions/rust-cache
+      - name: Build zega-server
+        run: cargo build --locked --release -p zega-cli
+      - name: Install psycopg and pull the image
+        run: |
+          python -m pip install --quiet 'psycopg[binary]==3.2.10'
+          docker pull --quiet "$IMAGE"
+      - name: Run the benchmark
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp
+          TMPDIR="$PWD/.tmp" python zega-bench/sql/bench.py --zega-server .target/release/zega-server \
+            --image "$IMAGE" --writes "$WRITES" --reads "$READS" --out bench.json | tee bench.md
+          {
+            echo "## Zega + SQLite against Zega + Postgres"
+            echo
+            echo "$WRITES writes, $READS reads of each kind, \`$IMAGE\`, commit \`$GITHUB_SHA\`."
+            echo
+            cat bench.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-sql
+          path: bench.json
