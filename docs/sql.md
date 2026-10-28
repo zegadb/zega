@@ -54,15 +54,16 @@ curl -X POST localhost:9342/deliveries -H 'Content-Type: application/json' -d '{
 ```
 
 - The document is a `.zql` document (a schema, then its blocks), applied as one transaction on either storage.
+- An optional `"schema"` is stored as the graph's schema first, in the same transaction (as `PUT /schema`, refused the same way when the data cannot satisfy it). If the document then fails, the old schema stays.
 - Its receipt `{source_id, txid, payload_sha256, result}` is written in the **same** log entry as the document's writes, so the two are durable together or not at all.
 - Receipts are graph state: they are replayed, carried by checkpoints and exports (the `.graph` file's `RCPT` section), and copied wherever the log goes.
 
 | answer | meaning | the source should |
 |---|---|---|
 | 200 | applied now, or already applied with this document (the original receipt) | move on |
-| 409 `delivery_conflict` | this identity was delivered with a different document; nothing written | stop and alert |
+| 409 `delivery_conflict` | this identity was delivered with a different schema or document; nothing written | stop and alert |
 | 422 `invalid_identity` | `source_id`/`txid` must be 1–128 bytes of `A-Z a-z 0-9 - _ . :` | fix the sender |
 | 400 | the engine refused the document; nothing written | fix the document |
 | 503 `outcome_unknown` | the write may or may not be on disk | retry the identical request |
 
-In Rust: `zega.deliver(source_id, txid, document)` and `zega.receipt(source_id, txid)`.
+In Rust: `zega.deliver(source_id, txid, schema, document)` (`schema` is an `Option<&str>`) and `zega.receipt(source_id, txid)`.

@@ -175,6 +175,9 @@ pub async fn transaction(
 pub struct DeliveryRequest {
     source_id: String,
     txid: String,
+    /// Stored as the graph's schema before the document runs (as `PUT /schema`).
+    #[serde(default)]
+    schema: Option<String>,
     /// A `.zql` document: schema, then its blocks.
     document: String,
 }
@@ -200,7 +203,7 @@ pub async fn deliver(
             .zega
             .lock()
             .map_err(|_| ZegaError::Execution("database lock poisoned".into()))
-            .and_then(|db| db.deliver(&request.source_id, &request.txid, &request.document))
+            .and_then(|db| db.deliver(&request.source_id, &request.txid, request.schema.as_deref(), &request.document))
     })
     .await;
     match ran {

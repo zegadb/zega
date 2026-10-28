@@ -132,5 +132,13 @@ async fn a_delivery_is_applied_once_on_either_storage() {
         assert_eq!((status, body["code"].clone()), (StatusCode::UNPROCESSABLE_ENTITY, json!("invalid_identity")));
         let (_, body) = call(&server, "/zql", json!({"schema": P, "query": "query { P { name } }"})).await;
         assert_eq!(body["result"], json!([{"name": "a"}]), "{storage:?}");
+        // A delivery may carry the schema to store first, as `PUT /schema`.
+        let p2 = "schema { type P { name: String nick?: String } } unique { P { name } }";
+        let request = json!({"source_id": "pg:1", "txid": "43", "schema": p2,
+                             "document": format!("{p2}\nmutation {{ P(name: \"b\" && nick: \"bee\") {{ name }} }}")});
+        let (status, body) = call(&server, "/deliveries", request).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (_, body) = call(&server, "/zql", json!({"schema": p2, "query": "query { P(name: \"b\") { nick } }"})).await;
+        assert_eq!(body["result"], json!({"nick": "bee"}), "{storage:?}");
     }
 }

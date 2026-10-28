@@ -63,40 +63,17 @@ impl Zega {
     /// Set the schema carried by this graph. Declarations are committed to the
     /// WAL before becoming visible, so a restart replays the change.
     pub fn set_schema(&self, source: &str) -> Result<SchemaDiffReport, ZegaError> {
-        if crate::builtin::rejects_reserved(source) {
-            return Err(ZegaError::Execution("reserved_type: Auth is built in".into()));
-        }
-        let effective = crate::builtin::with_auth(source);
-        let schema = crate::lang::parse_schema(&effective).map_err(|e| explain(e, "schema", source))?;
-        let mut uniques = crate::lang::parse_uniques(&effective).map_err(|e| explain(e, "schema", source))?;
-        uniques.sort();
-        let indexes = crate::lang::parse_indexes(&effective).map_err(|e| explain(e, "schema", source))?;
         let mut graph = self.lock_graph()?;
-        let old = graph.carried().schema.as_deref().unwrap_or("");
-        let old_effective = crate::builtin::with_auth(old);
-        let old_schema = crate::lang::parse_schema(&old_effective).map_err(|e| explain(e, "schema", old))?;
-        let report = crate::schema_diff::diff_schemas(&old_schema, &schema, &graph);
-        if report.changes.iter().any(|change| change.severity == crate::schema_diff::Severity::Blocks) {
-            return Err(ZegaError::Execution("schema change refused: incompatible with existing data".into()));
-        }
-        for node in graph.nodes() {
-            for label in node.labels() {
-                if !schema.types.iter().any(|ty| ty.name == label) {
-                    return Err(ZegaError::Execution(format!("schema change refused: existing label {label} has no type")));
-                }
-            }
-        }
-        self.wal.append(&Operation::SetSchema { source: source.to_owned(), uniques: uniques.clone(), indexes: indexes.clone() })?;
-        let mut carried = graph.carried().clone();
-        carried.schema = Some(source.to_owned());
-        carried.uniques = uniques;
-        carried.indexes = indexes;
-        carried.meta.insert("zega.schema".into(), "stored".into());
-        graph.set_carried(carried);
-        let effective_uniques = graph.carried().uniques.clone();
-        let effective_indexes = crate::lang::effective_indexes(&schema, &effective_uniques, &graph.carried().indexes);
-        graph.sync_uniques(&effective_uniques);
-        graph.sync_indexes(&effective_indexes);
+        let (report, op) = check_schema(&graph, source)?;
+        self.wal.append(&op)?;
+        apply_schema(&mut graph, &op);
+        Ok(report)
+    }
+
+    /// [`Self::set_schema`] inside an open transaction.
+    pub(crate) fn set_schema_held(&self, graph: &mut Graph, pending: &mut Pending, source: &str) -> Result<SchemaDiffReport, ZegaError> {
+        let (report, op) = check_schema(graph, source)?;
+        pending.record_schema(graph, op);
         Ok(report)
     }
 
@@ -4110,4 +4087,57 @@ mod tests {
         db.run_lang("", r#"mutation { Post(title: "Hello") { author -> Auth(uid: "a_123" && emailVerified: true && isAnonymous: false && createdAt: 1) { uid } } }"#).unwrap();
         assert_eq!(db.run_lang("", "{ Auth { uid } }").unwrap()[0]["uid"], "a_123");
     }
+}
+
+/// Refuse a schema the graph's data cannot satisfy; otherwise the WAL
+/// operation that stores it.
+fn check_schema(graph: &Graph, source: &str) -> Result<(SchemaDiffReport, Operation), ZegaError> {
+    if crate::builtin::rejects_reserved(source) {
+        return Err(ZegaError::Execution("reserved_type: Auth is built in".into()));
+    }
+    let effective = crate::builtin::with_auth(source);
+    let schema = crate::lang::parse_schema(&effective).map_err(|e| explain(e, "schema", source))?;
+    let mut uniques = crate::lang::parse_uniques(&effective).map_err(|e| explain(e, "schema", source))?;
+    uniques.sort();
+    let indexes = crate::lang::parse_indexes(&effective).map_err(|e| explain(e, "schema", source))?;
+    let old = graph.carried().schema.as_deref().unwrap_or("");
+    let old_effective = crate::builtin::with_auth(old);
+    let old_schema = crate::lang::parse_schema(&old_effective).map_err(|e| explain(e, "schema", old))?;
+    let report = crate::schema_diff::diff_schemas(&old_schema, &schema, graph);
+    if report.changes.iter().any(|change| change.severity == crate::schema_diff::Severity::Blocks) {
+        return Err(ZegaError::Execution("schema change refused: incompatible with existing data".into()));
+    }
+    for node in graph.nodes() {
+        for label in node.labels() {
+            if !schema.types.iter().any(|ty| ty.name == label) {
+                return Err(ZegaError::Execution(format!("schema change refused: existing label {label} has no type")));
+            }
+        }
+    }
+    Ok((report, Operation::SetSchema { source: source.to_owned(), uniques, indexes }))
+}
+
+/// Make `op` (an [`Operation::SetSchema`] from [`check_schema`]) the graph's
+/// stored schema, with its unique and index declarations in force.
+pub(crate) fn apply_schema(graph: &mut Graph, op: &Operation) {
+    let Operation::SetSchema { source, uniques, indexes } = op else { unreachable!("apply_schema takes a SetSchema") };
+    let mut carried = graph.carried().clone();
+    carried.schema = Some(source.clone());
+    carried.uniques = uniques.clone();
+    carried.indexes = indexes.clone();
+    carried.meta.insert("zega.schema".into(), "stored".into());
+    sync_carried(graph, carried);
+}
+
+/// Put `carried` back as the graph's declarations and bring the unique and
+/// vector/spatial indexes in line with it.
+pub(crate) fn sync_carried(graph: &mut Graph, carried: crate::graph_file::Carried) {
+    graph.set_carried(carried);
+    let uniques = graph.carried().uniques.clone();
+    let source = crate::builtin::with_auth(graph.carried().schema.as_deref().unwrap_or(""));
+    // A stored schema always parsed when it was stored.
+    let schema = crate::lang::parse_schema(&source).expect("a stored schema parses");
+    let indexes = crate::lang::effective_indexes(&schema, &uniques, &graph.carried().indexes);
+    graph.sync_uniques(&uniques);
+    graph.sync_indexes(&indexes);
 }
