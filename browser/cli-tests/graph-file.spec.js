@@ -62,9 +62,13 @@ test('a graph moves between the CLI, the HTTP server and wasm with identical byt
     expect(Buffer.compare(exported, served)).toBe(0);
 
     // 3. wasm imports it and exports it again: identical bytes, same graph.
+    // The golden file names the zega that wrote it (0.2.0); an export names
+    // this one, so wasm's export of it must equal the CLI's export of it.
+    await run(['import', GOLDEN, '--data', 'golden-db'], directory);
+    const nativeGolden = new Uint8Array((await run(['export', '-', '--data', 'golden-db'], directory)).stdout);
     const golden = new ZegaWasm();
     golden.importGraph(await readFile(GOLDEN));
-    expect(Buffer.compare(golden.exportGraph(), await readFile(GOLDEN))).toBe(0);
+    expect(Buffer.compare(golden.exportGraph(), nativeGolden)).toBe(0);
     golden.free();
     const db = new ZegaWasm();
     const summary = JSON.parse(db.importGraph(exported));
