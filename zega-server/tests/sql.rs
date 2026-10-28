@@ -158,5 +158,23 @@ async fn a_delivery_is_applied_once_on_either_storage() {
         assert_eq!(status, StatusCode::OK, "{body}");
         let (status, body) = call(&server, "/deliveries", other).await;
         assert_eq!(status, StatusCode::OK, "{storage:?}: {body}");
+        // A batch: one commit, a receipt each, or nothing with the failed one as `step`.
+        let batch = json!({"source_id": "pg:2", "deliveries": [
+            {"txid": "1", "document": format!("{p2}\nmutation {{ P(name: \"e\") {{ name }} }}")},
+            {"txid": "2", "document": format!("{p2}\nmutation {{ P(name: \"f\") {{ name }} }}"), "forget_earlier": true},
+        ]});
+        let (status, body) = call(&server, "/deliveries/batch", batch).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["result"].as_array().unwrap().iter().map(|r| r["txid"].clone()).collect::<Vec<_>>(), [json!("1"), json!("2")]);
+        let failing = json!({"source_id": "pg:2", "deliveries": [
+            {"txid": "3", "document": format!("{p2}\nmutation {{ P(name: \"g\") {{ name }} }}")},
+            {"txid": "1", "document": p2},
+        ]});
+        let (status, body) = call(&server, "/deliveries/batch", failing).await;
+        assert_eq!((status, body["code"].clone(), body["step"].clone()), (StatusCode::CONFLICT, json!("delivery_conflict"), json!(1)), "{body}");
+        let (_, body) = call(&server, "/zql", json!({"schema": p2, "query": "query { P { name } }"})).await;
+        let mut names: Vec<_> = body["result"].as_array().unwrap().iter().map(|p| p["name"].as_str().unwrap().to_string()).collect();
+        names.sort();
+        assert_eq!(names, ["c", "d", "e", "f"], "{storage:?}");
     }
 }
