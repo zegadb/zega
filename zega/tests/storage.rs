@@ -155,7 +155,9 @@ fn crash_child() {
     let zega = Zega::open(&dir).storage(storage).build().unwrap();
     use std::io::Write;
     let mut out = std::io::stdout().lock();
-    for i in 1.. {
+    let mut i = 0u64;
+    loop {
+        i += 1;
         write(&zega, &format!(r#"mutation {{ P(name: "n{i}") }}"#));
         writeln!(out, "ack {i}").unwrap();
         out.flush().unwrap();
