@@ -1,6 +1,7 @@
 //! APS 54 phase 2: `POST /sql` and `POST /transaction`, the HTTP face of
 //! `Zega::sql` and `Zega::transaction`. They need a database started with
 //! `--storage sqlite`; otherwise they answer 422 `sql_unavailable`.
+//! APS 52: `POST /deliveries`, `Zega::deliver`, on either storage.
 //!
 //! JSON values: `null`, numbers, strings; an integer beyond ±2^53 is
 //! `{"int": "…"}` (JavaScript numbers lose it otherwise), a non-finite real
@@ -167,4 +168,55 @@ pub async fn transaction(
         })
     })
     .await
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeliveryRequest {
+    source_id: String,
+    txid: String,
+    /// A `.zql` document: schema, then its blocks.
+    document: String,
+}
+
+/// `POST /deliveries`: 200 with the receipt (also for an identical retry),
+/// 409 `delivery_conflict`, 422 `invalid_identity`, 400 for a document the
+/// engine refuses, and 503 `outcome_unknown` when the write may or may not
+/// have reached the disk: retry the identical request.
+pub async fn deliver(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    request: Result<Json<DeliveryRequest>, JsonRejection>,
+) -> Response {
+    if !authorized(&headers, &state) {
+        return error(StatusCode::UNAUTHORIZED, "unauthorized");
+    }
+    let Json(request) = match request {
+        Ok(request) => request,
+        Err(rejection) => return error(StatusCode::BAD_REQUEST, rejection.body_text()),
+    };
+    let ran = tokio::task::spawn_blocking(move || {
+        state
+            .zega
+            .lock()
+            .map_err(|_| ZegaError::Execution("database lock poisoned".into()))
+            .and_then(|db| db.deliver(&request.source_id, &request.txid, &request.document))
+    })
+    .await;
+    match ran {
+        Ok(Ok(receipt)) => Json(json!({"ok": true, "result": {
+            "source_id": receipt.source_id,
+            "txid": receipt.txid,
+            "payload_sha256": receipt.payload_sha256.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+            "result": serde_json::from_str::<Value>(&receipt.result).unwrap_or(Value::Null),
+        }}))
+        .into_response(),
+        Ok(Err(cause @ ZegaError::Wal(_))) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"ok": false, "error": cause.to_string(), "code": "outcome_unknown"})),
+        )
+            .into_response(),
+        Ok(Err(cause)) => refusal(cause, StatusCode::BAD_REQUEST, None),
+        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "database worker failed"),
+    }
 }

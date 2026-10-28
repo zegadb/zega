@@ -49,6 +49,12 @@ pub(crate) fn refusal(cause: ZegaError, refused: StatusCode, step: Option<usize>
             },
             json!({"ok": false, "error": message, "code": code}),
         ),
+        // APS 52: a delivery's identity was used for another document, or is
+        // not a valid identity. Either way nothing was written.
+        ZegaError::Delivery { code, message } => (
+            if code == "delivery_conflict" { StatusCode::CONFLICT } else { StatusCode::UNPROCESSABLE_ENTITY },
+            json!({"ok": false, "error": message, "code": code}),
+        ),
         cause if cause.to_string().contains("schema_mismatch:") => (
             StatusCode::UNPROCESSABLE_ENTITY,
             json!({"ok": false, "error": cause.to_string(), "code": "schema_mismatch"}),

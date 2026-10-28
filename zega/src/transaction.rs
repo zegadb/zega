@@ -67,6 +67,16 @@ impl Transaction<'_> {
         self.step(ran)
     }
 
+    /// The receipt of `(source_id, txid)`, if it was delivered.
+    pub(crate) fn receipt(&self, source_id: &str, txid: &str) -> Option<crate::receipts::Receipt> {
+        self.graph.receipts.get(&(source_id.to_string(), txid.to_string())).cloned()
+    }
+
+    /// Keep `receipt` with this transaction's writes.
+    pub(crate) fn record_receipt(&mut self, receipt: crate::receipts::Receipt) {
+        self.pending.as_mut().expect("open").record_receipt(&mut self.graph, receipt);
+    }
+
     fn step<T>(&mut self, result: Result<T>) -> Result<T> {
         if self.failed {
             return Err(ZegaError::Execution("an earlier step of this transaction failed".into()));

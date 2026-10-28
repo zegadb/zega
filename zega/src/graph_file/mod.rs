@@ -60,6 +60,8 @@ pub enum Section {
     Relationships,
     History,
     Linked,
+    /// APS 52 delivery receipts; only when the graph has any.
+    Receipts,
     Done,
 }
 
@@ -73,6 +75,7 @@ impl Section {
             Section::Relationships => b"RELS",
             Section::History => b"HIST",
             Section::Linked => b"SYNC",
+            Section::Receipts => b"RCPT",
             Section::Done => b"DONE",
         }
     }
@@ -86,6 +89,7 @@ impl Section {
             Section::Relationships => "relationships",
             Section::History => "history",
             Section::Linked => "linked",
+            Section::Receipts => "receipts",
             Section::Done => "done",
         }
     }
@@ -594,6 +598,11 @@ fn encode_sections(
     if graph.linked.active() {
         let bytes = serde_json::to_vec(&serde_json::to_value(&graph.linked).map_err(io::Error::other)?).map_err(io::Error::other)?;
         emit(Section::Linked, &|sink| Ok(sink.put(&bytes)?))?;
+    }
+    if !graph.receipts.is_empty() {
+        let receipts: Vec<_> = graph.receipts.values().collect();
+        let bytes = serde_json::to_vec(&receipts).map_err(io::Error::other)?;
+        emit(Section::Receipts, &|sink| Ok(sink.put(&bytes)?))?;
     }
     Ok((node_count, rel_count))
 }
@@ -1314,6 +1323,19 @@ pub(crate) fn read<R: Read>(input: R) -> Result<(Graph, ImportSummary), Error> {
             }
             serde_json::from_slice(&bytes).map_err(|e| s.invalid(e.to_string()))
         })?;
+    }
+    if input.peek_tag()? == *b"RCPT" {
+        let receipts: Vec<crate::receipts::Receipt> = read_section(&mut input, Section::Receipts, |s| {
+            let mut bytes = Vec::new();
+            let mut chunk = [0; 8192];
+            while s.remaining > 0 {
+                let n = s.remaining.min(chunk.len() as u64) as usize;
+                s.take(&mut chunk[..n])?;
+                bytes.extend_from_slice(&chunk[..n]);
+            }
+            serde_json::from_slice(&bytes).map_err(|e| s.invalid(e.to_string()))
+        })?;
+        graph.receipts = receipts.into_iter().map(|receipt| (receipt.key(), receipt)).collect();
     }
     let digest: [u8; 32] = input
         .content

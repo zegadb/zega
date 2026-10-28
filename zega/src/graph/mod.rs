@@ -282,6 +282,8 @@ pub struct Graph {
     /// While a snapshot streams in (in any id order), vectors wait here and
     /// are indexed afterwards in id order, as a restore always has.
     deferred_vectors: bool,
+    /// APS 52: every delivery this graph has applied, by (source, txid).
+    pub(crate) receipts: std::collections::BTreeMap<(String, String), crate::receipts::Receipt>,
 }
 
 impl Default for Graph {
@@ -330,6 +332,7 @@ impl Graph {
             expanded: AtomicU64::new(0),
             carried: Default::default(),
             deferred_vectors: false,
+            receipts: Default::default(),
         }
     }
 

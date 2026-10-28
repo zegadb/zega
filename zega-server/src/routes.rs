@@ -24,6 +24,8 @@ pub fn app(state: AppState) -> Router {
         // APS 54: application SQL beside the graph (needs --storage sqlite).
         .route("/sql", post(crate::sql::sql))
         .route("/transaction", post(crate::sql::transaction))
+        // APS 52: a source's document, applied once per (source_id, txid).
+        .route("/deliveries", post(crate::sql::deliver))
         // A `.graph` upload streams into the engine, so the JSON body limit
         // below does not apply to it.
         .route(

@@ -112,3 +112,25 @@ async fn refusals_carry_their_code() {
     let unauthorized = Client::new().post(format!("{}/sql", server.url)).json(&json!({"sql": "SELECT 1"})).send().await.unwrap();
     assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
 }
+
+#[tokio::test]
+async fn a_delivery_is_applied_once_on_either_storage() {
+    for storage in [Storage::File, Storage::Sqlite] {
+        let server = start(storage).await;
+        let doc = format!("{P}\nmutation {{ P(name: \"a\") {{ name }} }}");
+        let request = json!({"source_id": "pg:1", "txid": "42", "document": doc});
+        let (status, first) = call(&server, "/deliveries", request.clone()).await;
+        assert_eq!(status, StatusCode::OK, "{first}");
+        assert_eq!(first["result"]["result"], json!({"name": "a"}));
+        assert_eq!(first["result"]["payload_sha256"].as_str().unwrap().len(), 64);
+        // A lost response, then the identical retry: the same receipt.
+        let (status, again) = call(&server, "/deliveries", request).await;
+        assert_eq!((status, &again), (StatusCode::OK, &first));
+        let (status, body) = call(&server, "/deliveries", json!({"source_id": "pg:1", "txid": "42", "document": format!("{P}\nmutation {{ P(name: \"b\") }}")})).await;
+        assert_eq!((status, body["code"].clone()), (StatusCode::CONFLICT, json!("delivery_conflict")));
+        let (status, body) = call(&server, "/deliveries", json!({"source_id": "pg 1", "txid": "1", "document": P})).await;
+        assert_eq!((status, body["code"].clone()), (StatusCode::UNPROCESSABLE_ENTITY, json!("invalid_identity")));
+        let (_, body) = call(&server, "/zql", json!({"schema": P, "query": "query { P { name } }"})).await;
+        assert_eq!(body["result"], json!([{"name": "a"}]), "{storage:?}");
+    }
+}
