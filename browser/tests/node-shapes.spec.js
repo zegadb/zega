@@ -373,7 +373,7 @@ test('checked WASM display reaches the graph and survives reload; URL errors und
   await page.keyboard.press('Space');
   await expect(page.getByRole('dialog',{name:'Engine to explorer'})).toBeVisible(); await page.keyboard.press('Escape');
   await set('schema','type Note { scan: String } display { graph { Note(@image: &scan) } }');
-  await expect.poll(() => page.evaluate(() => window.monaco.editor.getModelMarkers({owner:'zega'}).map(m => m.message).join('\n'))).toContain('declare `scan: String<url>` on Note');
+  await expect.poll(() => page.evaluate(() => window.monaco.editor.getModelMarkers({owner:'zega'}).map(m => m.message).join('\n'))).toContain('declare `scan: String<url>`, `String<file>` or `String<blake3>` on Note');
 });
 
 test('evidence: light, dark, preview and zoom', async ({page}) => {
