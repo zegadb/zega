@@ -9,6 +9,11 @@
 //! `zega.import` in journal mode empties a type this way, then loads it again
 //! in the same delivery.
 //!
+//! A source that will never send its earlier deliveries again says so with
+//! [`Payload::forget_earlier`]: the delivery then keeps its own receipt and
+//! drops the source's others, in the same WAL entry. pg_zega's worker does
+//! this on every delivery, so a graph keeps one receipt per database.
+//!
 //! Receipts are graph state: replayed from the WAL, carried by checkpoints
 //! (the `.graph` file's `RCPT` section), and copied wherever the WAL goes.
 
@@ -63,6 +68,9 @@ pub struct Payload<'a> {
     pub schema: Option<&'a str>,
     /// A `.zql` document: schema, then its blocks.
     pub document: &'a str,
+    /// Drop this source's other receipts: it will never send an earlier
+    /// delivery again. Not part of the payload's digest.
+    pub forget_earlier: bool,
 }
 
 impl<'a> Payload<'a> {
@@ -143,6 +151,9 @@ impl Zega {
                 result: result.to_string(),
             };
             tx.record_receipt(receipt.clone());
+            if payload.forget_earlier {
+                tx.forget_receipts(source_id, txid);
+            }
             Ok(receipt)
         })
     }

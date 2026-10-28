@@ -141,6 +141,9 @@ pub enum Operation {
     /// APS 52: a delivery's receipt, in the same entry as the writes it made,
     /// so the two are durable together or not at all.
     Delivered { receipt: crate::receipts::Receipt },
+    /// APS 52: a receipt the delivery's source said it no longer needs
+    /// (`Payload::forget_earlier`), dropped in that delivery's entry.
+    Forgot { source_id: String, txid: String },
 }
 
 #[cfg(not(target_arch = "wasm32"))]

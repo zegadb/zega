@@ -185,6 +185,10 @@ pub struct DeliveryRequest {
     schema: Option<String>,
     /// A `.zql` document: schema, then its blocks.
     document: String,
+    /// The source will never send an earlier delivery again: keep only this
+    /// delivery's receipt for it.
+    #[serde(default)]
+    forget_earlier: bool,
 }
 
 /// `POST /deliveries`: 200 with the receipt (also for an identical retry),
@@ -209,7 +213,12 @@ pub async fn deliver(
             .lock()
             .map_err(|_| ZegaError::Execution("database lock poisoned".into()))
             .and_then(|db| {
-                let payload = Payload { flush: request.flush, schema: request.schema.as_deref(), document: &request.document };
+                let payload = Payload {
+                    flush: request.flush,
+                    schema: request.schema.as_deref(),
+                    document: &request.document,
+                    forget_earlier: request.forget_earlier,
+                };
                 db.deliver(&request.source_id, &request.txid, &payload)
             })
     })

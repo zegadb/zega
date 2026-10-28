@@ -38,6 +38,8 @@ enum Undo {
     DeletedRel(Relationship),
     /// A delivery recorded this receipt: remove it.
     Receipt((String, String)),
+    /// A delivery dropped this receipt: put it back.
+    Forgot(crate::receipts::Receipt),
     /// A transaction stored a schema: put these declarations back.
     Carried(Box<crate::graph_file::Carried>),
 }
@@ -111,6 +113,15 @@ impl Pending {
         graph.receipts.insert(key.clone(), receipt.clone());
         self.undo.push(Undo::Receipt(key));
         self.ops.push(Operation::Delivered { receipt });
+    }
+
+    /// Drop a receipt with the pending writes: gone now, put back with them,
+    /// and an `Operation::Forgot` in their WAL entry at commit.
+    pub(crate) fn forget_receipt(&mut self, graph: &mut Graph, key: (String, String)) {
+        let Some(receipt) = graph.receipts.remove(&key) else { return };
+        self.next_ids.get_or_insert_with(|| graph.next_ids());
+        self.undo.push(Undo::Forgot(receipt));
+        self.ops.push(Operation::Forgot { source_id: key.0, txid: key.1 });
     }
 
     /// Store a schema (an `Operation::SetSchema`) with the pending writes:
@@ -216,6 +227,9 @@ fn roll_back(graph: &mut Graph, undo: Vec<Undo>, next_ids: (NodeId, RelId)) {
         match change {
             Undo::Receipt(key) => {
                 graph.receipts.remove(&key);
+            }
+            Undo::Forgot(receipt) => {
+                graph.receipts.insert(receipt.key(), receipt);
             }
             Undo::Carried(carried) => crate::v2::sync_carried(graph, *carried),
             Undo::RelationshipHistory(id, before) => {

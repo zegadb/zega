@@ -149,5 +149,14 @@ async fn a_delivery_is_applied_once_on_either_storage() {
         assert_eq!(body["result"], json!([{"name": "c"}]), "{storage:?}");
         let (status, _) = call(&server, "/deliveries", json!({"source_id": "pg:1", "txid": "45", "flush": {"types": ["P"]}, "document": p2})).await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
+        // `forget_earlier` drops the source's other receipts: txid 43 is then
+        // no longer known, so another document under it is a new delivery.
+        let other = json!({"source_id": "pg:1", "txid": "43", "document": format!("{p2}\nmutation {{ P(name: \"d\") {{ name }} }}")});
+        let (status, _) = call(&server, "/deliveries", other.clone()).await;
+        assert_eq!(status, StatusCode::CONFLICT);
+        let (status, body) = call(&server, "/deliveries", json!({"source_id": "pg:1", "txid": "46", "forget_earlier": true, "document": p2})).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, body) = call(&server, "/deliveries", other).await;
+        assert_eq!(status, StatusCode::OK, "{storage:?}: {body}");
     }
 }

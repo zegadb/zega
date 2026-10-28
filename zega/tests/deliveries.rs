@@ -205,7 +205,7 @@ fn flush_then_reload(storage: Storage) {
     let load = format!("{LIKES}\n{}\nmutation {{ P(name: \"b\") {{ name }} }}", node_and_link("a"));
     let reload = format!("{AGED}\nmutation {{ P(name: \"c\" && age: 1) {{ name }} }}\n{}", LINK.replace("NAME", "c"));
     let flush = Flush { labels: vec!["P".into()], relationships: vec!["likes".into()], ..Flush::default() };
-    let import = Payload { flush: flush.clone(), schema: Some(AGED), document: &reload };
+    let import = Payload { flush: flush.clone(), schema: Some(AGED), ..Payload::document(&reload) };
     {
         let zega = open(path, storage);
         zega.set_schema(LIKES).unwrap();
@@ -264,6 +264,57 @@ fn flush_relationships_or_everything() {
     assert_eq!(names_in(&zega, LIKES), Vec::<String>::new());
     assert_eq!(titles(&zega, LIKES), serde_json::json!([]));
     assert!(zega.receipt("pg:1", "1").unwrap().is_some());
+}
+
+fn receipts_of(zega: &Zega, source: &str, txids: &[&str]) -> Vec<bool> {
+    txids.iter().map(|txid| zega.receipt(source, txid).unwrap().is_some()).collect()
+}
+
+/// pg_zega's worker sends `forget_earlier` on every delivery: a graph keeps
+/// one receipt per source, in the WAL and the checkpoint alike, and a
+/// delivery that fails forgets nothing.
+fn forget_earlier_keeps_the_latest(storage: Storage) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    {
+        let zega = open(path, storage);
+        zega.deliver("pg:1", "1", &Payload::document(&doc(&["a"]))).unwrap();
+        zega.deliver("pg:1", "2", &Payload::document(&doc(&["b"]))).unwrap();
+        zega.deliver("pg:2", "1", &Payload::document(&doc(&["c"]))).unwrap();
+        // A delivery that fails (a duplicate) forgets nothing.
+        let duplicate = doc(&["a"]);
+        assert!(zega.deliver("pg:1", "3", &Payload { forget_earlier: true, ..Payload::document(&duplicate) }).is_err());
+        assert_eq!(receipts_of(&zega, "pg:1", &["1", "2", "3"]), [true, true, false]);
+        let three = doc(&["d"]);
+        let receipt = zega.deliver("pg:1", "3", &Payload { forget_earlier: true, ..Payload::document(&three) }).unwrap();
+        assert_eq!(receipts_of(&zega, "pg:1", &["1", "2", "3"]), [false, false, true]);
+        // Another source's receipts stay.
+        assert_eq!(receipts_of(&zega, "pg:2", &["1"]), [true]);
+        // The flag is not part of the payload: a retry without it is the same delivery.
+        assert_eq!(zega.deliver("pg:1", "3", &Payload::document(&three)).unwrap(), receipt);
+        assert_eq!(names(&zega), ["a", "b", "c", "d"]);
+    }
+    // Replayed from the WAL.
+    {
+        let zega = open(path, storage);
+        assert_eq!(receipts_of(&zega, "pg:1", &["1", "2", "3"]), [false, false, true]);
+        zega.checkpoint().unwrap();
+    }
+    // Carried by the checkpoint.
+    let zega = open(path, storage);
+    assert_eq!(receipts_of(&zega, "pg:1", &["1", "2", "3"]), [false, false, true]);
+    assert_eq!(receipts_of(&zega, "pg:2", &["1"]), [true]);
+    assert_eq!(names(&zega), ["a", "b", "c", "d"]);
+}
+
+#[test]
+fn file_forget_earlier_keeps_the_latest() {
+    forget_earlier_keeps_the_latest(Storage::File);
+}
+
+#[test]
+fn sqlite_forget_earlier_keeps_the_latest() {
+    forget_earlier_keeps_the_latest(Storage::Sqlite);
 }
 
 /// Receipts written before flushes existed keep their digest, so their
