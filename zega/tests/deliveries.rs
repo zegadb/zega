@@ -4,6 +4,7 @@
 #![cfg(feature = "sqlite")]
 
 use serde_json::Value as Json;
+use zega::receipts::{payload_sha256, Flush, Payload};
 use zega::{Storage, Zega, ZegaError};
 
 const P: &str = "schema { type P { name: String } } unique { P { name } }";
@@ -47,20 +48,20 @@ fn delivered_once_and_kept(storage: Storage) {
     let path = dir.path().to_str().unwrap();
     let first = {
         let zega = open(path, storage);
-        let first = zega.deliver("pg:1", "100", None, &doc(&["a", "b"])).unwrap();
+        let first = zega.deliver("pg:1", "100", &Payload::document(&doc(&["a", "b"]))).unwrap();
         assert_eq!(names(&zega), ["a", "b"]);
         // The same delivery again: the original receipt, nothing written.
-        assert_eq!(zega.deliver("pg:1", "100", None, &doc(&["a", "b"])).unwrap(), first);
+        assert_eq!(zega.deliver("pg:1", "100", &Payload::document(&doc(&["a", "b"]))).unwrap(), first);
         assert_eq!(names(&zega), ["a", "b"]);
         // The same identity, another document: refused, nothing written.
-        assert_eq!(code(zega.deliver("pg:1", "100", None, &doc(&["c"])).unwrap_err()), "delivery_conflict");
+        assert_eq!(code(zega.deliver("pg:1", "100", &Payload::document(&doc(&["c"]))).unwrap_err()), "delivery_conflict");
         // A document that fails (a duplicate) leaves no receipt and no write,
         // so the identity can be delivered again.
-        assert!(zega.deliver("pg:1", "101", None, &doc(&["d", "a"])).is_err());
+        assert!(zega.deliver("pg:1", "101", &Payload::document(&doc(&["d", "a"]))).is_err());
         assert_eq!(zega.receipt("pg:1", "101").unwrap(), None);
-        zega.deliver("pg:1", "101", None, &doc(&["d"])).unwrap();
+        zega.deliver("pg:1", "101", &Payload::document(&doc(&["d"]))).unwrap();
         // Another source may reuse a txid.
-        zega.deliver("pg:2", "100", None, &doc(&["e"])).unwrap();
+        zega.deliver("pg:2", "100", &Payload::document(&doc(&["e"]))).unwrap();
         assert_eq!(names(&zega), ["a", "b", "d", "e"]);
         first
     };
@@ -73,8 +74,8 @@ fn delivered_once_and_kept(storage: Storage) {
     // Carried by the checkpoint's .graph file.
     let zega = open(path, storage);
     assert_eq!(zega.receipt("pg:1", "100").unwrap(), Some(first.clone()));
-    assert_eq!(zega.deliver("pg:1", "100", None, &doc(&["a", "b"])).unwrap(), first);
-    assert_eq!(code(zega.deliver("pg:1", "100", None, &doc(&["z"])).unwrap_err()), "delivery_conflict");
+    assert_eq!(zega.deliver("pg:1", "100", &Payload::document(&doc(&["a", "b"]))).unwrap(), first);
+    assert_eq!(code(zega.deliver("pg:1", "100", &Payload::document(&doc(&["z"]))).unwrap_err()), "delivery_conflict");
     assert_eq!(names(&zega), ["a", "b", "d", "e"]);
 }
 
@@ -92,7 +93,7 @@ fn sqlite_delivered_once_and_kept() {
 fn identities_are_short_plain_text() {
     let zega = Zega::in_memory().build().unwrap();
     for (source, txid) in [("", "1"), ("pg", ""), ("pg one", "1"), ("pg", &"9".repeat(129)), ("pg/1", "1")] {
-        assert_eq!(code(zega.deliver(source, txid, None, &doc(&["a"])).unwrap_err()), "invalid_identity", "{source:?} {txid:?}");
+        assert_eq!(code(zega.deliver(source, txid, &Payload::document(&doc(&["a"]))).unwrap_err()), "invalid_identity", "{source:?} {txid:?}");
     }
     assert_eq!(names(&zega), Vec::<String>::new());
 }
@@ -100,7 +101,7 @@ fn identities_are_short_plain_text() {
 #[test]
 fn receipts_travel_in_an_exported_graph() {
     let zega = Zega::in_memory().build().unwrap();
-    let receipt = zega.deliver("pg:1", "7", None, &doc(&["a"])).unwrap();
+    let receipt = zega.deliver("pg:1", "7", &Payload::document(&doc(&["a"]))).unwrap();
     let mut bytes = Vec::new();
     zega.export(&mut bytes).unwrap();
     let copy = Zega::in_memory().build().unwrap();
@@ -123,12 +124,12 @@ fn schema_delivered_with_the_writes(storage: Storage) {
     {
         let zega = open(path, storage);
         zega.set_schema(P).unwrap();
-        zega.deliver("pg:1", "1", None, &doc(&["a"])).unwrap();
-        let receipt = zega.deliver("pg:1", "2", Some(P2), &nick).unwrap();
+        zega.deliver("pg:1", "1", &Payload::document(&doc(&["a"]))).unwrap();
+        let receipt = zega.deliver("pg:1", "2", &Payload { schema: Some(P2), ..Payload::document(&nick) }).unwrap();
         assert_eq!(zega.stored_schema().unwrap(), zega_schema(P2));
-        assert_eq!(zega.deliver("pg:1", "2", Some(P2), &nick).unwrap(), receipt);
+        assert_eq!(zega.deliver("pg:1", "2", &Payload { schema: Some(P2), ..Payload::document(&nick) }).unwrap(), receipt);
         // The same document under another schema is another payload.
-        assert_eq!(code(zega.deliver("pg:1", "2", None, &nick).unwrap_err()), "delivery_conflict");
+        assert_eq!(code(zega.deliver("pg:1", "2", &Payload::document(&nick)).unwrap_err()), "delivery_conflict");
     }
     let zega = open(path, storage);
     assert_eq!(zega.stored_schema().unwrap(), zega_schema(P2));
@@ -161,13 +162,13 @@ fn a_failed_delivery_keeps_the_old_schema() {
     {
         let zega = open(path, Storage::Sqlite);
         zega.set_schema(P).unwrap();
-        zega.deliver("pg:1", "1", None, &doc(&["a"])).unwrap();
+        zega.deliver("pg:1", "1", &Payload::document(&doc(&["a"]))).unwrap();
         let duplicate = format!("{P2}\nmutation {{ P(name: \"a\") {{ name }} }}");
-        assert!(zega.deliver("pg:1", "2", Some(P2), &duplicate).is_err());
+        assert!(zega.deliver("pg:1", "2", &Payload { schema: Some(P2), ..Payload::document(&duplicate) }).is_err());
         assert_eq!(zega.stored_schema().unwrap(), zega_schema(P));
         assert_eq!(zega.receipt("pg:1", "2").unwrap(), None);
         let required = "schema { type P { name: String age: Int } } unique { P { name } }";
-        let refused = zega.deliver("pg:1", "3", Some(required), required).unwrap_err().to_string();
+        let refused = zega.deliver("pg:1", "3", &Payload { schema: Some(required), ..Payload::document(required) }).unwrap_err().to_string();
         assert!(refused.contains("schema change refused"), "{refused}");
         assert_eq!(zega.stored_schema().unwrap(), zega_schema(P));
     }
@@ -175,6 +176,109 @@ fn a_failed_delivery_keeps_the_old_schema() {
     assert_eq!(zega.stored_schema().unwrap(), zega_schema(P));
     assert_eq!(names(&zega), ["a"]);
 }
+
+const LIKES: &str = "schema { type P { name: String likes -> Q[] } type Q { title: String } } unique { P { name } Q { title } }";
+/// LIKES with a field P's stored nodes do not have: refused while they exist.
+const AGED: &str = "schema { type P { name: String age: Int likes -> Q[] } type Q { title: String } } unique { P { name } Q { title } }";
+
+/// As pg_zega writes it: the rows first, then the edge between them.
+const LINK: &str = "mutation { P(name: \"NAME\") { likes -> link Q(title: \"x\") { title } } }";
+
+fn node_and_link(name: &str) -> String {
+    format!("mutation {{ Q(title: \"x\") {{ title }} }}\nmutation {{ P(name: \"{name}\") {{ name }} }}\n{}", LINK.replace("NAME", name))
+}
+
+fn liked(zega: &Zega, schema: &str, name: &str) -> Json {
+    zega.run_lang(schema, &format!("query {{ P(name = \"{name}\") {{ likes -> Q {{ title }} }} }}")).unwrap()
+}
+
+fn titles(zega: &Zega, schema: &str) -> Json {
+    zega.run_lang(schema, "query { Q { title } }").unwrap()
+}
+
+/// pg_zega's `zega.import(p)` in journal mode: flush P and its relationship,
+/// store a schema the old P nodes could not satisfy, and load P again, as one
+/// delivery. Q is not named, so it is kept.
+fn flush_then_reload(storage: Storage) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    let load = format!("{LIKES}\n{}\nmutation {{ P(name: \"b\") {{ name }} }}", node_and_link("a"));
+    let reload = format!("{AGED}\nmutation {{ P(name: \"c\" && age: 1) {{ name }} }}\n{}", LINK.replace("NAME", "c"));
+    let flush = Flush { labels: vec!["P".into()], relationships: vec!["likes".into()], ..Flush::default() };
+    let import = Payload { flush: flush.clone(), schema: Some(AGED), document: &reload };
+    {
+        let zega = open(path, storage);
+        zega.set_schema(LIKES).unwrap();
+        zega.deliver("pg:1", "1", &Payload::document(&load)).unwrap();
+        // Without the flush the schema change is refused: a and b have no age.
+        let unflushed = Payload { flush: Flush::default(), ..import.clone() };
+        assert!(zega.deliver("pg:1", "2", &unflushed).unwrap_err().to_string().contains("schema change refused"));
+        let receipt = zega.deliver("pg:1", "2", &import).unwrap();
+        assert_eq!(names_in(&zega, AGED), ["c"]);
+        assert_eq!(liked(&zega, AGED, "c"), serde_json::json!({"likes": [{"title": "x"}]}));
+        assert_eq!(titles(&zega, AGED), serde_json::json!([{"title": "x"}]));
+        // Again: the same receipt, and nothing flushed twice.
+        assert_eq!(zega.deliver("pg:1", "2", &import).unwrap(), receipt);
+        assert_eq!(names_in(&zega, AGED), ["c"]);
+        // The flush is part of the payload.
+        let other = Payload { flush: Flush { all: true, ..Flush::default() }, ..import.clone() };
+        assert_eq!(code(zega.deliver("pg:1", "2", &other).unwrap_err()), "delivery_conflict");
+    }
+    // The deletes are replayed from the WAL with the rest of the delivery.
+    let zega = open(path, storage);
+    assert_eq!(names_in(&zega, AGED), ["c"]);
+    assert_eq!(liked(&zega, AGED, "c"), serde_json::json!({"likes": [{"title": "x"}]}));
+}
+
+#[test]
+fn file_flush_then_reload() {
+    flush_then_reload(Storage::File);
+}
+
+#[test]
+fn sqlite_flush_then_reload() {
+    flush_then_reload(Storage::Sqlite);
+}
+
+/// A relationship flush keeps both ends; a flush of everything keeps the
+/// receipts, and a delivery that fails after its flush deletes nothing.
+#[test]
+fn flush_relationships_or_everything() {
+    let zega = Zega::in_memory().build().unwrap();
+    zega.set_schema(LIKES).unwrap();
+    let load = format!("{LIKES}\n{}", node_and_link("a"));
+    zega.deliver("pg:1", "1", &Payload::document(&load)).unwrap();
+    let unlink = Payload { flush: Flush { relationships: vec!["likes".into()], ..Flush::default() }, ..Payload::document(LIKES) };
+    zega.deliver("pg:1", "2", &unlink).unwrap();
+    assert_eq!(names_in(&zega, LIKES), ["a"]);
+    assert_eq!(liked(&zega, LIKES, "a"), serde_json::json!({"likes": []}));
+    assert_eq!(titles(&zega, LIKES), serde_json::json!([{"title": "x"}]));
+
+    let everything = Flush { all: true, ..Flush::default() };
+    let failing = format!("{LIKES}\nmutation {{ P(name: \"d\") {{ name }} }}\nmutation {{ P(name: \"d\") {{ name }} }}");
+    assert!(zega.deliver("pg:1", "3", &Payload { flush: everything.clone(), ..Payload::document(&failing) }).is_err());
+    assert_eq!(names_in(&zega, LIKES), ["a"]);
+    assert_eq!(titles(&zega, LIKES), serde_json::json!([{"title": "x"}]));
+
+    zega.deliver("pg:1", "3", &Payload { flush: everything, ..Payload::document(LIKES) }).unwrap();
+    assert_eq!(names_in(&zega, LIKES), Vec::<String>::new());
+    assert_eq!(titles(&zega, LIKES), serde_json::json!([]));
+    assert!(zega.receipt("pg:1", "1").unwrap().is_some());
+}
+
+/// Receipts written before flushes existed keep their digest, so their
+/// deliveries are still recognised when the relay sends them again.
+#[test]
+fn a_payload_without_a_flush_hashes_as_before() {
+    let hex = |digest: [u8; 32]| digest.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    assert_eq!(hex(payload_sha256(&Payload::document("d"))), V1_DOCUMENT);
+    assert_eq!(hex(payload_sha256(&Payload { schema: Some("s"), ..Payload::document("d") })), V1_SCHEMA);
+    // A flush of nothing is no flush.
+    assert_eq!(hex(payload_sha256(&Payload { flush: Flush { labels: vec![], ..Flush::default() }, ..Payload::document("d") })), V1_DOCUMENT);
+}
+
+const V1_DOCUMENT: &str = "149d046ea8e4855ef7d230aab86ac7a766d0e2a86ae1cfbe1dc308a18fd324d6";
+const V1_SCHEMA: &str = "08ab367b718fcc78c433695d2da2d4a3bf8d0d0386b67ff97386c591af7e1b69";
 
 const CHILD_DIR: &str = "ZEGA_DELIVERY_CRASH_CHILD_DIR";
 const CHILD_STORAGE: &str = "ZEGA_DELIVERY_CRASH_CHILD_STORAGE";
@@ -192,7 +296,7 @@ fn delivery_crash_child() {
     let mut i = 0u64;
     loop {
         i += 1;
-        zega.deliver("pg:1", &i.to_string(), None, &doc(&[&format!("n{i}")])).unwrap();
+        zega.deliver("pg:1", &i.to_string(), &Payload::document(&doc(&[&format!("n{i}")]))).unwrap();
         writeln!(out, "ack {i}").unwrap();
         out.flush().unwrap();
     }
@@ -232,7 +336,7 @@ fn a_killed_delivery_is_retried_without_duplicates() {
         }
         // The source retries everything it may have sent, and a little more.
         for i in 1..=acked + 5 {
-            zega.deliver("pg:1", &i.to_string(), None, &doc(&[&format!("n{i}")])).unwrap();
+            zega.deliver("pg:1", &i.to_string(), &Payload::document(&doc(&[&format!("n{i}")]))).unwrap();
         }
         assert_eq!(names(&zega).len() as u64, acked + 5, "{storage:?}: a retry wrote twice or not at all");
     }
