@@ -356,6 +356,10 @@ with under 4 MiB of heap. `zega-server start` also caps an upload's size
   graph by global id is APS 17's upsert, and future work. The CLI refuses to
   replace a non-empty database without `--replace`.
 
+### Receipts (`RCPT`), optional
+
+Written only when the graph has applied deliveries (APS 52, [sql.md](sql.md#deliveries)), after `SYNC` and before `DONE`. The payload is a JSON array of `{source_id, txid, payload_sha256, result}`, ordered by `(source_id, txid)`. A graph with no receipts writes no `RCPT` section, so its bytes are unchanged. A reader that predates receipts refuses a file that has one.
+
 ## An empty graph
 
 The whole file for a graph with no nodes, no relationships, no schema and no

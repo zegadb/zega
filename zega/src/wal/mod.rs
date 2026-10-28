@@ -138,6 +138,9 @@ pub enum Operation {
     /// Replace the schema declarations carried by the current graph. Appended
     /// to preserve all existing bincode operation discriminants.
     SetSchema { source: String, uniques: Vec<(String, String)>, indexes: Vec<IndexSpec> },
+    /// APS 52: a delivery's receipt, in the same entry as the writes it made,
+    /// so the two are durable together or not at all.
+    Delivered { receipt: crate::receipts::Receipt },
 }
 
 #[cfg(not(target_arch = "wasm32"))]

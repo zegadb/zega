@@ -28,6 +28,7 @@ pub mod bundle;
 mod idset;
 mod index;
 mod journal;
+pub mod receipts;
 mod transaction;
 pub use transaction::Transaction;
 #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
@@ -80,6 +81,11 @@ pub enum ZegaError {
     /// `too_large`. Nothing was kept.
     #[error("{message}")]
     Sql { code: &'static str, message: String },
+    /// A [`Zega::deliver`] was refused: `invalid_identity`, or
+    /// `delivery_conflict` (the identity was delivered with another
+    /// document). Nothing was written.
+    #[error("{message}")]
+    Delivery { code: &'static str, message: String },
 }
 
 /// Who wrote a `.graph` file, as its manifest records it.
@@ -754,6 +760,9 @@ fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path)
             for op in ops {
                 apply_op_to_memory(graph, op, data)?;
             }
+        }
+        Operation::Delivered { receipt } => {
+            graph.receipts.insert(receipt.key(), receipt.clone());
         }
         Operation::ReplaceGraph { file } => {
             #[cfg(not(target_arch = "wasm32"))]

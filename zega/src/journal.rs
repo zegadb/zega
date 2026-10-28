@@ -36,6 +36,8 @@ enum Undo {
     CreatedRel(RelId),
     /// The statement deleted this relationship: put this copy back.
     DeletedRel(Relationship),
+    /// A delivery recorded this receipt: remove it.
+    Receipt((String, String)),
 }
 
 pub(crate) struct Journal {
@@ -97,6 +99,16 @@ impl Pending {
         }
         if let Some(record) = record { crate::linked::apply_metadata(graph, crate::linked::Metadata::Commit { record }); }
         Ok(())
+    }
+
+    /// Record a delivery's receipt with the pending writes: kept in the graph
+    /// now, taken back with them, and in their WAL entry at commit.
+    pub(crate) fn record_receipt(&mut self, graph: &mut Graph, receipt: crate::receipts::Receipt) {
+        self.next_ids.get_or_insert_with(|| graph.next_ids());
+        let key = receipt.key();
+        graph.receipts.insert(key.clone(), receipt.clone());
+        self.undo.push(Undo::Receipt(key));
+        self.ops.push(Operation::Delivered { receipt });
     }
 
     /// Take back every pending write.
@@ -191,6 +203,9 @@ pub(crate) fn atomically_into<T, E: From<WalError>>(
 fn roll_back(graph: &mut Graph, undo: Vec<Undo>, next_ids: (NodeId, RelId)) {
     for change in undo.into_iter().rev() {
         match change {
+            Undo::Receipt(key) => {
+                graph.receipts.remove(&key);
+            }
             Undo::RelationshipHistory(id, before) => {
                 let h = graph.history.get_mut().expect("decoded history");
                 if let Some(before) = before {
