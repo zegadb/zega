@@ -18,7 +18,7 @@ use crate::{Result, Zega, ZegaError};
 pub struct Receipt {
     pub source_id: String,
     pub txid: String,
-    /// SHA-256 of the delivered document ([`payload_sha256`]).
+    /// SHA-256 of the delivered schema and document ([`payload_sha256`]).
     pub payload_sha256: [u8; 32],
     /// The document's result, as JSON text.
     pub result: String,
@@ -30,10 +30,12 @@ impl Receipt {
     }
 }
 
-/// The digest a receipt binds: domain-separated and length-prefixed.
-pub fn payload_sha256(document: &str) -> [u8; 32] {
+/// The digest a receipt binds: domain-separated and length-prefixed. A
+/// delivery without a schema hashes the domain and the document alone.
+pub fn payload_sha256(schema: Option<&str>, document: &str) -> [u8; 32] {
     let mut hash = Sha256::new();
-    for part in [b"zega-delivery-v1".as_slice(), document.as_bytes()] {
+    let parts = [Some(b"zega-delivery-v1".as_slice()), Some(document.as_bytes()), schema.map(str::as_bytes)];
+    for part in parts.into_iter().flatten() {
         hash.update((part.len() as u64).to_le_bytes());
         hash.update(part);
     }
@@ -59,10 +61,11 @@ fn check_identity(source_id: &str, txid: &str) -> Result<()> {
 
 impl Zega {
     /// Apply `document` (a `.zql` document: schema, then its blocks) once for
-    /// `(source_id, txid)`. See the module documentation.
-    pub fn deliver(&self, source_id: &str, txid: &str, document: &str) -> Result<Receipt> {
+    /// `(source_id, txid)`, after storing `schema` as the graph's schema when
+    /// one is given (as [`Zega::set_schema`]). See the module documentation.
+    pub fn deliver(&self, source_id: &str, txid: &str, schema: Option<&str>, document: &str) -> Result<Receipt> {
         check_identity(source_id, txid)?;
-        let payload_sha256 = payload_sha256(document);
+        let payload_sha256 = payload_sha256(schema, document);
         self.transaction(|tx| {
             if let Some(existing) = tx.receipt(source_id, txid) {
                 return if existing.payload_sha256 == payload_sha256 {
@@ -70,6 +73,9 @@ impl Zega {
                 } else {
                     Err(refused("delivery_conflict", format!("{source_id} {txid} was delivered with a different document")))
                 };
+            }
+            if let Some(schema) = schema {
+                tx.schema(schema)?;
             }
             let result = tx.document(document)?;
             let receipt = Receipt {

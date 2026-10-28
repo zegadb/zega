@@ -67,6 +67,14 @@ impl Transaction<'_> {
         self.step(ran)
     }
 
+    /// Store `source` as the graph's schema (as [`Zega::set_schema`]): later
+    /// steps run against it, and it is kept only if the transaction commits.
+    pub fn schema(&mut self, source: &str) -> Result<crate::SchemaDiffReport> {
+        let zega = self.zega;
+        let stored = zega.set_schema_held(&mut self.graph, self.pending.as_mut().expect("open"), source);
+        self.step(stored)
+    }
+
     /// The receipt of `(source_id, txid)`, if it was delivered.
     pub(crate) fn receipt(&self, source_id: &str, txid: &str) -> Option<crate::receipts::Receipt> {
         self.graph.receipts.get(&(source_id.to_string(), txid.to_string())).cloned()
