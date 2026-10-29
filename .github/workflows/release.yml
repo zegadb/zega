@@ -321,6 +321,8 @@ jobs:
           repository: zegadb/testsuite
           ref: 206aec6c2dd9cbbc3552e4cfbf78b7b45043b96a
           path: .tmp/testsuite
+          # testsuite is private: a read-only deploy key on it, kept in public-ci.
+          ssh-key: ${{ secrets.TESTSUITE_DEPLOY_KEY }}
           persist-credentials: false
       - name: Prove formatter AST equality and idempotence across the corpus and samples
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
