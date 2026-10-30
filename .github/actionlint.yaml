@@ -1,0 +1,5 @@
+self-hosted-runner:
+  # Our CI runners: a fresh mirab VM per job (addiscorp/aps APS 11).
+  labels:
+    - mirab-linux-arm64
+    - mirab-linux-x64
