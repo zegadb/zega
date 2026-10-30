@@ -4,6 +4,9 @@ on:
   push:
     branches: [main, codex/channels]
   pull_request:
+  schedule:
+    - cron: '0 9 * * *' # 09:00 UTC, 03:00 in Alberta (APS 9: canaries are nightly)
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,7 +19,7 @@ jobs:
   guards:
     name: Prove promoted-version and duplicate-tag refusals
     # Light: unittest + cargo metadata, no build.
-    runs-on: ubuntu-latest
+    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
@@ -29,7 +32,8 @@ jobs:
       - run: python3 -m unittest -v scripts.test_channels.Release
 
   tag-canary:
-    if: always() && needs.guards.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
+    # APS 9: canaries are nightly (or by hand), not one per push.
+    if: always() && needs.guards.result == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && github.repository == 'zegadb/zega'
     needs: guards
     runs-on: ubuntu-latest
     environment: release

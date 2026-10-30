@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
     environment: public-ci
     timeout-minutes: 25
     env:

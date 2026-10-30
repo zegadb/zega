@@ -44,7 +44,7 @@ permissions:
 jobs:
   proof:
     # Light: packs fixture binaries, no compilation.
-    runs-on: ubuntu-latest
+    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
