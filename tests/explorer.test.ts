@@ -8,7 +8,7 @@ import { dashboardFor } from '../src/core/explorer/explorer'
 import { explorer as runExplorer } from '../src/core/explorer/explorer'
 import { directoryAssets } from '../src/handlers/explorer_assets'
 import { serveExplorer, type ExplorerOptions } from '../src/handlers/explorer_server'
-import { resolveServer } from '../src/handlers/server_binary'
+import { resolveServer, serverPackage } from '../src/handlers/server_binary'
 
 setDefaultTimeout(30_000)
 const posix = process.platform !== 'win32'
@@ -156,14 +156,17 @@ describe.skipIf(!posix)('zega explorer: a local database', () => {
 
     test('with an empty lookup root it says which package, and never looks on PATH', async () => {
         const emptyRoot = path.join(home, 'empty-lookup-root')
-        expect(() => resolveServer({ roots: [emptyRoot] })).toThrow(/is not installed: it is the npm package @zegadb\/server-/)
+        expect(() => resolveServer({ platform: 'linux', arch: 'x64', roots: [emptyRoot] })).toThrow(/is not installed: it is the npm package @zegadb\/server-linux-x64@/)
+        expect(() => resolveServer({ platform: 'linux', arch: 'arm64', roots: [emptyRoot] })).toThrow(/there is no zega-server for linux-arm64: /)
+        // On a host zega publishes no server for (linux-arm64 CI), the command says that instead.
+        const missing = serverPackage(process.platform, process.arch) === null ? /there is no zega-server for / : /is not installed: it is the npm package @zegadb\/server-/
         await expect(runExplorer(undefined, {
             human: false,
             port: 0,
             assets: FIXTURE_ASSETS,
             data: dataDir('missing-server'),
             serverRoots: [emptyRoot],
-        })).rejects.toThrow(/is not installed: it is the npm package @zegadb\/server-/)
+        })).rejects.toThrow(missing)
     })
 })
 

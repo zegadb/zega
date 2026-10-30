@@ -225,9 +225,9 @@ describe.skipIf(!posix)('zega start', () => {
     })
 
     test('with an empty lookup root it says which package; no PATH lookup', async () => {
-        await expect(startServer(['--port', '0'], { human: false }, [path.join(home, 'empty')])).rejects.toThrow(
-            /is not installed: it is the npm package @zegadb\/server-/,
-        )
+        // On a host zega publishes no server for (linux-arm64 CI), it says that instead.
+        const missing = serverPackage(process.platform, process.arch) === null ? /there is no zega-server for / : /is not installed: it is the npm package @zegadb\/server-/
+        await expect(startServer(['--port', '0'], { human: false }, [path.join(home, 'empty')])).rejects.toThrow(missing)
     })
 })
 
