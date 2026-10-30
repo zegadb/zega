@@ -25,7 +25,7 @@ env:
 jobs:
   resolve:
     # Light: ref/version bookkeeping, no compilation.
-    runs-on: ubuntu-latest
+    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
     environment: public-ci
     outputs:
       tag: ${{ steps.ref.outputs.tag }}
@@ -80,7 +80,7 @@ jobs:
   changes:
     if: github.event_name == 'pull_request'
     # Light: a file-list diff, no checkout, no compilation.
-    runs-on: ubuntu-latest
+    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
     environment: public-ci
     # dorny/paths-filter fetches the PR's changed files from the REST API on
     # a pull_request event (no checkout needed), which needs this scope.
@@ -130,7 +130,7 @@ jobs:
     # explicit check on `resolve` keeps this running whenever resolve itself
     # didn't fail.
     if: always() && needs.resolve.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
     environment: public-ci
     outputs:
       run_native: ${{ steps.plan.outputs.run_native }}
@@ -149,8 +149,11 @@ jobs:
             {"platform":"darwin-x64","runner":"macos-15-intel","sccache_bucket":"zega-sccache-darwin-x64","extension":""},
             {"platform":"windows-x64","runner":"windows-latest","sccache_bucket":"zega-sccache-windows-x64","extension":".exe"}
           ]'
+          # A PR's linux leg tests on our arm64 runners (APS 11). It keeps the
+          # linux-x64 platform name for its steps; its binary is never uploaded
+          # (a PR doesn't ship). Shipping builds (tags, dispatch) use `full`.
           linux_only='[
-            {"platform":"linux-x64","runner":"ubuntu-latest","sccache_bucket":"zega-sccache-linux-x64","extension":""}
+            {"platform":"linux-x64","runner":"mirab-linux-arm64","sccache_bucket":"zega-sccache-linux-x64","extension":""}
           ]'
           if [ "$FULL_MATRIX" = true ]; then
             run_native=true; matrix="$full"
@@ -213,7 +216,7 @@ jobs:
   # WASM, installing browsers, or using R2 credentials.
   package-types:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
@@ -330,11 +333,14 @@ jobs:
       - name: Smoke test the built CLI
         run: python scripts/smoke-cli.py ".target/release/zega-server${EXTENSION}"
       - name: Prepare native artifact
+        # An arm64 PR leg tests only; its binary isn't the linux-x64 artifact.
+        if: runner.arch != 'ARM64'
         run: |
           mkdir -p artifacts/native
           artifact_name=$(python scripts/channels.py artifact-name "$PLATFORM")
           cp ".target/release/zega-server${EXTENSION}" "artifacts/native/${artifact_name}"
       - uses: actions/upload-artifact@v4
+        if: runner.arch != 'ARM64'
         with:
           name: native-${{ matrix.platform }}
           path: artifacts/native/
@@ -348,7 +354,7 @@ jobs:
     name: Release required checks
     if: always()
     needs: [resolve, changes, plan, package, package-types, native, publish]
-    runs-on: ubuntu-latest
+    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
     environment: public-ci
     steps:
       # The check is a script in the repo, so this job needs the checkout too.
