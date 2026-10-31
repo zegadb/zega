@@ -177,6 +177,8 @@ jobs:
     if: always() && needs.resolve.result == 'success' && needs.resolve.outputs.full_matrix == 'true'
     runs-on: ${{ matrix.runner }}
     environment: public-ci
+    outputs:
+      sha: ${{ steps.handoff.outputs.sha }}
     strategy:
       matrix:
         include:
@@ -205,11 +207,21 @@ jobs:
           mkdir -p artifacts/npm-package
           cp -r dist/wasm artifacts/npm-package/wasm
           node --input-type=module -e 'import fs from "node:fs"; const pack = JSON.parse(fs.readFileSync("artifacts/pack.json")); fs.copyFileSync("artifacts/" + pack.filename, "artifacts/npm-package/package.tgz");'
-      - uses: actions/upload-artifact@v4
-        with:
-          name: npm-package
-          path: artifacts/npm-package/
-          if-no-files-found: error
+      # Handed to publish through R2, never GitHub artifacts (Sami, 31 Oct): a
+      # tag run's files under ci/<run id>/ in zega-ci (kept 7 days), and their
+      # sha256 as job outputs, which publish checks every byte against.
+      - name: Hand the package on
+        id: handoff
+        if: needs.resolve.outputs.tag != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_CI_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_CI_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp
+          tar -C artifacts -cf .tmp/npm-package.tar npm-package
+          aws s3 cp .tmp/npm-package.tar "s3://zega-ci/ci/${GITHUB_RUN_ID}/npm-package.tar" --endpoint-url "$SCCACHE_ENDPOINT" --only-show-errors
+          echo "sha=$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' .tmp/npm-package.tar)" >> "$GITHUB_OUTPUT"
 
   # Cheap PR guard for the installed package's client declaration contract.
   # The full package job still exercises the packed tarball and WASM consumers
@@ -247,6 +259,12 @@ jobs:
     if: always() && needs.resolve.result == 'success' && needs.plan.result == 'success' && needs.plan.outputs.run_native == 'true'
     runs-on: ${{ matrix.runner }}
     environment: public-ci
+    # One output per platform: each leg sets only its own, so all of them
+    # reach publish (a shared name would keep only the last leg's).
+    outputs:
+      sha_linux_x64: ${{ steps.handoff.outputs.sha_linux_x64 }}
+      sha_darwin_arm64: ${{ steps.handoff.outputs.sha_darwin_arm64 }}
+      sha_darwin_x64: ${{ steps.handoff.outputs.sha_darwin_x64 }}
     defaults:
       run:
         shell: bash
@@ -341,21 +359,21 @@ jobs:
           cargo test --locked -p zega --lib fmt:: -- --ignored --nocapture
       - name: Smoke test the built CLI
         run: python3 scripts/smoke-cli.py ".target/release/zega-server${EXTENSION}"
-      - name: Prepare native artifact
-        # Only a canary publishes the binaries, so only a tag run hands them on
-        # (no GitHub artifacts otherwise, Sami 31 Oct). An arm64 PR leg tests
-        # only; its binary isn't the linux-x64 artifact.
+      # Only a canary publishes the binaries, so only a tag run hands them on,
+      # through R2 as the package job does. An arm64 PR leg tests only; its
+      # binary isn't the linux-x64 artifact.
+      - name: Hand the binary on
+        id: handoff
         if: needs.resolve.outputs.tag != '' && runner.arch != 'ARM64'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_CI_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_CI_SECRET_ACCESS_KEY }}
         run: |
-          mkdir -p artifacts/native
-          artifact_name=$(python3 scripts/channels.py artifact-name "$PLATFORM")
-          cp ".target/release/zega-server${EXTENSION}" "artifacts/native/${artifact_name}"
-      - uses: actions/upload-artifact@v4
-        if: needs.resolve.outputs.tag != '' && runner.arch != 'ARM64'
-        with:
-          name: native-${{ matrix.platform }}
-          path: artifacts/native/
-          if-no-files-found: error
+          set -euo pipefail
+          name=$(python3 scripts/channels.py artifact-name "$PLATFORM")
+          binary=".target/release/zega-server${EXTENSION}"
+          aws s3 cp "$binary" "s3://zega-ci/ci/${GITHUB_RUN_ID}/native-${PLATFORM}/${name}" --endpoint-url "$SCCACHE_ENDPOINT" --only-show-errors
+          echo "sha_${PLATFORM//-/_}=$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$binary")" >> "$GITHUB_OUTPUT"
 
   # A single, stable name for branch protection to require, regardless of
   # which native legs actually ran for a given PR. Runs unconditionally
@@ -401,9 +419,28 @@ jobs:
           fetch-tags: true
           persist-credentials: false
       - uses: ./.github/actions/release-credentials
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+      - name: Fetch what the build jobs handed on, checked against their hashes
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_CI_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_CI_SECRET_ACCESS_KEY }}
+          NATIVE_SHAS: ${{ toJson(needs.native.outputs) }}
+          PACKAGE_SHA: ${{ needs.package.outputs.sha }}
+        run: |
+          set -euo pipefail
+          base="s3://zega-ci/ci/${GITHUB_RUN_ID}"
+          fetch() { # key, local path, expected sha256 (a missing hash fails here)
+            [[ "$3" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::no sha256 handed on for $1"; exit 1; }
+            mkdir -p "$(dirname "$2")"
+            aws s3 cp "$base/$1" "$2" --endpoint-url "$R2_ENDPOINT" --only-show-errors
+            echo "$3  $2" | sha256sum -c -
+          }
+          for platform in $(python3 -c 'import sys; sys.path.insert(0, "scripts"); import channels; print(" ".join(channels.NATIVE_PLATFORMS))'); do
+            name=$(python3 scripts/channels.py artifact-name "$platform")
+            sha=$(jq -r --arg k "sha_${platform//-/_}" '.[$k] // ""' <<<"$NATIVE_SHAS")
+            fetch "native-$platform/$name" "artifacts/native-$platform/$name" "$sha"
+          done
+          fetch npm-package.tar .tmp/npm-package.tar "$PACKAGE_SHA"
+          tar -C artifacts -xf .tmp/npm-package.tar
       - name: Assemble checksummed canary
         run: python3 scripts/channels.py prepare "$CANARY" artifacts .tmp/release
       - name: Upload, verify readback, advance canary only
