@@ -78,7 +78,3 @@ jobs:
             echo
             cat bench.md
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bench-sql
-          path: bench.json
