@@ -32,10 +32,27 @@ impl Zega {
     /// fails, or the commit fails, nothing it did is kept, in memory or on
     /// disk. Later steps see earlier ones.
     pub fn transaction<T>(&self, f: impl FnOnce(&mut Transaction<'_>) -> Result<T>) -> Result<T> {
+        self.run_transaction(false, f)
+    }
+
+    /// A transaction for schema changes SQLite cannot make with ALTER TABLE:
+    /// rebuilding a table (create the new one, `INSERT … SELECT`, drop the old,
+    /// rename) without its children's ON DELETE CASCADE firing as the old
+    /// parent is dropped. Foreign keys are off while it runs; before it
+    /// commits every foreign key of every table is checked, and a row that
+    /// names no parent fails it with a `constraint` error naming the table,
+    /// its columns, the parent and how many rows, keeping nothing. Without
+    /// [`crate::Storage::Sqlite`] it is [`Zega::transaction`].
+    pub fn migration<T>(&self, f: impl FnOnce(&mut Transaction<'_>) -> Result<T>) -> Result<T> {
+        self.run_transaction(true, f)
+    }
+
+    #[cfg_attr(not(all(feature = "sqlite", not(target_arch = "wasm32"))), allow(unused_variables))]
+    fn run_transaction<T>(&self, migration: bool, f: impl FnOnce(&mut Transaction<'_>) -> Result<T>) -> Result<T> {
         let graph = self.lock_graph()?;
         #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
         let log = match self.wal.sqlite_log() {
-            Some(log) if !self.in_memory => Some(log.begin()?),
+            Some(log) if !self.in_memory => Some(if migration { log.begin_migration()? } else { log.begin()? }),
             _ => None,
         };
         let mut tx = Transaction {
