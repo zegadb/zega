@@ -6,7 +6,8 @@
 #   @zegadb/server-darwin-arm64    the zega-server executable, one package per
 #   @zegadb/server-darwin-x64      platform, no install scripts; the `zegadb`
 #   @zegadb/server-linux-x64       CLI package (its own repository) depends on
-#   @zegadb/server-win32-x64       them as optionalDependencies, exact versions
+#                                  them as optionalDependencies, exact versions
+#   (@zegadb/server-win32-x64 is paused with the release's windows-x64 leg)
 #
 # Same shape as create-deka-app's publish-runtime.yml: OIDC trusted publishing
 # (id-token: write, no npm token secret), `release` environment, every byte
@@ -152,7 +153,9 @@ jobs:
               echo "${name}@${NPM_VERSION} is already on npm; skipping."
               return
             fi
-            npm publish "$file" --tag "$DIST_TAG" --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org/
+            # No --provenance: zegadb/zega is private, and an attestation pointing at a
+            # commit nobody can see makes npm warn "Unable to find the source commit" (addiscorp/aps APS 9).
+            npm publish "$file" --tag "$DIST_TAG" --access public --ignore-scripts --registry=https://registry.npmjs.org/
           }
           while IFS=$'\t' read -r name filename; do
             publish "$name" ".tmp/npm/$filename"

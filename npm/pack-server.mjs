@@ -26,7 +26,8 @@ export const PLATFORMS = [
   { id: 'darwin-arm64', os: 'darwin', cpu: 'arm64', release: 'darwin-arm64', bin: 'zega-server' },
   { id: 'darwin-x64', os: 'darwin', cpu: 'x64', release: 'darwin-x64', bin: 'zega-server' },
   { id: 'linux-x64', os: 'linux', cpu: 'x64', release: 'linux-x64', bin: 'zega-server' },
-  { id: 'win32-x64', os: 'win32', cpu: 'x64', release: 'windows-x64', bin: 'zega-server.exe' },
+  // win32-x64 is paused with the release's windows-x64 leg (scripts/channels.py NATIVE_PLATFORMS):
+  // { id: 'win32-x64', os: 'win32', cpu: 'x64', release: 'windows-x64', bin: 'zega-server.exe' },
 ];
 
 const root = resolve(import.meta.dirname, '..');

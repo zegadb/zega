@@ -397,10 +397,10 @@ class Publication(Fixture):
         wasm = artifacts / "npm-package/wasm"
         wasm.mkdir(parents=True)
         (wasm / "engine.wasm").write_bytes(b"\0asm-fixture")
-        for platform in ("linux-x64", "darwin-arm64", "darwin-x64", "windows-x64"):
+        for platform in channels.NATIVE_PLATFORMS:
             native = artifacts / f"native-{platform}"
             native.mkdir()
-            name = f"zega-server-{platform}" + (".exe" if platform == "windows-x64" else "")
+            name = channels.native_artifact(platform)
             (native / name).write_bytes(platform.encode())
         with tarfile.open(artifacts / "npm-package/package.tgz", "w:gz") as archive:
             for name, payload in {
@@ -413,9 +413,9 @@ class Publication(Fixture):
         result = self.command("prepare", self.tag, "artifacts", "release")
         self.assertEqual(result.returncode, 0, result.stderr)
         channels.verify(self.repo / "release", self.tag, self.commit)
-        self.assertEqual(len(channels.read_json(self.repo / "release/release.json")["artifacts"]), 6)
+        self.assertEqual(len(channels.read_json(self.repo / "release/release.json")["artifacts"]), len(channels.NATIVE_PLATFORMS) + 2)
         inventory = channels.read_json(self.repo / "release/manifest.json")["artifacts"]
-        for name in ("zega-server-linux-x64", "zega-server-darwin-arm64", "zega-server-darwin-x64", "zega-server-windows-x64.exe"):
+        for name in ("zega-server-linux-x64", "zega-server-darwin-arm64", "zega-server-darwin-x64"):
             self.assertEqual(inventory[name], channels.digest(self.repo / "release" / name))
         # The binary used to ship as zega-<platform>; nothing may still carry that name.
         self.assertFalse(any(name.startswith("zega-") and not name.startswith("zega-server-") for name in inventory))
