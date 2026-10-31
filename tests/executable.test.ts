@@ -7,7 +7,7 @@ import { FAKE_SERVER, startCli } from './cli_helpers'
 import { connectMcp, newHome } from './mcp_helpers'
 import { FN, eventually, freePort, startDev, writeProject } from './dev_helpers'
 import { FIXTURES, FUNCTION_ID, TOKEN, callBundle, deployedFunction, fakeApi, regionsBody, remove, scratch } from './helpers'
-import { resolveServer } from '../src/handlers/server_binary'
+import { resolveServer, serverPackage } from '../src/handlers/server_binary'
 
 /**
  * The compiled single-file executable, not the TypeScript: what ships is what
@@ -137,9 +137,8 @@ describe('the compiled executable', () => {
         const json = await run(['start', '--data', './d', '--token-file', './t', '--server', fake])
         expect(json.stdout).toBe('{"event":"output","line":"got start --data ./d --token-file ./t"}\n')
         expect(json.code).toBe(5)
-        expect(() => resolveServer({ roots: [path.join(dir, 'empty-lookup-root')] })).toThrow(
-            /is not installed: it is the npm package @zegadb\/server-/,
-        )
+        const missing = serverPackage(process.platform, process.arch) === null ? /there is no zega-server for / : /is not installed: it is the npm package @zegadb\/server-/
+        expect(() => resolveServer({ roots: [path.join(dir, 'empty-lookup-root')] })).toThrow(missing)
     })
     test.skipIf(process.platform === 'win32')('zega explorer serves the page embedded in the executable, on a database server it starts, and stops it again', async () => {
         const data = path.join(dir, 'explorer-data')

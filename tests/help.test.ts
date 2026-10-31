@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 
 import type { Command } from 'commander'
 
+import { serverPackage } from '../src/handlers/server_binary'
 import { program } from '../src/program'
 import { TEMPLATE_CHOICES } from '../src/questions/init/template'
 import { starter, TEMPLATES } from '../src/templates'
@@ -22,8 +23,15 @@ const group = (command: Command) => command.helpGroup().replace(/:$/, '').toLowe
 describe('the help is JSON, made from the commands themselves', () => {
     test('all command help and template choices avoid provider names', async () => {
         const provider = /cloudflare|workers?\b|wrangler|opennext|workerd/i
+        // `start --help` is zega-server's own help: where zegadb/zega publishes no server (linux-arm64), it says so instead.
+        const noServer = serverPackage(process.platform, process.arch) === null
         for (const { path } of everyCommand()) {
             const output = await run([...path, '--help'], { home })
+            if (noServer && path.join(' ') === 'start') {
+                expect(output.code).toBe(1)
+                expect(output.stdout + output.stderr).toMatch(/there is no zega-server for /)
+                continue
+            }
             expect(output.code).toBe(0)
             expect(output.stdout).not.toMatch(provider)
             expect(output.stderr).not.toMatch(provider)
