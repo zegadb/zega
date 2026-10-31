@@ -344,7 +344,7 @@ jobs:
         if: runner.arch != 'ARM64'
         run: |
           mkdir -p artifacts/native
-          artifact_name=$(python scripts/channels.py artifact-name "$PLATFORM")
+          artifact_name=$(python3 scripts/channels.py artifact-name "$PLATFORM")
           cp ".target/release/zega-server${EXTENSION}" "artifacts/native/${artifact_name}"
       - uses: actions/upload-artifact@v4
         if: runner.arch != 'ARM64'
