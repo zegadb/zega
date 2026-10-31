@@ -7,6 +7,9 @@
  * optionalDependencies at one exact version, so npm installs the package that matches the
  * machine, as create-deka-app does for the deka binary. Everything here finds that file.
  *
+ * A compiled `zega` (`bun build --compile`) first uses the `zega-server` beside its own
+ * executable: a release puts both in `~/.zega/bin` (zega.dev/install.sh), built from one commit.
+ *
  * It is never the `zega-server` on PATH: a different version found by accident is the failure
  * this avoids. The only other way in is an explicit `--server <path>`, for development.
  */
@@ -32,6 +35,18 @@ export function serverPackage(platform: NodeJS.Platform, arch: string): ServerPa
     return found === undefined ? null : { name: `@zegadb/server-${found.id}`, bin: found.bin }
 }
 
+/** Whether this is a compiled `zega`: its own code lives in a virtual file system ("/$bunfs", "B:/~BUN"), not a place. */
+function compiled(): boolean {
+    return /^(?:\/\$bunfs|[A-Za-z]:[\\/]~BUN)/.test(import.meta.dir)
+}
+
+/** The `zega-server` beside a compiled `zega`'s executable `execPath`, or null (not compiled, or not there). */
+export function besideExecutable(execPath: string, platform: NodeJS.Platform, isCompiled: boolean = compiled()): string | null {
+    if (!isCompiled) return null
+    const candidate = path.join(path.dirname(execPath), platform === 'win32' ? 'zega-server.exe' : 'zega-server')
+    return fs.existsSync(candidate) && fs.statSync(candidate).isFile() ? candidate : null
+}
+
 /**
  * Where to look, in order: from the directory this CLI's code is in (an npm install puts the package
  * beside it, a checkout has it in its own node_modules), then from the directory of the running
@@ -40,8 +55,7 @@ export function serverPackage(platform: NodeJS.Platform, arch: string): ServerPa
  */
 export function searchRoots(): string[] {
     const roots: string[] = []
-    // A compiled executable's own code lives in a virtual file system ("/$bunfs", "B:/~BUN"): not a place.
-    if (!/^(?:\/\$bunfs|[A-Za-z]:[\\/]~BUN)/.test(import.meta.dir)) roots.push(import.meta.dir)
+    if (!compiled()) roots.push(import.meta.dir)
     roots.push(path.dirname(process.execPath))
     return roots
 }
@@ -61,9 +75,10 @@ export function findInstalled(pkg: ServerPackage, roots: string[]): string | nul
     return null
 }
 
-export type Resolve = { override?: string; platform?: NodeJS.Platform; arch?: string; roots?: string[] }
+/** `beside`: the server next to the executable (default: looked up); `null` skips that step. */
+export type Resolve = { override?: string; platform?: NodeJS.Platform; arch?: string; roots?: string[]; beside?: string | null }
 
-/** The `zega-server` executable to run: `--server <path>` when given, else the platform package's. */
+/** The `zega-server` executable to run: `--server <path>` when given, else the one beside a compiled `zega`, else the platform package's. */
 export function resolveServer(options: Resolve = {}): string {
     if (options.override !== undefined) {
         const file = path.resolve(options.override)
@@ -74,6 +89,8 @@ export function resolveServer(options: Resolve = {}): string {
     }
     const platform = options.platform ?? process.platform
     const arch = options.arch ?? process.arch
+    const beside = options.beside !== undefined ? options.beside : besideExecutable(process.execPath, platform)
+    if (beside !== null) return beside
     const pkg = serverPackage(platform, arch)
     if (pkg === null) {
         throw new LocalFailure(

@@ -140,6 +140,23 @@ describe('the compiled executable', () => {
         const missing = serverPackage(process.platform, process.arch) === null ? /there is no zega-server for / : /is not installed: it is the npm package @zegadb\/server-/
         expect(() => resolveServer({ roots: [path.join(dir, 'empty-lookup-root')] })).toThrow(missing)
     })
+    test.skipIf(process.platform === 'win32')('installed beside its zega-server (as zega.dev/install.sh does), zega start runs that one', async () => {
+        const bin = path.join(dir, 'installed', 'bin')
+        fs.mkdirSync(bin, { recursive: true })
+        const installed = path.join(bin, 'zega')
+        fs.copyFileSync(exe, installed)
+        fs.chmodSync(installed, 0o755)
+        fs.writeFileSync(path.join(bin, 'zega-server'), '#!/bin/sh\necho "beside $*"\nexit 3\n', { mode: 0o755 })
+        const child = Bun.spawn([installed, 'start', '--human', '--data', './d'], {
+            cwd: dir,
+            env: { PATH: '/usr/bin:/bin', HOME: dir, XDG_CONFIG_HOME: path.join(dir, '.config') },
+            stdout: 'pipe',
+            stderr: 'pipe',
+        })
+        const [stdout, code] = await Promise.all([new Response(child.stdout).text(), child.exited])
+        expect(stdout).toBe('beside start --data ./d\n')
+        expect(code).toBe(3)
+    })
     test.skipIf(process.platform === 'win32')('zega explorer serves the page embedded in the executable, on a database server it starts, and stops it again', async () => {
         const data = path.join(dir, 'explorer-data')
         const cli = startCli(['explorer', '--human', '--port', '0', '--server', FAKE_SERVER, '--data', data], { cwd: dir, home: dir, command: [exe] })
