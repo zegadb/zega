@@ -273,7 +273,12 @@ jobs:
         with:
           toolchain: '1.96.0'
           components: clippy
-      - uses: actions/setup-python@v6
+      # The NixOS host runners have python3 3.13 and setup-python has no NixOS
+      # builds; it only runs where python3 is missing or too old for tomllib.
+      - id: python
+        run: python3 -c 'import tomllib' 2>/dev/null && echo "ready=true" >> "$GITHUB_OUTPUT" || echo "ready=false" >> "$GITHUB_OUTPUT"
+      - if: steps.python.outputs.ready != 'true'
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - uses: ./.github/actions/rust-cache
