@@ -340,14 +340,16 @@ jobs:
       - name: Smoke test the built CLI
         run: python3 scripts/smoke-cli.py ".target/release/zega-server${EXTENSION}"
       - name: Prepare native artifact
-        # An arm64 PR leg tests only; its binary isn't the linux-x64 artifact.
-        if: runner.arch != 'ARM64'
+        # Only a canary publishes the binaries, so only a tag run hands them on
+        # (no GitHub artifacts otherwise, Sami 31 Oct). An arm64 PR leg tests
+        # only; its binary isn't the linux-x64 artifact.
+        if: needs.resolve.outputs.tag != '' && runner.arch != 'ARM64'
         run: |
           mkdir -p artifacts/native
           artifact_name=$(python3 scripts/channels.py artifact-name "$PLATFORM")
           cp ".target/release/zega-server${EXTENSION}" "artifacts/native/${artifact_name}"
       - uses: actions/upload-artifact@v4
-        if: runner.arch != 'ARM64'
+        if: needs.resolve.outputs.tag != '' && runner.arch != 'ARM64'
         with:
           name: native-${{ matrix.platform }}
           path: artifacts/native/
