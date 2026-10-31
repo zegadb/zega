@@ -41,7 +41,7 @@ permissions:
 jobs:
   zega-g:
     name: zega-g image (linux/amd64, Fly)
-    runs-on: ubuntu-latest
+    runs-on: host-linux-x64 # temporary (Sami, 31 Oct), as in the zega job below
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
@@ -69,10 +69,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # host-* runners are temporary (Sami, 31 Oct): arm64 builds natively in
+          # [simien]'s Docker (Colima) until a mirab VM has Docker (mirab#59).
           - platform: linux/amd64
-            runner: ubuntu-24.04
+            runner: host-linux-x64
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
+            runner: host-macos-arm64
     runs-on: ${{ matrix.runner }}
     environment: public-ci
     steps:

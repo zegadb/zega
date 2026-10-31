@@ -143,10 +143,12 @@ jobs:
           PLATFORM_CHANGED: ${{ needs.changes.outputs.platform }}
         run: |
           set -euo pipefail
+          # host-* runners are temporary (Sami, 31 Oct: no hosted minutes until
+          # 1 Nov) until mirab VMs cover these platforms (APS 11).
           full='[
-            {"platform":"linux-x64","runner":"ubuntu-latest","sccache_bucket":"zega-sccache-linux-x64","extension":""},
-            {"platform":"darwin-arm64","runner":"macos-15","sccache_bucket":"zega-sccache-darwin-arm64","extension":""},
-            {"platform":"darwin-x64","runner":"macos-15-intel","sccache_bucket":"zega-sccache-darwin-x64","extension":""}
+            {"platform":"linux-x64","runner":"host-linux-x64","sccache_bucket":"zega-sccache-linux-x64","extension":""},
+            {"platform":"darwin-arm64","runner":"host-macos-arm64","sccache_bucket":"zega-sccache-darwin-arm64","extension":""},
+            {"platform":"darwin-x64","runner":"host-macos-x64","sccache_bucket":"zega-sccache-darwin-x64","extension":""}
           ]'
           # A PR's linux leg tests on our arm64 runners (APS 11). It keeps the
           # linux-x64 platform name for its steps; its binary is never uploaded
@@ -178,7 +180,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: ubuntu-latest
+          - runner: host-linux-x64 # temporary, as in plan's matrix
             sccache_bucket: zega-sccache-linux-x64
     env:
       RUSTC_WRAPPER: sccache
@@ -302,7 +304,8 @@ jobs:
           cargo build --locked -p zega-cli
           cd browser
           npm ci
-          npx playwright install --with-deps chromium
+          # The host runners have no apt-get or sudo; their system libraries come with the host.
+          if command -v apt-get >/dev/null; then npx playwright install --with-deps chromium; else npx playwright install chromium; fi
           npm run test:cli
       - name: Test the npm client against the real zega-server
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'

@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   bench:
-    runs-on: ubuntu-latest
+    runs-on: host-linux-x64 # temporary (Sami, 31 Oct): no hosted minutes until 1 Nov
     environment: public-ci
     env:
       RUSTC_WRAPPER: sccache
