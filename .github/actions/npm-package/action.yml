@@ -28,7 +28,8 @@ runs:
       run: npm ci --ignore-scripts --no-audit --no-fund
     - name: Install browser for actual WASM execution
       shell: bash
-      run: npx --no-install playwright install --with-deps chromium
+      # The host runners have no apt-get or sudo; their system libraries come with the host.
+      run: if command -v apt-get >/dev/null; then npx --no-install playwright install --with-deps chromium; else npx --no-install playwright install chromium; fi
     - name: Build and pack
       shell: bash
       env:
