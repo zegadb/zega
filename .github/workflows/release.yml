@@ -287,11 +287,12 @@ jobs:
         run: |
           cargo check --locked --workspace --all-targets
           cargo clippy --locked --workspace --all-targets --all-features
-          cargo test --locked --workspace
           # APS 54: Storage::Sqlite is off by default, so its tests (and the
           # file-vs-SQLite comparisons in zega/tests/storage.rs) only build
-          # with the feature. Without this line they would never run.
-          cargo test --locked -p zega --features sqlite
+          # with the feature. It only adds code (nothing is gated on it being
+          # off), so one run with it covers both; a second run without it
+          # repeated every zega test (~17 minutes).
+          cargo test --locked --workspace --features zega/sqlite
       # The browser build (zega-wasm, vendored in browser/pkg) compiles the
       # engine for wasm32, where native-only code must be gated out.
       - name: Check the engine for wasm
