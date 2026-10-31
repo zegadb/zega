@@ -36,7 +36,7 @@ try {
   const version = '1.2.3-canary.abcdef0';
   const packed = await packServer(release, version, join(work, 'out'));
   assert.deepEqual(packed.map(pack => pack.name), [
-    '@zegadb/server-darwin-arm64', '@zegadb/server-darwin-x64', '@zegadb/server-linux-x64', '@zegadb/server-win32-x64',
+    '@zegadb/server-darwin-arm64', '@zegadb/server-darwin-x64', '@zegadb/server-linux-x64',
   ]);
   for (const [index, platform] of PLATFORMS.entries()) {
     const tarball = join(work, 'out', packed[index].filename);

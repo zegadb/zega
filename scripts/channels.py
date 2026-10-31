@@ -18,7 +18,9 @@ import tomllib
 CANARY = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-canary-([0-9a-f]{7})")
 BUCKETS = ("zega-releases", "zega-wasm")
 METADATA = ("manifest.json", "release.json")
-NATIVE_PLATFORMS = ("linux-x64", "darwin-arm64", "darwin-x64", "windows-x64")
+# windows-x64 is paused (Sami, 30 Oct): no Windows runner for now. native_artifact keeps its
+# .exe rule so putting it back is this one tuple, release.yml's matrix and npm/pack-server.mjs.
+NATIVE_PLATFORMS = ("linux-x64", "darwin-arm64", "darwin-x64")
 
 
 def run(*args):
