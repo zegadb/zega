@@ -18,7 +18,7 @@ permissions:
 jobs:
   package-proof:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: host-linux-x64 # temporary (Sami, 31 Oct): no hosted minutes until 1 Nov; publish stays hosted (OIDC)
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

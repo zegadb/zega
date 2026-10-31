@@ -12,7 +12,7 @@ concurrency:
 jobs:
   tests:
     # The repository is private: the org's own runners, selected as in zegadb/cloud and zegadb/dashboard.
-    runs-on: [self-hosted, web]
+    runs-on: mirab-linux-arm64 # APS 11: a fresh VM per job on our runners
     timeout-minutes: 15
     env:
       TMPDIR: ${{ github.workspace }}/.tmp
