@@ -162,6 +162,9 @@ impl ZegaBuilder {
         ZegaBuilder { storage, ..self }
     }
 
+    /// How long a write waits for others to share its fsync. 0, the default,
+    /// syncs as soon as a write is waiting: writes that arrive during a sync
+    /// share the next one.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn wal_flush_interval(self, ms: u64) -> Self {
         ZegaBuilder {
@@ -274,7 +277,7 @@ impl Zega {
             Storage::File => Wal::with_group_commit(
                 &wal_path,
                 builder.wal_flush_every,
-                std::time::Duration::from_millis(builder.wal_flush_interval_ms.unwrap_or(5)),
+                std::time::Duration::from_millis(builder.wal_flush_interval_ms.unwrap_or(0)),
                 64,
             )?,
             #[cfg(feature = "sqlite")]
