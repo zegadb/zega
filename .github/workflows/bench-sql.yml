@@ -62,13 +62,13 @@ jobs:
         run: cargo build --locked --release -p zega-cli
       - name: Install psycopg and pull the image
         run: |
-          python -m pip install --quiet 'psycopg[binary]==3.2.10'
+          python3 -m pip install --quiet 'psycopg[binary]==3.2.10'
           docker pull --quiet "$IMAGE"
       - name: Run the benchmark
         run: |
           set -euo pipefail
           mkdir -p .tmp
-          TMPDIR="$PWD/.tmp" python zega-bench/sql/bench.py --zega-server .target/release/zega-server \
+          TMPDIR="$PWD/.tmp" python3 zega-bench/sql/bench.py --zega-server .target/release/zega-server \
             --image "$IMAGE" --writes "$WRITES" --reads "$READS" --out bench.json | tee bench.md
           {
             echo "## Zega + SQLite against Zega + Postgres"
