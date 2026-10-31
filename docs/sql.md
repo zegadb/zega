@@ -5,10 +5,10 @@ APS 54 (SQL and the graph in one database) and APS 52 (deliveries).
 ## SQLite storage
 
 ```sh
-zega-server start --data ./zega-data --storage sqlite
+zega-server start --data ./zega-data
 ```
 
-A new data directory created with `--storage sqlite` keeps its log as rows of `zega.db` (Turso's Rust SQLite) instead of in `wal.bin`. The directory keeps that storage from then on: later starts, `export` and `import` need no flag, and asking for the other storage is refused. In Rust: `Zega::open(path).storage(Storage::Sqlite)`.
+SQLite is the default: a new data directory keeps its log as rows of `zega.db` (Turso's Rust SQLite). `--storage file` creates one with the older `wal.bin` log instead. A directory keeps the storage it was created with: later starts, `export` and `import` need no flag, and asking for the other storage is refused, so existing `wal.bin` databases keep working as they are. In Rust the crate's default is still the file log; ask for SQLite with `Zega::open(path).storage(Storage::Sqlite)` (feature `sqlite`).
 
 To back up a SQLite-storage database, copy **`zega.db` and `graphs/`** together. The log's first entry names a checkpoint file in `graphs/`.
 
