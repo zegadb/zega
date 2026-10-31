@@ -143,11 +143,12 @@ jobs:
           PLATFORM_CHANGED: ${{ needs.changes.outputs.platform }}
         run: |
           set -euo pipefail
+          # host-* runners are temporary (Sami, 31 Oct: no hosted minutes until
+          # 1 Nov) until mirab VMs cover these platforms (APS 11).
           full='[
-            {"platform":"linux-x64","runner":"ubuntu-latest","sccache_bucket":"zega-sccache-linux-x64","extension":""},
-            {"platform":"darwin-arm64","runner":"macos-15","sccache_bucket":"zega-sccache-darwin-arm64","extension":""},
-            {"platform":"darwin-x64","runner":"macos-15-intel","sccache_bucket":"zega-sccache-darwin-x64","extension":""},
-            {"platform":"windows-x64","runner":"windows-latest","sccache_bucket":"zega-sccache-windows-x64","extension":".exe"}
+            {"platform":"linux-x64","runner":"host-linux-x64","sccache_bucket":"zega-sccache-linux-x64","extension":""},
+            {"platform":"darwin-arm64","runner":"host-macos-arm64","sccache_bucket":"zega-sccache-darwin-arm64","extension":""},
+            {"platform":"darwin-x64","runner":"host-macos-x64","sccache_bucket":"zega-sccache-darwin-x64","extension":""}
           ]'
           # A PR's linux leg tests on our arm64 runners (APS 11). It keeps the
           # linux-x64 platform name for its steps; its binary is never uploaded
@@ -179,7 +180,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: ubuntu-latest
+          - runner: host-linux-x64 # temporary, as in plan's matrix
             sccache_bucket: zega-sccache-linux-x64
     env:
       RUSTC_WRAPPER: sccache
@@ -272,7 +273,12 @@ jobs:
         with:
           toolchain: '1.96.0'
           components: clippy
-      - uses: actions/setup-python@v6
+      # The NixOS host runners have python3 3.13 and setup-python has no NixOS
+      # builds; it only runs where python3 is missing or too old for tomllib.
+      - id: python
+        run: python3 -c 'import tomllib' 2>/dev/null && echo "ready=true" >> "$GITHUB_OUTPUT" || echo "ready=false" >> "$GITHUB_OUTPUT"
+      - if: steps.python.outputs.ready != 'true'
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - uses: ./.github/actions/rust-cache
@@ -303,7 +309,8 @@ jobs:
           cargo build --locked -p zega-cli
           cd browser
           npm ci
-          npx playwright install --with-deps chromium
+          # The host runners have no apt-get or sudo; their system libraries come with the host.
+          if command -v apt-get >/dev/null; then npx playwright install --with-deps chromium; else npx playwright install chromium; fi
           npm run test:cli
       - name: Test the npm client against the real zega-server
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
@@ -317,13 +324,15 @@ jobs:
           # Only files git tracks: build output and test reports (Playwright's
           # test-results/, node_modules/, .target/) are not canonical sources.
           git ls-files -z -- '*.zql' '*.json' | xargs -0 ".target/release/zega-server${EXTENSION}" fmt --check
-          python scripts/fmt-samples.py ".target/release/zega-server${EXTENSION}" --check --extract .tmp/samples
+          python3 scripts/fmt-samples.py ".target/release/zega-server${EXTENSION}" --check --extract .tmp/samples
       - uses: actions/checkout@v5
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
         with:
           repository: zegadb/testsuite
           ref: 206aec6c2dd9cbbc3552e4cfbf78b7b45043b96a
           path: .tmp/testsuite
+          # testsuite is private: a read-only deploy key on it, kept in public-ci.
+          ssh-key: ${{ secrets.TESTSUITE_DEPLOY_KEY }}
           persist-credentials: false
       - name: Prove formatter AST equality and idempotence across the corpus and samples
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
@@ -331,16 +340,18 @@ jobs:
           cp -R .tmp/testsuite/tests .tmp/corpus
           cargo test --locked -p zega --lib fmt:: -- --ignored --nocapture
       - name: Smoke test the built CLI
-        run: python scripts/smoke-cli.py ".target/release/zega-server${EXTENSION}"
+        run: python3 scripts/smoke-cli.py ".target/release/zega-server${EXTENSION}"
       - name: Prepare native artifact
-        # An arm64 PR leg tests only; its binary isn't the linux-x64 artifact.
-        if: runner.arch != 'ARM64'
+        # Only a canary publishes the binaries, so only a tag run hands them on
+        # (no GitHub artifacts otherwise, Sami 31 Oct). An arm64 PR leg tests
+        # only; its binary isn't the linux-x64 artifact.
+        if: needs.resolve.outputs.tag != '' && runner.arch != 'ARM64'
         run: |
           mkdir -p artifacts/native
-          artifact_name=$(python scripts/channels.py artifact-name "$PLATFORM")
+          artifact_name=$(python3 scripts/channels.py artifact-name "$PLATFORM")
           cp ".target/release/zega-server${EXTENSION}" "artifacts/native/${artifact_name}"
       - uses: actions/upload-artifact@v4
-        if: runner.arch != 'ARM64'
+        if: needs.resolve.outputs.tag != '' && runner.arch != 'ARM64'
         with:
           name: native-${{ matrix.platform }}
           path: artifacts/native/

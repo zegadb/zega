@@ -41,7 +41,7 @@ permissions:
 jobs:
   zega-g:
     name: zega-g image (linux/amd64, Fly)
-    runs-on: ubuntu-latest
+    runs-on: host-linux-x64 # temporary (Sami, 31 Oct), as in the zega job below
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
@@ -69,12 +69,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # host-* runners are temporary (Sami, 31 Oct). arm64 builds under QEMU
+          # on the Linux hosts (slow; [simien]'s Docker has too little memory for
+          # a release build) until a mirab VM has Docker (mirab#59).
           - platform: linux/amd64
-            runner: ubuntu-24.04
+            runner: host-linux-x64
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
+            runner: host-linux-x64
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
     environment: public-ci
+    env:
+      # The host runners share one Docker daemon: tag, container and port are this job's own.
+      IMAGE: zega-ci:${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
+      CONTAINER: zega-ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -88,17 +96,24 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: false
           load: true
-          tags: zega:ci
-          cache-from: type=gha,scope=zega-${{ matrix.runner }}
-          cache-to: type=gha,mode=max,scope=zega-${{ matrix.runner }}
+          tags: ${{ env.IMAGE }}
+          cache-from: type=gha,scope=zega-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=zega-${{ matrix.platform }}
       - name: It starts and answers on ${{ matrix.platform }}
         run: |
-          test "$(docker image inspect zega:ci --format '{{.Os}}/{{.Architecture}}')" = "${{ matrix.platform }}"
-          docker run -d --name zega-ci -e ZEGA_TOKEN=ci-token -p 9342:9342 zega:ci
-          for _ in $(seq 1 30); do
-            if curl -fsS -H "Authorization: Bearer ci-token" http://127.0.0.1:9342/health; then
-              echo; echo "zega:ci (${{ matrix.platform }}) serves"; exit 0
+          test "$(docker image inspect "$IMAGE" --format '{{.Os}}/{{.Architecture}}')" = "${{ matrix.platform }}"
+          docker run -d --name "$CONTAINER" -e ZEGA_TOKEN=ci-token -p 127.0.0.1::9342 "$IMAGE"
+          port=$(docker port "$CONTAINER" 9342/tcp | head -1 | sed 's/.*://')
+          # Emulated (arm64 on an x64 host) it starts slower.
+          for _ in $(seq 1 90); do
+            if curl -fsS -H "Authorization: Bearer ci-token" "http://127.0.0.1:$port/health"; then
+              echo; echo "$IMAGE (${{ matrix.platform }}) serves"; exit 0
             fi
             sleep 2
           done
-          docker logs zega-ci; exit 1
+          docker logs "$CONTAINER"; exit 1
+      - name: Remove this job's container and image
+        if: always()
+        run: |
+          docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+          docker image rm "$IMAGE" >/dev/null 2>&1 || true
