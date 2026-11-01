@@ -490,9 +490,20 @@ async fn readers_never_observe_half_a_zql_document() {
 
 /// zegadb/zega#63: the server's own limit, as `zega-server start` sets it. The
 /// traversal budget is lifted so that the limit, not the budget, is what
-/// stops the slow reads below.
-async fn start_limited_server() -> TestServer {
+/// stops the slow reads below. Its data starts with `stops` stops, written
+/// before the limit applies: loading them through the server could hit the
+/// very limit under test on a busy machine, failing the setup instead.
+async fn start_limited_server(stops: usize) -> TestServer {
     let data = tempfile::tempdir().unwrap();
+    {
+        let seed = Zega::open(data.path().to_str().unwrap()).build().unwrap();
+        let rows: Vec<String> = (0..stops)
+            .map(|i| format!(r#"{{"name":"s{i}","at":{{"lat":51.05,"lon":-114.07}}}}"#))
+            .collect();
+        let sources = std::collections::HashMap::from([("stops.json".to_string(), format!("[{}]", rows.join(",")))]);
+        seed.run_lang_with_sources(STOPS, r#"mutation json ["stops.json"] { Stop(name: $name && at: $at) }"#, &sources)
+            .unwrap();
+    }
     let zega = Zega::open(data.path().to_str().unwrap())
         .traversal_work_budget(usize::MAX)
         .query_time_limit(zega_server::DEFAULT_QUERY_TIME_LIMIT)
@@ -515,26 +526,6 @@ async fn start_limited_server() -> TestServer {
 
 const STOPS: &str = "type Stop { name: String at: Point seen?: Int }";
 
-/// `n` stops at one place, loaded through the server.
-async fn load_stops(client: &Client, server: &TestServer, n: usize) {
-    let rows: Vec<String> = (0..n)
-        .map(|i| format!(r#"{{"name":"s{i}","at":{{"lat":51.05,"lon":-114.07}}}}"#))
-        .collect();
-    let body: Value = post(client, server)
-        .json(&json!({
-            "schema": STOPS,
-            "query": r#"mutation json ["stops.json"] { Stop(name: $name && at: $at) }"#,
-            "sources": {"stops.json": format!("[{}]", rows.join(","))},
-        }))
-        .send()
-        .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap();
-    assert_eq!(body["ok"], true, "{body}");
-}
-
 /// Every pair of 4,000 stops: about 19 s in a debug build, unbounded.
 const PAIRS: &str = "query { Stop } display { skip } then { near { &at < 0 m } }";
 
@@ -548,9 +539,8 @@ fn assert_time_limit(status: StatusCode, body: &Value) {
 
 #[tokio::test]
 async fn a_slow_query_gets_the_time_limit_error_at_about_two_seconds() {
-    let server = start_limited_server().await;
+    let server = start_limited_server(4_000).await;
     let client = Client::new();
-    load_stops(&client, &server, 4_000).await;
     let started = std::time::Instant::now();
     let response = post(&client, &server)
         .json(&json!({"schema": STOPS, "query": PAIRS}))
@@ -568,9 +558,8 @@ async fn a_slow_query_gets_the_time_limit_error_at_about_two_seconds() {
 
 #[tokio::test]
 async fn a_mutation_that_hits_the_time_limit_writes_nothing() {
-    let server = start_limited_server().await;
+    let server = start_limited_server(8_000).await;
     let client = Client::new();
-    load_stops(&client, &server, 8_000).await;
     // Each row finds its stop by an unindexed name: every row scans every stop.
     let rows: Vec<String> = (0..8_000).map(|i| format!(r#"{{"n":{i},"stop":"s{i}"}}"#)).collect();
     let response = post(&client, &server)
@@ -597,9 +586,8 @@ async fn a_mutation_that_hits_the_time_limit_writes_nothing() {
 
 #[tokio::test]
 async fn fast_requests_keep_answering_while_a_slow_one_times_out() {
-    let server = start_limited_server().await;
+    let server = start_limited_server(4_000).await;
     let client = Client::new();
-    load_stops(&client, &server, 4_000).await;
     let started = std::time::Instant::now();
     let slow = tokio::spawn({
         let request = post(&client, &server).json(&json!({"schema": STOPS, "query": PAIRS}));
@@ -642,9 +630,8 @@ async fn fast_requests_keep_answering_while_a_slow_one_times_out() {
 
 #[tokio::test]
 async fn a_query_inside_the_limit_is_not_affected() {
-    let server = start_limited_server().await;
+    let server = start_limited_server(300).await;
     let client = Client::new();
-    load_stops(&client, &server, 300).await;
     let body: Value = post(&client, &server)
         .json(&json!({"schema": STOPS, "query": PAIRS}))
         .send()
@@ -1367,9 +1354,8 @@ async fn query_is_served_on_zql_only() {
 
 #[tokio::test]
 async fn a_slow_query_over_query_gets_the_time_limit_error_as_a_422() {
-    let server = start_limited_server().await;
+    let server = start_limited_server(4_000).await;
     let client = Client::new();
-    load_stops(&client, &server, 4_000).await;
     let response = query_json(&client, &server, &json!({"schema": STOPS, "query": PAIRS})).send().await.unwrap();
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(
