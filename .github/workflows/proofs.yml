@@ -1,0 +1,45 @@
+name: Timing proofs
+# linked_proof's timing proofs (APS 39): a latency ratio (10k leases must not
+# slow source writes by more than 25%) and a push deadline (an update arrives
+# by push within 6 s). They measure the machine as much as the code, and on
+# shared host runners they failed on load alone, blocking unrelated PRs, so
+# release.yml skips them and they run here: nightly, before the 09:00 UTC
+# canary, and on demand. A failure here is a regression to look at before
+# promoting, not a PR gate.
+on:
+  schedule:
+    - cron: '30 7 * * *' # 07:30 UTC, ahead of the 09:00 canary (tag-canary.yml)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: timing-proofs
+  cancel-in-progress: false
+
+jobs:
+  linked-proof:
+    runs-on: host-linux-x64 # temporary (Sami, 31 Oct), as release.yml's linux leg
+    environment: public-ci
+    timeout-minutes: 60
+    env:
+      RUSTC_WRAPPER: sccache
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      SCCACHE_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      SCCACHE_REGION: auto
+      SCCACHE_BUCKET: zega-sccache-linux-x64
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.target
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: '1.96.0'
+      - uses: ./.github/actions/rust-cache
+      # Every scenario, the timing ones included; --nocapture keeps each PROOF line in the log.
+      - run: cargo test --locked -p zega-server --test linked_proof -- --nocapture

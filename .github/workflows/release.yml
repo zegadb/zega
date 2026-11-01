@@ -310,7 +310,12 @@ jobs:
           # with the feature. It only adds code (nothing is gated on it being
           # off), so one run with it covers both; a second run without it
           # repeated every zega test (~17 minutes).
-          cargo test --locked --workspace --features zega/sqlite
+          # linked_proof's two timing proofs (a latency ratio and a push deadline)
+          # run nightly on their own (proofs.yml): on shared host runners they
+          # failed on load alone, blocking unrelated PRs.
+          cargo test --locked --workspace --features zega/sqlite -- \
+            --skip g_ten_thousand_leases_do_not_slow_source_writes \
+            --skip b_update_arrives_by_push_within_six_seconds
       # The browser build (zega-wasm, vendored in browser/pkg) compiles the
       # engine for wasm32, where native-only code must be gated out.
       - name: Check the engine for wasm
@@ -341,8 +346,10 @@ jobs:
       - name: Check canonical ZQL/JSON files and embedded samples
         run: |
           # Only files git tracks: build output and test reports (Playwright's
-          # test-results/, node_modules/, .target/) are not canonical sources.
-          git ls-files -z -- '*.zql' '*.json' | xargs -0 ".target/release/zega-server${EXTENSION}" fmt --check
+          # test-results/, node_modules/, .target/) are not canonical sources,
+          # and neither is the CLI's own JSON (cli/: package.json, its OpenAPI
+          # document, test fixtures).
+          git ls-files -z -- '*.zql' '*.json' ':!cli/**' | xargs -0 ".target/release/zega-server${EXTENSION}" fmt --check
           python3 scripts/fmt-samples.py ".target/release/zega-server${EXTENSION}" --check --extract .tmp/samples
       - uses: actions/checkout@v5
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
