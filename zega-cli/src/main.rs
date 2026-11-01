@@ -77,9 +77,9 @@ enum Command {
         /// automatic checkpoints off.
         #[arg(long, value_name = "MIB", default_value_t = zega::DEFAULT_SNAPSHOT_EVERY_BYTES >> 20)]
         snapshot_every_mb: u64,
-        /// Where a new database keeps its log: `file` (wal.bin) or `sqlite`
-        /// (zega.db, APS 54). An existing database keeps the storage it was
-        /// created with.
+        /// Where a new database keeps its log: `sqlite` (zega.db, APS 54; the
+        /// default) or `file` (wal.bin). An existing database keeps the
+        /// storage it was created with.
         #[arg(long, value_enum)]
         storage: Option<StorageArg>,
     },
@@ -138,9 +138,9 @@ enum Command {
         /// automatic checkpoints off.
         #[arg(long, value_name = "MIB", default_value_t = zega::DEFAULT_SNAPSHOT_EVERY_BYTES >> 20)]
         snapshot_every_mb: u64,
-        /// Where a new database keeps its log: `file` (wal.bin) or `sqlite`
-        /// (zega.db, APS 54). An existing database keeps the storage it was
-        /// created with.
+        /// Where a new database keeps its log: `sqlite` (zega.db, APS 54; the
+        /// default) or `file` (wal.bin). An existing database keeps the
+        /// storage it was created with.
         #[arg(long, value_enum)]
         storage: Option<StorageArg>,
     },
@@ -357,12 +357,12 @@ enum StorageArg {
 }
 
 /// The storage to open `data` with: what was asked for, else what the
-/// directory already holds, else the file log.
+/// directory already holds, else SQLite (Zega+SQLite is the default).
 fn storage(data: &Path, asked: Option<StorageArg>) -> Storage {
     match asked {
         Some(StorageArg::File) => Storage::File,
         Some(StorageArg::Sqlite) => Storage::Sqlite,
-        None => Storage::of(data).unwrap_or_default(),
+        None => Storage::of(data).unwrap_or(Storage::Sqlite),
     }
 }
 

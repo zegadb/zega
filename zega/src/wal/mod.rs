@@ -388,8 +388,10 @@ impl Wal {
                 self.group.wake.notify_all();
                 return Ok(());
             }
-            if state.pending_entries >= self.group.batch_size {
-                self.group.wake.notify_one();
+            // The flusher waits for a full batch, or with a zero interval for
+            // any entry. All: writers wait on the same condvar.
+            if state.pending_entries >= self.group.batch_size || self.group.interval.is_zero() {
+                self.group.wake.notify_all();
             }
             while state.durable_sequence < sequence {
                 state =
@@ -1105,8 +1107,11 @@ fn group_commit_worker(group: Arc<GroupCommit>) {
             Ok(state) => state,
             Err(_) => return,
         };
-        while !state.shutdown && state.pending_entries < group.batch_size {
-            let result = group.wake.wait_timeout(state, group.interval);
+        // A zero interval syncs whatever is pending; the wait only parks the
+        // flusher while nothing is.
+        let enough = |pending: usize| pending >= group.batch_size || (group.interval.is_zero() && pending > 0);
+        while !state.shutdown && !enough(state.pending_entries) {
+            let result = group.wake.wait_timeout(state, group.interval.max(Duration::from_millis(5)));
             match result {
                 Ok((next, timeout)) => {
                     state = next;

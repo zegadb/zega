@@ -130,6 +130,18 @@ fn start_loads_local_json_and_persists_across_process_restart() {
     assert_eq!(server.request("POST", "/cql", None, None).0, 404);
 }
 
+/// Zega+SQLite is the default: a new data directory with no --storage keeps
+/// its log in zega.db, and the SQL routes answer.
+#[test]
+fn a_new_database_is_sqlite_without_a_flag() {
+    let directory = tempfile::tempdir().unwrap();
+    let db = directory.path().join("db");
+    let server = Running::start("start", directory.path(), &[]);
+    let (status, body, _) = server.request("POST", "/sql", Some(json!({"sql": "CREATE TABLE t (id INTEGER PRIMARY KEY)"})), None);
+    assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
+    assert!(db.join("zega.db").exists() && !db.join("wal.bin").exists());
+}
+
 #[test]
 fn storage_sqlite_is_chosen_once_and_kept_across_restarts() {
     let directory = tempfile::tempdir().unwrap();
@@ -532,7 +544,8 @@ fn kill_9_under_write_load_loses_no_acknowledged_write_and_always_reopens() {
 
     const WRITERS: usize = 4;
     let directory = tempfile::tempdir().unwrap();
-    let args = ["--snapshot-every-mb", "1"];
+    // The file log's crash behaviour (wal.bin, its checkpoints); SQLite is the default.
+    let args = ["--snapshot-every-mb", "1", "--storage", "file"];
     let pad = "x".repeat(96 * 1024);
     let load = Arc::new(Mutex::new(Load::default()));
     {
