@@ -2,7 +2,7 @@
 name = "zega-wasm"
 version = "0.2.3"
 edition = "2021"
-license = "Apache-2.0"
+license = "MIT"
 repository = "https://github.com/zegadb/zega"
 
 # Standalone workspace: excluded from the root workspace so the wasm build

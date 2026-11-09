@@ -74,7 +74,7 @@ export async function packServer(releaseDir, version, outDir) {
       os: [platform.os],
       cpu: [platform.cpu],
       files: [`bin/${platform.bin}`],
-      license: 'Apache-2.0',
+      license: 'MIT',
       repository: { type: 'git', url: 'git+https://github.com/zegadb/zega.git', directory: 'npm' },
       homepage: 'https://github.com/zegadb/zega#readme',
       bugs: 'https://github.com/zegadb/zega/issues',

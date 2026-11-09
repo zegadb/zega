@@ -49,7 +49,7 @@
     "cli"
   ],
   "author": "Sami Fouad",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.0",
     "chalk": "6.0.1",

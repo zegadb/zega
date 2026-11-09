@@ -6,7 +6,7 @@ exclude = ["zega-wasm"]
 [workspace.package]
 version = "0.2.3"
 edition = "2021"
-license = "Apache-2.0"
+license = "MIT"
 repository = "https://github.com/zegadb/zega"
 
 [workspace.dependencies]

@@ -441,7 +441,7 @@ Bolt compatibility yet), and there is no REPL.
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 NOTICE: the explorer's Flights sample (`browser/samples/flights*.csv`) contains
 information from [OpenFlights](https://openflights.org/data.php), made
