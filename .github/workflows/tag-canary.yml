@@ -19,20 +19,15 @@ jobs:
   guards:
     name: Prove promoted-version and duplicate-tag refusals
     # Light: unittest + cargo metadata, no build.
-    # Temporary (addiscorp/infra#34): [simien] no longer hosts mirab VMs. Back to
-    # a fresh mirab VM, mirab-linux-x64 (APS 11), once x86 mirab VMs have capacity.
-    runs-on: host-linux-x64
+    # Public repo: self-hosted runners refuse public repos (a fork PR must never
+    # run on our machines); GitHub-hosted runners are free here (addiscorp/infra#34).
+    runs-on: ubuntu-24.04
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      # The NixOS host runners have python3 3.13 and setup-python has no NixOS
-      # builds; it only runs where python3 is missing or too old for tomllib.
-      - id: python
-        run: python3 -c 'import tomllib' 2>/dev/null && echo "ready=true" >> "$GITHUB_OUTPUT" || echo "ready=false" >> "$GITHUB_OUTPUT"
-      - if: steps.python.outputs.ready != 'true'
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: python3 -m unittest -v scripts.test_channels.TagGuards

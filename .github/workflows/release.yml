@@ -25,7 +25,7 @@ env:
 jobs:
   resolve:
     # Light: ref/version bookkeeping, no compilation.
-    runs-on: host-linux-x64 # temporary (addiscorp/infra#34): mirab-linux-x64 (APS 11) once x86 mirab VMs have capacity
+    runs-on: ubuntu-24.04 # public repo: GitHub-hosted (addiscorp/infra#34)
     environment: public-ci
     outputs:
       tag: ${{ steps.ref.outputs.tag }}
@@ -80,7 +80,7 @@ jobs:
   changes:
     if: github.event_name == 'pull_request'
     # Light: a file-list diff, no checkout, no compilation.
-    runs-on: host-linux-x64 # temporary (addiscorp/infra#34): mirab-linux-x64 (APS 11) once x86 mirab VMs have capacity
+    runs-on: ubuntu-24.04 # public repo: GitHub-hosted (addiscorp/infra#34)
     environment: public-ci
     # dorny/paths-filter fetches the PR's changed files from the REST API on
     # a pull_request event (no checkout needed), which needs this scope.
@@ -130,7 +130,7 @@ jobs:
     # explicit check on `resolve` keeps this running whenever resolve itself
     # didn't fail.
     if: always() && needs.resolve.result == 'success'
-    runs-on: host-linux-x64 # temporary (addiscorp/infra#34): mirab-linux-x64 (APS 11) once x86 mirab VMs have capacity
+    runs-on: ubuntu-24.04 # public repo: GitHub-hosted (addiscorp/infra#34)
     environment: public-ci
     outputs:
       run_native: ${{ steps.plan.outputs.run_native }}
@@ -143,20 +143,18 @@ jobs:
           PLATFORM_CHANGED: ${{ needs.changes.outputs.platform }}
         run: |
           set -euo pipefail
-          # host-* runners are temporary (Sami, 31 Oct: no hosted minutes until
-          # 1 Nov) until mirab VMs cover these platforms (APS 11).
+          # GitHub-hosted: this repo is public and self-hosted runners refuse
+          # public repos (a fork PR must never run on our machines); hosted
+          # runners are free for public repos (addiscorp/infra#34).
           full='[
-            {"platform":"linux-x64","runner":"host-linux-x64","sccache_bucket":"zega-sccache-linux-x64","extension":""},
-            {"platform":"darwin-arm64","runner":"host-macos-arm64","sccache_bucket":"zega-sccache-darwin-arm64","extension":""},
-            {"platform":"darwin-x64","runner":"host-macos-x64","sccache_bucket":"zega-sccache-darwin-x64","extension":""}
+            {"platform":"linux-x64","runner":"ubuntu-24.04","sccache_bucket":"zega-sccache-linux-x64","extension":""},
+            {"platform":"darwin-arm64","runner":"macos-15","sccache_bucket":"zega-sccache-darwin-arm64","extension":""},
+            {"platform":"darwin-x64","runner":"macos-15-intel","sccache_bucket":"zega-sccache-darwin-x64","extension":""}
           ]'
-          # A PR's linux leg runs on the same host-linux-x64 runners as the
-          # shipping leg (addiscorp/infra#34: [simien] no longer hosts mirab VMs;
-          # mirab-linux-x64, APS 11, once x86 mirab VMs have capacity). Its
-          # binary is never uploaded (a PR doesn't ship). Shipping builds (tags,
-          # dispatch) use `full`.
+          # A PR's linux leg is the shipping linux-x64 leg; its binary is never
+          # uploaded (a PR doesn't ship). Shipping builds (tags, dispatch) use `full`.
           linux_only='[
-            {"platform":"linux-x64","runner":"host-linux-x64","sccache_bucket":"zega-sccache-linux-x64","extension":""}
+            {"platform":"linux-x64","runner":"ubuntu-24.04","sccache_bucket":"zega-sccache-linux-x64","extension":""}
           ]'
           if [ "$FULL_MATRIX" = true ]; then
             run_native=true; matrix="$full"
@@ -184,7 +182,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: host-linux-x64 # temporary, as in plan's matrix
+          - runner: ubuntu-24.04 # GitHub-hosted, as in plan's matrix
             sccache_bucket: zega-sccache-linux-x64
     env:
       RUSTC_WRAPPER: sccache
@@ -231,7 +229,7 @@ jobs:
   # WASM, installing browsers, or using R2 credentials.
   package-types:
     if: github.event_name == 'pull_request'
-    runs-on: host-linux-x64 # temporary (addiscorp/infra#34): mirab-linux-x64 (APS 11) once x86 mirab VMs have capacity
+    runs-on: ubuntu-24.04 # public repo: GitHub-hosted (addiscorp/infra#34)
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
@@ -293,12 +291,7 @@ jobs:
         with:
           toolchain: '1.96.0'
           components: clippy
-      # The NixOS host runners have python3 3.13 and setup-python has no NixOS
-      # builds; it only runs where python3 is missing or too old for tomllib.
-      - id: python
-        run: python3 -c 'import tomllib' 2>/dev/null && echo "ready=true" >> "$GITHUB_OUTPUT" || echo "ready=false" >> "$GITHUB_OUTPUT"
-      - if: steps.python.outputs.ready != 'true'
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - uses: ./.github/actions/rust-cache
@@ -313,7 +306,7 @@ jobs:
           # off), so one run with it covers both; a second run without it
           # repeated every zega test (~17 minutes).
           # linked_proof's two timing proofs (a latency ratio and a push deadline)
-          # run nightly on their own (proofs.yml): on shared host runners they
+          # run nightly on their own (proofs.yml): on shared runners they
           # failed on load alone, blocking unrelated PRs.
           cargo test --locked --workspace --features zega/sqlite -- \
             --skip g_ten_thousand_leases_do_not_slow_source_writes \
@@ -335,8 +328,7 @@ jobs:
           cargo build --locked -p zega-cli
           cd browser
           npm ci
-          # The host runners have no apt-get or sudo; their system libraries come with the host.
-          if command -v apt-get >/dev/null; then npx playwright install --with-deps chromium; else npx playwright install chromium; fi
+          npx playwright install --with-deps chromium
           npm run test:cli
       - name: Test the npm client against the real zega-server
         if: needs.resolve.outputs.tag == '' && matrix.platform == 'linux-x64'
@@ -393,7 +385,7 @@ jobs:
     name: Release required checks
     if: always()
     needs: [resolve, changes, plan, package, package-types, native, publish]
-    runs-on: host-linux-x64 # temporary (addiscorp/infra#34): mirab-linux-x64 (APS 11) once x86 mirab VMs have capacity
+    runs-on: ubuntu-24.04 # public repo: GitHub-hosted (addiscorp/infra#34)
     environment: public-ci
     steps:
       # The check is a script in the repo, so this job needs the checkout too.
