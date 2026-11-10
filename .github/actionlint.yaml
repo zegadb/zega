@@ -1,6 +1,8 @@
 self-hosted-runner:
-  # None: zegadb/zega is public, and self-hosted runners refuse public repos (a
-  # fork PR must never run on our machines), so every job runs on GitHub-hosted
-  # runners (addiscorp/infra#34). A self-hosted label here would be a job that
-  # never starts.
-  labels: []
+  # Our release runners (addiscorp/infra#34): the ci-release runner group,
+  # which admits this public repo. Only release jobs (canary tags, dispatches,
+  # promotions) use them; pull requests run on GitHub-hosted runners.
+  labels:
+    - host-linux-x64
+    - host-macos-arm64
+    - host-macos-x64
