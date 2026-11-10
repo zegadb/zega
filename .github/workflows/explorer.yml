@@ -28,7 +28,9 @@ permissions:
 
 jobs:
   check:
-    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
+    # Temporary (addiscorp/infra#34): [simien] no longer hosts mirab VMs. Back to
+    # a fresh mirab VM, mirab-linux-x64 (APS 11), once x86 mirab VMs have capacity.
+    runs-on: host-linux-x64
     environment: public-ci
     timeout-minutes: 25
     env:
@@ -44,6 +46,8 @@ jobs:
           cache: npm
           cache-dependency-path: browser/package-lock.json
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Browser only: the host runners have no sudo/apt; Chromium's system
+      # libraries come from the host (nix-ld), so --with-deps stays off.
+      - run: npx playwright install chromium
       - run: npm run build
       - run: npm test

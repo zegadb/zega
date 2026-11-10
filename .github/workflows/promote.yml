@@ -22,13 +22,25 @@ permissions:
 jobs:
   integrity-proof:
     # Light: cargo metadata + unittest, no build.
-    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
+    # Temporary (addiscorp/infra#34): [simien] no longer hosts mirab VMs. Back to
+    # a fresh mirab VM, mirab-linux-x64 (APS 11), once x86 mirab VMs have capacity.
+    runs-on: host-linux-x64
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      # The host runners have no cargo on PATH (the mirab image did); the
+      # toolchain release.yml pins.
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: '1.96.0'
+      # The NixOS host runners have python3 3.13 and setup-python has no NixOS
+      # builds; it only runs where python3 is missing or too old for tomllib.
+      - id: python
+        run: python3 -c 'import tomllib' 2>/dev/null && echo "ready=true" >> "$GITHUB_OUTPUT" || echo "ready=false" >> "$GITHUB_OUTPUT"
+      - if: steps.python.outputs.ready != 'true'
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: python3 -m unittest -v scripts.test_channels.Promotion scripts.test_channels.Publication
