@@ -41,7 +41,7 @@ permissions:
 jobs:
   zega-g:
     name: zega-g image (linux/amd64, Fly)
-    runs-on: host-linux-x64 # temporary (Sami, 31 Oct), as in the zega job below
+    runs-on: ubuntu-24.04 # public repo: GitHub-hosted (addiscorp/infra#34)
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
@@ -69,18 +69,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # host-* runners are temporary (Sami, 31 Oct). arm64 builds under QEMU
-          # on the Linux hosts (slow; [simien]'s Docker has too little memory for
-          # a release build) until a mirab VM has Docker (mirab#59).
+          # GitHub-hosted: this repo is public and self-hosted runners refuse
+          # public repos (addiscorp/infra#34). arm64 builds natively on ARM.
           - platform: linux/amd64
-            runner: host-linux-x64
+            runner: ubuntu-24.04
           - platform: linux/arm64
-            runner: host-linux-x64
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 240
     environment: public-ci
     env:
-      # The host runners share one Docker daemon: tag, container and port are this job's own.
       IMAGE: zega-ci:${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
       CONTAINER: zega-ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
     steps:
@@ -104,7 +102,6 @@ jobs:
           test "$(docker image inspect "$IMAGE" --format '{{.Os}}/{{.Architecture}}')" = "${{ matrix.platform }}"
           docker run -d --name "$CONTAINER" -e ZEGA_TOKEN=ci-token -p 127.0.0.1::9342 "$IMAGE"
           port=$(docker port "$CONTAINER" 9342/tcp | head -1 | sed 's/.*://')
-          # Emulated (arm64 on an x64 host) it starts slower.
           for _ in $(seq 1 90); do
             if curl -fsS -H "Authorization: Bearer ci-token" "http://127.0.0.1:$port/health"; then
               echo; echo "$IMAGE (${{ matrix.platform }}) serves"; exit 0
