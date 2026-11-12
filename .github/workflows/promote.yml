@@ -270,15 +270,21 @@ jobs:
       # Host runners share one Docker daemon: the container and port are this job's own.
       CONTAINER: zega-readback-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
     steps:
-      # Pulled by tag from Docker Hub, as Simien's local stack pulls it. Both
-      # legs may share a daemon, so the architecture is checked on the image
-      # this container actually runs, not on the (shared) local tag.
-      - name: Pull the tag and run it
+      # Read back from Docker Hub: the tag's index must name this platform, and
+      # that platform's image is run by its digest. Both legs may share one
+      # daemon (host runners), where a pull by tag can leave the other leg's
+      # architecture behind the local tag (0.2.4's arm64 read-back ran amd64).
+      - name: Pull this platform's image from the tag's index and run it
         run: |
           set -euo pipefail
           image="$DOCKERHUB_USERNAME/zega:$VERSION"
+          os="${{ matrix.platform }}"; arch="${os#*/}"; os="${os%/*}"
+          digest=$(docker buildx imagetools inspect --raw "$image" \
+            | jq -er --arg os "$os" --arg arch "$arch" \
+                '[.manifests[] | select(.platform.os == $os and .platform.architecture == $arch)] | if length == 1 then .[0].digest else error("\(length) manifests for \($os)/\($arch)") end')
+          echo "$image $os/$arch: $digest"
           docker run -d --pull always --platform "${{ matrix.platform }}" --name "$CONTAINER" \
-            -e ZEGA_TOKEN=readback-token -p 127.0.0.1::9342 "$image"
+            -e ZEGA_TOKEN=readback-token -p 127.0.0.1::9342 "$DOCKERHUB_USERNAME/zega@$digest"
           test "$(docker image inspect "$(docker inspect --format '{{.Image}}' "$CONTAINER")" --format '{{.Os}}/{{.Architecture}}')" = "${{ matrix.platform }}"
           port=$(docker port "$CONTAINER" 9342/tcp | head -1 | sed 's/.*://')
           # Emulated (arm64 on an x64 host) it starts slower.
