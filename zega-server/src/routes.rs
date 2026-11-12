@@ -26,6 +26,7 @@ pub fn app(state: AppState) -> Router {
         .route("/transaction", post(crate::sql::transaction))
         // APS 52: a source's document, applied once per (source_id, txid).
         .route("/deliveries", post(crate::sql::deliver))
+        .route("/deliveries/batch", post(crate::sql::deliver_batch))
         // A `.graph` upload streams into the engine, so the JSON body limit
         // below does not apply to it.
         .route(
