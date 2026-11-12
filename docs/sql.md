@@ -68,4 +68,6 @@ curl -X POST localhost:9342/deliveries -H 'Content-Type: application/json' -d '{
 | 400 | the engine refused the document; nothing written | fix the document |
 | 503 `outcome_unknown` | the write may or may not be on disk | retry the identical request |
 
-In Rust: `zega.deliver(source_id, txid, &Payload { flush, schema, document, forget_earlier })` (`Payload::document(document)` for a document alone; `zega::receipts::{Payload, Flush}`) and `zega.receipt(source_id, txid)`.
+**Several at once:** `POST /deliveries/batch` `{"source_id", "deliveries": [{"txid", "flush"?, "schema"?, "document", "forget_earlier"?}, …]}` applies them in order as **one** transaction with one commit, and answers with a receipt for each. If any is refused, nothing is written and the answer names it as `step` (its index), with the same codes as above. A delivery's `forget_earlier` keeps the receipts of the whole batch. A delivery already applied answers with its receipt, as alone. pg_zega's worker sends each round of journal rows this way, so a backlog costs one commit per round instead of one per row.
+
+In Rust: `zega.deliver(source_id, txid, &Payload { flush, schema, document, forget_earlier })` (`Payload::document(document)` for a document alone; `zega::receipts::{Payload, Flush}`), `zega.deliver_all(source_id, &[(txid, payload), …])` (a `BatchError { index, error }` when refused), and `zega.receipt(source_id, txid)`.
