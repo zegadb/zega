@@ -3,10 +3,11 @@
 #
 # Publishes, from one release already stored in R2 (never rebuilt here):
 #   @zegadb/lib                    the embeddable engine (WASM + JS API)
-#   @zegadb/server-darwin-arm64    the zega-server executable, one package per
-#   @zegadb/server-darwin-x64      platform, no install scripts; the `zegadb`
-#   @zegadb/server-linux-x64       CLI package (its own repository) depends on
-#                                  them as optionalDependencies, exact versions
+#   @zegadb/server-darwin-arm64    the zega (CLI) and zega-server executables,
+#   @zegadb/server-darwin-x64      one package per platform, no install scripts
+#   @zegadb/server-linux-x64
+#   zegadb                         `zega` for npm: a Node launcher depending on
+#                                  the platform packages at the exact version
 #   (@zegadb/server-win32-x64 is paused with the release's windows-x64 leg)
 #
 # Same shape as create-deka-app's publish-runtime.yml: OIDC trusted publishing
@@ -33,6 +34,7 @@ on:
       - '.github/workflows/publish-npm.yml'
       - 'npm/pack-server.mjs'
       - 'npm/check-server-packs.mjs'
+      - 'npm/zegadb/**'
       - 'scripts/channels.py'
 
 concurrency:

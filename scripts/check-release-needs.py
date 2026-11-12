@@ -10,7 +10,7 @@ def failed_jobs(needs: dict, full_matrix: bool) -> dict:
     # changes is PR-only; package-types is also intentionally PR-only.
     allowed_skips = {"changes", "package-types"}
     if not full_matrix:
-        allowed_skips.update({"package", "native", "publish"})
+        allowed_skips.update({"package", "native", "cli", "publish"})
     return {
         name: job["result"]
         for name, job in needs.items()

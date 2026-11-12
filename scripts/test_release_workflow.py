@@ -47,6 +47,7 @@ class ReleaseRequiredChecks(unittest.TestCase):
             "plan": {"result": "success", "outputs": {"run_native": "true"}},
             "package": {"result": "success", "outputs": {}},
             "native": {"result": "success", "outputs": {}},
+            "cli": {"result": "success", "outputs": {}},
         }
         github = {"event_name": "workflow_dispatch", "ref_type": "tag", "repository": "zegadb/zega"}
         native = job_condition("release.yml", "native")
@@ -62,6 +63,7 @@ class ReleaseRequiredChecks(unittest.TestCase):
             "package": {"result": "success"},
             "package-types": {"result": "skipped"},
             "native": {"result": "skipped"},
+            "cli": {"result": "success"},
             "publish": {"result": "skipped"},
         }
         self.assertEqual(
@@ -77,6 +79,7 @@ class ReleaseRequiredChecks(unittest.TestCase):
             "package": {"result": "skipped"},
             "package-types": {"result": "success"},
             "native": {"result": "skipped"},
+            "cli": {"result": "skipped"},
             "publish": {"result": "skipped"},
         }
         self.assertEqual(CHECK.failed_jobs(needs, full_matrix=False), {})
