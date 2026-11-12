@@ -440,6 +440,43 @@ impl Zega {
         Ok(summary)
     }
 
+    /// Replace the whole graph with a JSON-lines graph read from `input`:
+    /// the bulk path for a graph of any size (docs/data-loading.md#bulk-loading,
+    /// zegadb/zega#127). No size cap; memory is the new graph plus one line
+    /// (#128), so a load into an empty database peaks close to the graph's
+    /// resting size.
+    ///
+    /// All or nothing, as [`Zega::import`]: every line is read and checked
+    /// into a new graph first. A disk database then writes that graph as a
+    /// `.graph` file in `graphs/` (one streaming pass) and commits it with
+    /// one WAL entry, exactly as an import of that file would, so a crash
+    /// before the entry leaves the old graph and a restart after it reads
+    /// the file. The summary's `content_sha256` is that file's content id.
+    pub fn import_json_lines(
+        &self,
+        input: impl std::io::Read,
+        options: &graph_file::json_lines::JsonLinesOptions,
+    ) -> Result<graph_file::ImportSummary> {
+        let (graph, mut summary) = graph_file::json_lines::read(input, options)?;
+        #[cfg(not(target_arch = "wasm32"))]
+        if !self.in_memory {
+            let (mut file, staging) = self.create_staging("incoming")?;
+            let result = (|| {
+                let unfinished = graph_file::write_unfinished(&graph, CREATED_BY, &mut file)?;
+                let (written, sha256) = graph_file::finish(&mut file, &unfinished)?;
+                summary.content_sha256 = written.content_sha256;
+                self.commit_import(file, &staging, &sha256, graph)
+            })();
+            if result.is_err() {
+                let _ = std::fs::remove_file(&staging);
+            }
+            return result.map(|()| summary);
+        }
+        summary.content_sha256 = graph_file::write(&graph, &Default::default(), CREATED_BY, std::io::sink())?.content_sha256;
+        self.install(graph, None)?;
+        Ok(summary)
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     fn import_durably(&self, input: impl std::io::Read) -> Result<graph_file::ImportSummary> {
         use sha2::Digest;

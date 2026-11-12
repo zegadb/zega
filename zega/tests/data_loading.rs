@@ -275,6 +275,9 @@ fn oversized_source_rejected_before_insertion() {
         .unwrap_err()
         .to_string();
     assert!(error.contains("larger than 2MB"), "{error}");
+    // #127: the error says what to do instead.
+    assert!(error.contains("split it into files of at most 2 MB"), "{error}");
+    assert!(error.contains("zega-server import <file>.jsonl"), "{error}");
     assert_eq!(
         db.run_lang(SCHEMA, "{ Player { name } }").unwrap(),
         Value::Array(vec![])

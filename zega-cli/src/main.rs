@@ -96,16 +96,32 @@ enum Command {
         #[arg(long = "meta", value_name = "KEY=VALUE")]
         meta: Vec<String>,
     },
-    /// Replace the database with the graph in a .graph file. `-` reads stdin.
-    /// All or nothing: a damaged file changes nothing.
+    /// Replace the database with the graph in a .graph file or a JSON-lines
+    /// file (the bulk path: any size, one node or relationship per line,
+    /// docs/data-loading.md#bulk-loading). `-` reads stdin. All or nothing:
+    /// a damaged file changes nothing.
     Import {
-        /// The .graph file to read.
+        /// The .graph or JSON-lines file to read; which one is told by its
+        /// first byte.
         file: PathBuf,
         #[arg(long, default_value = "./zega-data")]
         data: PathBuf,
         /// Replace a database that already holds nodes or relationships.
         #[arg(long)]
         replace: bool,
+        /// JSON lines only: a ZQL schema file that types the properties,
+        /// declares unique fields (checked across the load) and indexes, and
+        /// travels with the graph. A .graph file carries its own.
+        #[arg(long)]
+        schema: Option<PathBuf>,
+        /// JSON lines only: manifest metadata, repeatable: --meta source=wikidata
+        #[arg(long = "meta", value_name = "KEY=VALUE")]
+        meta: Vec<String>,
+        /// Where a new database keeps its log: `sqlite` (zega.db, the
+        /// default) or `file` (wal.bin). An existing database keeps the
+        /// storage it was created with.
+        #[arg(long, value_enum)]
+        storage: Option<StorageArg>,
     },
     /// Dry-run a schema change against the data in a local directory.
     SchemaDiff {
@@ -165,7 +181,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Export { file, data, schema, meta } => {
             report("export", export(&file, &data, schema, &meta))
         }
-        Command::Import { file, data, replace } => report("import", import(&file, &data, replace)),
+        Command::Import { file, data, replace, schema, meta, storage } => {
+            report("import", import(&file, &data, replace, schema, &meta, storage))
+        }
         Command::SchemaDiff { old, new, data } => schema_diff(&old, &new, &data),
         Command::Bundle { command } => report("bundle", bundle(command)),
         command => serve_command(Cli { command }),
@@ -279,7 +297,7 @@ fn bundle(command: BundleCommand) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn schema_diff(old: &Path, new: &Path, data: &Path) -> ! {
-    let (_lock, db) = match open_data(data) {
+    let (_lock, db) = match open_data(data, None) {
         Ok(pair) => pair,
         Err(error) => {
             eprintln!("zega-server schema-diff: {error}");
@@ -366,11 +384,23 @@ fn storage(data: &Path, asked: Option<StorageArg>) -> Storage {
     }
 }
 
-fn open_data(data: &Path) -> Result<(std::fs::File, Zega), Box<dyn std::error::Error>> {
+fn open_data(data: &Path, asked: Option<StorageArg>) -> Result<(std::fs::File, Zega), Box<dyn std::error::Error>> {
     let lock = lock_data(data)?;
     let path = data.to_str().ok_or("data path must be UTF-8")?;
-    let db = Zega::open(path).storage(storage(data, None)).build().map_err(io::Error::other)?;
+    let db = Zega::open(path).storage(storage(data, asked)).build().map_err(io::Error::other)?;
     Ok((lock, db))
+}
+
+/// `--meta KEY=VALUE` arguments as manifest metadata.
+fn parse_meta(meta: &[String]) -> Result<std::collections::BTreeMap<String, String>, String> {
+    meta.iter()
+        .map(|entry| {
+            let (key, value) = entry
+                .split_once('=')
+                .ok_or_else(|| format!("--meta {entry:?} must be KEY=VALUE"))?;
+            Ok((key.to_string(), value.to_string()))
+        })
+        .collect()
 }
 
 fn export(
@@ -379,17 +409,11 @@ fn export(
     schema: Option<PathBuf>,
     meta: &[String],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut options = zega::graph_file::ExportOptions {
+    let options = zega::graph_file::ExportOptions {
         schema: schema.map(std::fs::read_to_string).transpose()?,
-        ..Default::default()
+        meta: parse_meta(meta)?,
     };
-    for entry in meta {
-        let (key, value) = entry
-            .split_once('=')
-            .ok_or_else(|| format!("--meta {entry:?} must be KEY=VALUE"))?;
-        options.meta.insert(key.to_string(), value.to_string());
-    }
-    let (_lock, db) = open_data(data)?;
+    let (_lock, db) = open_data(data, None)?;
     let summary = if file == Path::new("-") {
         db.export_with(&mut io::stdout().lock(), &options)?
     } else {
@@ -438,8 +462,33 @@ fn sync_parent(file: &Path) -> io::Result<()> {
     Ok(())
 }
 
-fn import(file: &Path, data: &Path, replace: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let (_lock, db) = open_data(data)?;
+fn import(
+    file: &Path,
+    data: &Path,
+    replace: bool,
+    schema: Option<PathBuf>,
+    meta: &[String],
+    asked: Option<StorageArg>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::BufRead;
+
+    let options = zega::graph_file::json_lines::JsonLinesOptions {
+        schema: schema.as_ref().map(std::fs::read_to_string).transpose()?,
+        meta: parse_meta(meta)?,
+    };
+    let input: Box<dyn io::Read> = if file == Path::new("-") {
+        Box::new(io::stdin().lock())
+    } else {
+        Box::new(std::fs::File::open(file)?)
+    };
+    let mut input = io::BufReader::with_capacity(64 * 1024, input);
+    // A .graph file starts with its magic, whose first byte (0x89) no JSON
+    // text starts with; anything else is read as JSON lines.
+    let graph_file = input.fill_buf()?.first() == Some(&zega::graph_file::MAGIC[0]);
+    if graph_file && (options.schema.is_some() || !options.meta.is_empty()) {
+        return Err(format!("{} is a .graph file, which carries its own schema and metadata: --schema and --meta are for JSON lines", file.display()).into());
+    }
+    let (_lock, db) = open_data(data, asked)?;
     if !replace && !db.is_empty()? {
         return Err(format!(
             "{} already holds a graph; pass --replace to replace it with {}",
@@ -448,19 +497,26 @@ fn import(file: &Path, data: &Path, replace: bool) -> Result<(), Box<dyn std::er
         )
         .into());
     }
-    let summary = if file == Path::new("-") {
-        db.import(io::stdin().lock())?
+    if graph_file {
+        let summary = db.import(input)?;
+        eprintln!(
+            "imported {} nodes and {} relationships from {} (.graph format {}, written by {})",
+            summary.nodes,
+            summary.relationships,
+            file.display(),
+            summary.format_version,
+            summary.created_by
+        );
     } else {
-        db.import(std::fs::File::open(file)?)?
-    };
-    eprintln!(
-        "imported {} nodes and {} relationships from {} (.graph format {}, written by {})",
-        summary.nodes,
-        summary.relationships,
-        file.display(),
-        summary.format_version,
-        summary.created_by
-    );
+        let summary = db.import_json_lines(input, &options)?;
+        eprintln!(
+            "imported {} nodes and {} relationships from {} (JSON lines; content id {})",
+            summary.nodes,
+            summary.relationships,
+            file.display(),
+            summary.content_sha256
+        );
+    }
     Ok(())
 }
 

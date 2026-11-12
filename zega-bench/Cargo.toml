@@ -5,7 +5,8 @@ version.workspace = true
 edition = "2021"
 
 [dependencies]
-zega = { path = "../zega" }
+# sqlite: zega-bulk loads into the server's default storage.
+zega = { path = "../zega", features = ["sqlite"] }
 neo4rs = "0.8"
 tokio = { version = "1", features = ["full"] }
 serde = { workspace = true }
@@ -32,3 +33,9 @@ path = "src/mem.rs"
 [[bin]]
 name = "zega-scale"
 path = "src/scale.rs"
+
+# Bulk loading at millions of nodes (zegadb/zega#127, #128): the generator,
+# the 2 MB ZQL path it replaces, and resting RSS after a reopen.
+[[bin]]
+name = "zega-bulk"
+path = "src/bulk.rs"

@@ -631,7 +631,13 @@ fn load_rows(
     Ok(rows)
 }
 
+/// One load statement's source cap: it bounds one statement's memory and
+/// keeps it all or nothing. Bigger data takes the bulk path (#127).
 pub(crate) const MAX_IMPORT_BYTES: usize = 2_000_000;
+
+/// What a source over [`MAX_IMPORT_BYTES`] is told to do instead.
+const TOO_LARGE: &str = "larger than 2MB (one load statement's limit): split it into files of at most 2 MB, \
+     or load the whole graph at once with `zega-server import <file>.jsonl` (docs/data-loading.md#bulk-loading)";
 
 /// Parse raw UTF-8 import text using the same parser used by load mutations.
 /// Hosts can use this to display a preview; insertion should use the raw source.
@@ -645,7 +651,7 @@ fn parse_load(
     location: &str,
 ) -> Result<Vec<HashMap<String, Json>>, LangError> {
     if text.len() > MAX_IMPORT_BYTES {
-        return Err(LangError::bare(format!("{location} is larger than 2MB")));
+        return Err(LangError::bare(format!("{location} is {TOO_LARGE}")));
     }
     match format {
         LoadFormat::Csv => crate::lang::csv_rows(text).map_err(LangError::bare),
@@ -860,7 +866,7 @@ fn read_bounded(reader: impl std::io::Read) -> Result<String, String> {
         .read_to_end(&mut bytes)
         .map_err(|error| error.to_string())?;
     if bytes.len() > MAX_IMPORT_BYTES {
-        return Err("larger than 2MB".into());
+        return Err(TOO_LARGE.into());
     }
     String::from_utf8(bytes).map_err(|_| "not utf-8".into())
 }
@@ -2795,8 +2801,23 @@ fn node_similarity(node: impl NodeView, sim: &crate::lang::Similarity) -> Option
 fn similarity_json(node: impl NodeView, sim: &crate::lang::Similarity) -> Json { node_similarity(node,sim).map_or(Json::Null, |s| json!(s)) }
 fn score_json(node: impl NodeView, sel: &Selection) -> Json { sel.near.as_ref().map_or(Json::Null, |n| similarity_json(node,&n.similarity)) }
 fn json_to_prop(schema: &Schema, sel: &Selection, field: &str, value: &Json) -> Result<Value, LangError> {
+    json_to_field(schema, &sel.type_name, sel.type_span, field, value)
+}
+
+/// The value a load stores for `field` of a `type_name` node given `value`
+/// in JSON: typed by the schema's declaration of that field (lists, vectors,
+/// references), otherwise as an untyped JSON value. `mutation json` and the
+/// JSON-lines bulk loader (`graph_file::json_lines`) both store this, so a
+/// row loads the same way through either.
+pub(crate) fn json_to_field(
+    schema: &Schema,
+    type_name: &str,
+    type_span: crate::lang::Span,
+    field: &str,
+    value: &Json,
+) -> Result<Value, LangError> {
     if !value.is_null() {
-        if let Ok(crate::lang::Field::Prop { ty, .. }) = schema.prop(&sel.type_name, field) {
+        if let Ok(crate::lang::Field::Prop { ty, .. }) = schema.prop(type_name, field) {
             let ty = crate::history::plain_type(ty);
             if ty == "Reference" {
                 let reference = value.as_str().ok_or_else(|| LangError::bare("Reference needs a zega://graph/id string"))?.parse::<crate::linked::Reference>().map_err(|e| LangError::bare(e.to_string()))?;
@@ -2805,7 +2826,7 @@ fn json_to_prop(schema: &Schema, sel: &Selection, field: &str, value: &Json) -> 
             if ty.ends_with("[]") {
                 let values = value
                     .as_array()
-                    .ok_or_else(|| LangError::at(sel.type_span, "list field needs an array"))?;
+                    .ok_or_else(|| LangError::at(type_span, "list field needs an array"))?;
                 return values
                     .iter()
                     .map(json_to_value)
@@ -2816,13 +2837,13 @@ fn json_to_prop(schema: &Schema, sel: &Selection, field: &str, value: &Json) -> 
                 return spec
                     .value(value)
                     .map(|v| Value::Vector(Box::new(v)))
-                    .map_err(|m| LangError::at(sel.type_span, m));
+                    .map_err(|m| LangError::at(type_span, m));
             }
         }
     }
     json_to_value(value)
 }
-fn json_to_value(value: &Json) -> Result<Value, LangError> {
+pub(crate) fn json_to_value(value: &Json) -> Result<Value, LangError> {
     match value {
         Json::String(value) => Ok(Value::from(value.clone())),
         Json::Number(value) => {

@@ -31,7 +31,10 @@ also accepted. The existing prohibition on `..` path components remains. The
 HTTP client is blocking `ureq` with rustls, requires no Tokio runtime, ignores
 proxy environment variables, has a 20-second request timeout and follows at
 most five redirects. Imports are limited to 2,000,000 UTF-8 bytes per source;
-reads stop at that limit instead of buffering an unbounded response.
+reads stop at that limit instead of buffering an unbounded response. The
+limit bounds what one statement holds (an HTTP request body included) and
+keeps it all or nothing. A bigger dataset is not split by hand: it takes the
+[bulk path](#bulk-loading), which has no size limit.
 
 The `http` Cargo feature is enabled by default. `default-features = false`
 disables native HTTP while retaining local-file and supplied-source imports.
@@ -50,6 +53,65 @@ that lock through the same mutation and WAL operations as handwritten ZQL.
 A malformed source is rejected before insertion. A load is one statement, and
 every statement is all-or-nothing: if any row fails a constraint, or the WAL
 refuses the write, no row of the load is kept, in memory or in the WAL.
+
+## Bulk loading
+
+A whole graph of any size (millions of nodes, a multi-GB file) loads in one
+step from **JSON lines**, one node or relationship per line:
+
+```sh
+zega-server import graph.jsonl --data ./zega-data --schema schema.zql --meta source=wikidata
+```
+
+```json
+{"type":"node","id":42,"labels":["Item"],"props":{"qid":"Q42","name":"Douglas Adams","at":{"lat":51.5,"lon":-0.1}}}
+{"type":"node","labels":["Item"],"props":{"qid":"Q5","name":"human"}}
+{"type":"rel","kind":"P31","from":42,"to":43,"props":{"rank":"normal"}}
+```
+
+- `"type"` is `"node"` or `"rel"`. A node has `labels` (its first label is
+  its ZQL type) and an optional `id`; without one it gets the next id after
+  the highest so far. A relationship has a `kind`, `from` and `to` (node
+  ids), and an optional `id`. Both have optional `props`. Any other field is
+  refused, and so is an id used twice.
+- **Nodes come before the relationships that use them**: a relationship whose
+  `from` or `to` no earlier line defines is refused. An intake writes every
+  node, then every relationship.
+- Property values convert exactly as in `mutation json` (the same function):
+  with `--schema`, a field the node's type declares as `T[]`, a vector or a
+  `Reference` takes that type; otherwise strings, numbers, booleans and null
+  are themselves, an object is a `Point` (`{"lat","lon"}`) and an array a
+  vector, so a list of strings needs a `T[]` field in the schema.
+- The schema's `unique` fields are checked across the whole load (a second
+  node with the same `Item.qid` is refused), its indexes are built, and the
+  graph carries the schema and the `--meta` metadata as an imported `.graph`
+  file does. Other schema rules (required fields, field types) are not
+  checked: the loader stores what the lines say.
+- Blank lines are skipped; a line may be up to 16 MiB. `-` reads stdin.
+  `zega-server import` tells a JSON-lines file from a `.graph` file by its
+  first byte; `--schema` and `--meta` are for JSON lines.
+
+**All or nothing, like a `.graph` import** ([graph-format.md](graph-format.md#zegas-implementation)).
+Every line is read and checked into a new graph while the old one keeps
+serving; a bad line is reported by its number (`invalid JSON-lines graph:
+… (line 1812)`) and nothing changes. A disk database (file or SQLite
+storage) then writes the new graph as a `.graph` file in `graphs/` in one
+streaming pass and commits it with one WAL entry: a crash before that entry
+leaves the old graph, a restart after it reads the file. Like an import, it
+replaces the whole graph (`--replace` for a database that holds one).
+
+**Memory is the graph being built plus one line** (#128). Nothing else grows
+with the input: no line is kept once read, and the `.graph` file is written
+from the graph with fixed buffers. A load into an empty database peaks close
+to the graph's resting size, where loading the same graph as 2 MB ZQL
+statements peaks at ~2x (measured in zegadb/zega#127's PR with
+`zega-bulk`, `zega-bench/README.md`). Replacing a graph holds the old one
+until the new one is installed, so that peak is the two graphs together.
+
+The crate path is `Zega::import_json_lines(reader, &JsonLinesOptions { schema,
+meta })`, returning the same `ImportSummary` as `Zega::import`; its
+`content_sha256` is the stored `.graph` file's content id. `PUT /graph` and
+ZQL loads keep their size caps: the bulk path is for the CLI and the crate.
 
 ## Browser hosts
 

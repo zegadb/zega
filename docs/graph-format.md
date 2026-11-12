@@ -310,8 +310,8 @@ with under 4 MiB of heap. `zega-server start` also caps an upload's size
 
 | surface | export | import |
 |---|---|---|
-| Rust | `Zega::export(&mut impl Write)`, `Zega::export_with(out, &ExportOptions)` | `Zega::import(impl Read) -> ImportSummary` |
-| CLI | `zega-server export g.graph [--schema s.zql] [--meta k=v]…` (`-` = stdout) | `zega-server import g.graph [--replace]` (`-` = stdin) |
+| Rust | `Zega::export(&mut impl Write)`, `Zega::export_with(out, &ExportOptions)` | `Zega::import(impl Read) -> ImportSummary`; JSON lines (the bulk path, [data-loading.md](data-loading.md#bulk-loading)): `Zega::import_json_lines(impl Read, &JsonLinesOptions)`, stored as a `.graph` file and committed the same way |
+| CLI | `zega-server export g.graph [--schema s.zql] [--meta k=v]…` (`-` = stdout) | `zega-server import g.graph [--replace]` (`-` = stdin); also `g.jsonl [--schema s.zql] [--meta k=v]…`, told apart by the first byte |
 | HTTP (`zega-server start`) | `GET /graph` serves the file; a client that prefers `application/json` (by `Accept` q-values) gets the explorer's JSON view instead. Responses carry `Vary: Accept`; `406` if neither is acceptable | `PUT /graph` with the file as the body; answers `{ "ok": true, "result": <summary> }`. `413` over `--max-import-bytes` (default 64 MiB, refused up front when `Content-Length` says so), `408` after 30 s without data. `DELETE /graph` replaces the graph with an empty one, dropping what an import carried |
 | wasm | `db.exportGraph(schema?, metaJson?)` returns a `Uint8Array` | `db.importGraph(bytes)` returns the summary as JSON |
 
