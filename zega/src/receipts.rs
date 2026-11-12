@@ -123,39 +123,79 @@ fn check_identity(source_id: &str, txid: &str) -> Result<()> {
     Ok(())
 }
 
+/// [`Zega::deliver_all`] refused its deliveries: nothing was written.
+/// `index` is the delivery that failed, or `None` when the commit did.
+#[derive(Debug)]
+pub struct BatchError {
+    pub index: Option<usize>,
+    pub error: ZegaError,
+}
+
+/// One delivery inside a transaction. `forget_earlier` keeps the receipts
+/// of `batch`, the transaction's own deliveries.
+fn deliver_in(
+    tx: &mut crate::transaction::Transaction<'_>,
+    source_id: &str,
+    txid: &str,
+    payload: &Payload<'_>,
+    batch: &[&str],
+) -> Result<Receipt> {
+    let payload_sha256 = payload_sha256(payload);
+    if let Some(existing) = tx.receipt(source_id, txid) {
+        return if existing.payload_sha256 == payload_sha256 {
+            Ok(existing)
+        } else {
+            Err(refused("delivery_conflict", format!("{source_id} {txid} was delivered with a different document")))
+        };
+    }
+    if !payload.flush.is_empty() {
+        tx.flush(&payload.flush)?;
+    }
+    if let Some(schema) = payload.schema {
+        tx.schema(schema)?;
+    }
+    let result = tx.document(payload.document)?;
+    let receipt = Receipt {
+        source_id: source_id.into(),
+        txid: txid.into(),
+        payload_sha256,
+        result: result.to_string(),
+    };
+    tx.record_receipt(receipt.clone());
+    if payload.forget_earlier {
+        tx.forget_receipts(source_id, batch);
+    }
+    Ok(receipt)
+}
+
 impl Zega {
     /// Apply `payload` once for `(source_id, txid)`: its flush, its schema,
     /// then its document. See the module documentation.
     pub fn deliver(&self, source_id: &str, txid: &str, payload: &Payload<'_>) -> Result<Receipt> {
         check_identity(source_id, txid)?;
-        let payload_sha256 = payload_sha256(payload);
+        self.transaction(|tx| deliver_in(tx, source_id, txid, payload, &[txid]))
+    }
+
+    /// Several deliveries of one source, in order, as one transaction: each
+    /// as [`Zega::deliver`] would apply it, with one commit for them all, or
+    /// none of them when any fails. A delivery's `forget_earlier` keeps the
+    /// receipts of every delivery in `deliveries`.
+    pub fn deliver_all(&self, source_id: &str, deliveries: &[(&str, Payload<'_>)]) -> std::result::Result<Vec<Receipt>, BatchError> {
+        for (index, (txid, _)) in deliveries.iter().enumerate() {
+            check_identity(source_id, txid).map_err(|error| BatchError { index: Some(index), error })?;
+        }
+        let batch: Vec<&str> = deliveries.iter().map(|(txid, _)| *txid).collect();
+        let mut failed = None;
         self.transaction(|tx| {
-            if let Some(existing) = tx.receipt(source_id, txid) {
-                return if existing.payload_sha256 == payload_sha256 {
-                    Ok(existing)
-                } else {
-                    Err(refused("delivery_conflict", format!("{source_id} {txid} was delivered with a different document")))
-                };
+            let mut receipts = Vec::with_capacity(deliveries.len());
+            for (index, (txid, payload)) in deliveries.iter().enumerate() {
+                failed = Some(index);
+                receipts.push(deliver_in(tx, source_id, txid, payload, &batch)?);
             }
-            if !payload.flush.is_empty() {
-                tx.flush(&payload.flush)?;
-            }
-            if let Some(schema) = payload.schema {
-                tx.schema(schema)?;
-            }
-            let result = tx.document(payload.document)?;
-            let receipt = Receipt {
-                source_id: source_id.into(),
-                txid: txid.into(),
-                payload_sha256,
-                result: result.to_string(),
-            };
-            tx.record_receipt(receipt.clone());
-            if payload.forget_earlier {
-                tx.forget_receipts(source_id, txid);
-            }
-            Ok(receipt)
+            failed = None;
+            Ok(receipts)
         })
+        .map_err(|error| BatchError { index: failed, error })
     }
 
     /// The receipt of `(source_id, txid)`, if it was delivered.

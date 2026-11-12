@@ -402,6 +402,9 @@ class Publication(Fixture):
             native.mkdir()
             name = channels.native_artifact(platform)
             (native / name).write_bytes(platform.encode())
+            cli = artifacts / f"cli-{platform}"
+            cli.mkdir()
+            (cli / channels.cli_artifact(platform)).write_bytes(b"cli " + platform.encode())
         with tarfile.open(artifacts / "npm-package/package.tgz", "w:gz") as archive:
             for name, payload in {
                 "package/package.json": json.dumps({"name": "@zegadb/lib", "version": f"1.2.3-canary.{self.commit[:7]}"}).encode(),
@@ -413,12 +416,17 @@ class Publication(Fixture):
         result = self.command("prepare", self.tag, "artifacts", "release")
         self.assertEqual(result.returncode, 0, result.stderr)
         channels.verify(self.repo / "release", self.tag, self.commit)
-        self.assertEqual(len(channels.read_json(self.repo / "release/release.json")["artifacts"]), len(channels.NATIVE_PLATFORMS) + 2)
+        self.assertEqual(len(channels.read_json(self.repo / "release/release.json")["artifacts"]), 2 * len(channels.NATIVE_PLATFORMS) + 2)
         inventory = channels.read_json(self.repo / "release/manifest.json")["artifacts"]
-        for name in ("zega-server-linux-x64", "zega-server-darwin-arm64", "zega-server-darwin-x64"):
+        for name in ("zega-server-linux-x64", "zega-server-darwin-arm64", "zega-server-darwin-x64",
+                     "zega-linux-x64", "zega-darwin-arm64", "zega-darwin-x64"):
             self.assertEqual(inventory[name], channels.digest(self.repo / "release" / name))
-        # The binary used to ship as zega-<platform>; nothing may still carry that name.
-        self.assertFalse(any(name.startswith("zega-") and not name.startswith("zega-server-") for name in inventory))
+        # zega-<platform> is the CLI (cli-<platform>), never the server: the server once shipped
+        # under that name, and a release that mixed them up would install the wrong program.
+        for platform in channels.NATIVE_PLATFORMS:
+            self.assertEqual(inventory[channels.cli_artifact(platform)],
+                             channels.digest(artifacts / f"cli-{platform}" / channels.cli_artifact(platform)))
+            self.assertNotEqual(inventory[channels.cli_artifact(platform)], inventory[channels.native_artifact(platform)])
         (wasm / "engine.wasm").write_bytes(b"different-from-tested-package")
         result = self.command("prepare", self.tag, "artifacts", "bad-release")
         self.assertNotEqual(result.returncode, 0)

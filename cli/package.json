@@ -1,15 +1,10 @@
 {
   "name": "zegadb",
   "version": "0.1.1",
+  "private": true,
   "description": "The Zega developer CLI: manage Zega Cloud from a terminal, a script or an agent.",
   "type": "module",
   "module": "src/zega.ts",
-  "files": [
-    "src/**",
-    "tsconfig.json",
-    "README.md",
-    "LICENSE"
-  ],
   "bin": {
     "zega": "src/zega.ts"
   },
@@ -22,9 +17,6 @@
     "url": "https://github.com/zegadb/cli.git"
   },
   "homepage": "https://zega.dev",
-  "publishConfig": {
-    "access": "public"
-  },
   "optionalDependencies": {
     "@zegadb/server-darwin-arm64": "0.2.0",
     "@zegadb/server-darwin-x64": "0.2.0",

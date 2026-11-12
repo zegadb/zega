@@ -5,6 +5,7 @@
 
 use serde_json::Value as Json;
 use zega::receipts::{payload_sha256, Flush, Payload};
+use zega::receipts::BatchError;
 use zega::{Storage, Zega, ZegaError};
 
 const P: &str = "schema { type P { name: String } } unique { P { name } }";
@@ -315,6 +316,49 @@ fn file_forget_earlier_keeps_the_latest() {
 #[test]
 fn sqlite_forget_earlier_keeps_the_latest() {
     forget_earlier_keeps_the_latest(Storage::Sqlite);
+}
+
+/// pg_zega's worker sends a round of journal rows as one batch: one
+/// transaction, one commit, a receipt each, or nothing when any fails.
+fn a_batch_is_one_transaction(storage: Storage) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    let docs: Vec<String> = ["a", "b", "c", "d", "e", "f"].iter().map(|n| doc(&[n])).collect();
+    let duplicate = doc(&["a"]);
+    {
+        let zega = open(path, storage);
+        let first = [("1", Payload::document(&docs[0])), ("2", Payload::document(&docs[1])), ("3", Payload::document(&docs[2]))];
+        let receipts = zega.deliver_all("pg:1", &first).unwrap();
+        assert_eq!(receipts.iter().map(|r| r.txid.as_str()).collect::<Vec<_>>(), ["1", "2", "3"]);
+        assert_eq!(names(&zega), ["a", "b", "c"]);
+        // The same batch again: the same receipts, nothing written twice.
+        assert_eq!(zega.deliver_all("pg:1", &first).unwrap(), receipts);
+        assert_eq!(names(&zega), ["a", "b", "c"]);
+        // The second delivery fails: the first is not kept either.
+        let failing = [("4", Payload::document(&docs[3])), ("5", Payload::document(&duplicate))];
+        let BatchError { index, .. } = zega.deliver_all("pg:1", &failing).unwrap_err();
+        assert_eq!(index, Some(1));
+        assert_eq!(names(&zega), ["a", "b", "c"]);
+        assert_eq!(receipts_of(&zega, "pg:1", &["4", "5"]), [false, false]);
+        // forget_earlier on the last delivery keeps the whole batch's receipts.
+        let forget = [("6", Payload::document(&docs[4])), ("7", Payload { forget_earlier: true, ..Payload::document(&docs[5]) })];
+        zega.deliver_all("pg:1", &forget).unwrap();
+        assert_eq!(receipts_of(&zega, "pg:1", &["1", "2", "3", "6", "7"]), [false, false, false, true, true]);
+    }
+    // Replayed from the WAL.
+    let zega = open(path, storage);
+    assert_eq!(names(&zega), ["a", "b", "c", "e", "f"]);
+    assert_eq!(receipts_of(&zega, "pg:1", &["1", "2", "3", "6", "7"]), [false, false, false, true, true]);
+}
+
+#[test]
+fn file_a_batch_is_one_transaction() {
+    a_batch_is_one_transaction(Storage::File);
+}
+
+#[test]
+fn sqlite_a_batch_is_one_transaction() {
+    a_batch_is_one_transaction(Storage::Sqlite);
 }
 
 /// Receipts written before flushes existed keep their digest, so their

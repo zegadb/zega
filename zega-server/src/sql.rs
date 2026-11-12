@@ -224,19 +224,94 @@ pub async fn deliver(
     })
     .await;
     match ran {
-        Ok(Ok(receipt)) => Json(json!({"ok": true, "result": {
-            "source_id": receipt.source_id,
-            "txid": receipt.txid,
-            "payload_sha256": receipt.payload_sha256.iter().map(|b| format!("{b:02x}")).collect::<String>(),
-            "result": serde_json::from_str::<Value>(&receipt.result).unwrap_or(Value::Null),
-        }}))
-        .into_response(),
-        Ok(Err(cause @ ZegaError::Wal(_))) => (
+        Ok(Ok(receipt)) => Json(json!({"ok": true, "result": receipt_json(&receipt)})).into_response(),
+        Ok(Err(cause)) => delivery_refusal(cause, None),
+        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "database worker failed"),
+    }
+}
+
+fn receipt_json(receipt: &zega::receipts::Receipt) -> Value {
+    json!({
+        "source_id": receipt.source_id,
+        "txid": receipt.txid,
+        "payload_sha256": receipt.payload_sha256.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+        "result": serde_json::from_str::<Value>(&receipt.result).unwrap_or(Value::Null),
+    })
+}
+
+/// 503 `outcome_unknown` when the write may or may not have reached the
+/// disk, else the refusal naming the failed delivery as its `step`.
+fn delivery_refusal(cause: ZegaError, step: Option<usize>) -> Response {
+    match cause {
+        cause @ ZegaError::Wal(_) => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(json!({"ok": false, "error": cause.to_string(), "code": "outcome_unknown"})),
         )
             .into_response(),
-        Ok(Err(cause)) => refusal(cause, StatusCode::BAD_REQUEST, None),
+        cause => refusal(cause, StatusCode::BAD_REQUEST, step),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BatchDelivery {
+    txid: String,
+    #[serde(default)]
+    flush: zega::receipts::Flush,
+    #[serde(default)]
+    schema: Option<String>,
+    document: String,
+    /// Keeps the receipts of every delivery in the batch.
+    #[serde(default)]
+    forget_earlier: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeliveryBatchRequest {
+    source_id: String,
+    deliveries: Vec<BatchDelivery>,
+}
+
+/// `POST /deliveries/batch`: several deliveries of one source, in order, as
+/// one transaction with one commit. 200 with a receipt for each; any refusal
+/// names the failed delivery as `step` and writes nothing.
+pub async fn deliver_batch(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    request: Result<Json<DeliveryBatchRequest>, JsonRejection>,
+) -> Response {
+    if !authorized(&headers, &state) {
+        return error(StatusCode::UNAUTHORIZED, "unauthorized");
+    }
+    let Json(request) = match request {
+        Ok(request) => request,
+        Err(rejection) => return error(StatusCode::BAD_REQUEST, rejection.body_text()),
+    };
+    let ran = tokio::task::spawn_blocking(move || {
+        let db = state.zega.lock().map_err(|_| zega::receipts::BatchError {
+            index: None,
+            error: ZegaError::Execution("database lock poisoned".into()),
+        })?;
+        let deliveries: Vec<_> = request
+            .deliveries
+            .iter()
+            .map(|d| {
+                let payload = Payload {
+                    flush: d.flush.clone(),
+                    schema: d.schema.as_deref(),
+                    document: &d.document,
+                    forget_earlier: d.forget_earlier,
+                };
+                (d.txid.as_str(), payload)
+            })
+            .collect();
+        db.deliver_all(&request.source_id, &deliveries)
+    })
+    .await;
+    match ran {
+        Ok(Ok(receipts)) => Json(json!({"ok": true, "result": receipts.iter().map(receipt_json).collect::<Vec<_>>()})).into_response(),
+        Ok(Err(failed)) => delivery_refusal(failed.error, failed.index),
         Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "database worker failed"),
     }
 }

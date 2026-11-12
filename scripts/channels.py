@@ -133,8 +133,19 @@ def native_artifact(platform):
     return f"zega-server-{platform}" + (".exe" if platform == "windows-x64" else "")
 
 
+def cli_artifact(platform):
+    """The `zega` CLI executable (cli/, Bun-compiled) the release ships beside zega-server."""
+    if platform not in NATIVE_PLATFORMS:
+        raise ValueError(f"Unsupported native platform: {platform}")
+    return f"zega-{platform}" + (".exe" if platform == "windows-x64" else "")
+
+
 def artifact_name(platform):
     print(native_artifact(platform))
+
+
+def cli_artifact_name(platform):
+    print(cli_artifact(platform))
 
 
 def prepare(tag, artifacts, destination):
@@ -144,6 +155,8 @@ def prepare(tag, artifacts, destination):
     for platform in NATIVE_PLATFORMS:
         name = native_artifact(platform)
         shutil.copyfile(source / f"native-{platform}" / name, dest / name)
+        cli = cli_artifact(platform)
+        shutil.copyfile(source / f"cli-{platform}" / cli, dest / cli)
     shutil.copytree(source / "npm-package" / "wasm", dest / "wasm")
     shutil.copyfile(source / "npm-package" / "package.tgz", dest / "package.tgz")
     # Check the package identity before making this release promotable.
@@ -320,11 +333,12 @@ def promote(tag, directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["tag-canary", "resolve", "prepare", "publish-r2", "promote", "repack", "artifact-name"])
+    parser.add_argument("command", choices=["tag-canary", "resolve", "prepare", "publish-r2", "promote", "repack", "artifact-name", "cli-artifact-name"])
     parser.add_argument("args", nargs="*")
     args = parser.parse_args()
     commands = {"tag-canary": tag_canary, "resolve": resolve, "prepare": prepare,
-                "publish-r2": publish_r2, "promote": promote, "repack": repack, "artifact-name": artifact_name}
+                "publish-r2": publish_r2, "promote": promote, "repack": repack, "artifact-name": artifact_name,
+                "cli-artifact-name": cli_artifact_name}
     try:
         commands[args.command](*args.args)
     except (ValueError, RuntimeError, KeyError, OSError, subprocess.CalledProcessError) as error:

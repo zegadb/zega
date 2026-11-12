@@ -4,6 +4,18 @@ Changes that affect code using the `zega` crate, newest first. File formats
 (WAL, snapshot, `.graph`) have their own versions; see
 [docs/graph-format.md](docs/graph-format.md).
 
+## 0.2.4
+
+- **Batches of deliveries (APS 52).** `Zega::deliver_all` and
+  `POST /deliveries/batch` apply several deliveries of one source in order, as
+  one transaction with one commit; any refusal writes nothing and names the
+  failed delivery (`BatchError::index`, `step` over HTTP). pg_zega's worker
+  sends each round of journal rows this way.
+- **Durable writes no longer wait out a timer.** File storage's group commit
+  waited 5 ms before every sync unless 64 writes were pending; it now syncs as
+  soon as a write waits (`wal_flush_interval` defaults to 0). pg_zega precommit
+  writes went from 10.6 ms to 2.4 ms in bench-sql.
+
 ## 0.2.3
 
 - **Delivery receipts can be pruned (APS 52).** A delivery with

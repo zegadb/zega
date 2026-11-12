@@ -128,9 +128,15 @@ impl Transaction<'_> {
         self.pending.as_mut().expect("open").record_receipt(&mut self.graph, receipt);
     }
 
-    /// Drop every receipt of `source_id` but `keep`'s, with this transaction's writes.
-    pub(crate) fn forget_receipts(&mut self, source_id: &str, keep: &str) {
-        let keys: Vec<_> = self.graph.receipts.keys().filter(|(source, txid)| source == source_id && txid != keep).cloned().collect();
+    /// Drop every receipt of `source_id` but those of `keep`, with this transaction's writes.
+    pub(crate) fn forget_receipts(&mut self, source_id: &str, keep: &[&str]) {
+        let keys: Vec<_> = self
+            .graph
+            .receipts
+            .keys()
+            .filter(|(source, txid)| source == source_id && !keep.contains(&txid.as_str()))
+            .cloned()
+            .collect();
         let pending = self.pending.as_mut().expect("open");
         for key in keys {
             pending.forget_receipt(&mut self.graph, key);
