@@ -2,7 +2,7 @@ name: Timing proofs
 # linked_proof's timing proofs (APS 39): a latency ratio (10k leases must not
 # slow source writes by more than 25%) and a push deadline (an update arrives
 # by push within 6 s). They measure the machine as much as the code, and on
-# shared host runners they failed on load alone, blocking unrelated PRs, so
+# shared runners they failed on load alone, blocking unrelated PRs, so
 # release.yml skips them and they run here: nightly, before the 09:00 UTC
 # canary, and on demand. A failure here is a regression to look at before
 # promoting, not a PR gate.
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   linked-proof:
-    runs-on: host-linux-x64 # temporary (Sami, 31 Oct), as release.yml's linux leg
+    runs-on: ubuntu-24.04 # public repo: GitHub-hosted, as release.yml's linux leg (addiscorp/infra#34)
     environment: public-ci
     timeout-minutes: 60
     env:

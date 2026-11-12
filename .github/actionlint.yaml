@@ -1,5 +1,8 @@
 self-hosted-runner:
-  # Our CI runners: a fresh mirab VM per job (addiscorp/aps APS 11).
+  # Our release runners (addiscorp/infra#34): the ci-release runner group,
+  # which admits this public repo. Only release jobs (canary tags, dispatches,
+  # promotions) use them; pull requests run on GitHub-hosted runners.
   labels:
-    - mirab-linux-arm64
-    - mirab-linux-x64
+    - host-linux-x64
+    - host-macos-arm64
+    - host-macos-x64

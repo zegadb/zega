@@ -18,7 +18,9 @@ defaults:
     working-directory: cli
 jobs:
   tests:
-    runs-on: mirab-linux-arm64 # APS 11: a fresh VM per job on our runners
+    # Public repo: self-hosted runners refuse public repos (a fork PR must never
+    # run on our machines); GitHub-hosted runners are free here (addiscorp/infra#34).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       TMPDIR: ${{ github.workspace }}/cli/.tmp
@@ -42,7 +44,7 @@ jobs:
 
   package-proof:
     if: github.event_name == 'pull_request'
-    runs-on: host-linux-x64 # temporary (Sami, 31 Oct), until mirab VMs have Node + Bun images
+    runs-on: ubuntu-24.04 # public repo: GitHub-hosted (see tests above)
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

@@ -22,7 +22,9 @@ permissions:
 jobs:
   integrity-proof:
     # Light: cargo metadata + unittest, no build.
-    runs-on: mirab-linux-arm64 # APS 11: CI in a fresh VM on our runners
+    # Public repo: self-hosted runners refuse public repos (a fork PR must never
+    # run on our machines); GitHub-hosted runners are free here (addiscorp/infra#34).
+    runs-on: ubuntu-24.04
     environment: public-ci
     steps:
       - uses: actions/checkout@v5
@@ -126,9 +128,13 @@ jobs:
   # the promoted commit (docker/zega/Dockerfile), for linux/amd64 and
   # linux/arm64 (Apple Silicon Macs run arm64 images; Intel Macs and most
   # Linux run amd64). pg_zega and Simien's local stack pin these tags.
-  # Each architecture builds natively and is pushed by digest; docker-merge
+  # Each architecture builds on its own and is pushed by digest; docker-merge
   # joins them under the tags; docker-readback pulls the tag on both
   # architectures and runs it.
+  # Release images build on our hardware (addiscorp/infra#34), in the
+  # ci-release runner group that admits this public repo: both architectures
+  # on host-linux-x64, arm64 under QEMU (the hosts have binfmt for aarch64;
+  # slow, hours for the Rust build: the default 6-hour job limit applies).
   docker-build:
     name: docker build (${{ matrix.platform }})
     if: always() && needs.promote.result == 'success'
@@ -138,12 +144,10 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-24.04
             arch: amd64
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
             arch: arm64
-    runs-on: ${{ matrix.runner }}
+    runs-on: host-linux-x64
     environment: release
     permissions:
       contents: read
@@ -255,27 +259,36 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-24.04
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+    # Our hardware, as docker-build; arm64 runs under QEMU.
+    runs-on: host-linux-x64
     # DOCKERHUB_USERNAME is a release-environment variable.
     environment: release
     env:
       DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
       VERSION: ${{ needs.docker-merge.outputs.version }}
+      # Host runners share one Docker daemon: the container and port are this job's own.
+      CONTAINER: zega-readback-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
     steps:
-      # Pulled by tag from Docker Hub, as Simien's local stack pulls it.
+      # Pulled by tag from Docker Hub, as Simien's local stack pulls it. Both
+      # legs may share a daemon, so the architecture is checked on the image
+      # this container actually runs, not on the (shared) local tag.
       - name: Pull the tag and run it
         run: |
+          set -euo pipefail
           image="$DOCKERHUB_USERNAME/zega:$VERSION"
-          docker pull "$image"
-          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = "${{ matrix.platform }}"
-          docker run -d --name zega-readback -e ZEGA_TOKEN=readback-token -p 9342:9342 "$image"
-          for _ in $(seq 1 30); do
-            if curl -fsS -H "Authorization: Bearer readback-token" http://127.0.0.1:9342/health; then
+          docker run -d --pull always --platform "${{ matrix.platform }}" --name "$CONTAINER" \
+            -e ZEGA_TOKEN=readback-token -p 127.0.0.1::9342 "$image"
+          test "$(docker image inspect "$(docker inspect --format '{{.Image}}' "$CONTAINER")" --format '{{.Os}}/{{.Architecture}}')" = "${{ matrix.platform }}"
+          port=$(docker port "$CONTAINER" 9342/tcp | head -1 | sed 's/.*://')
+          # Emulated (arm64 on an x64 host) it starts slower.
+          for _ in $(seq 1 90); do
+            if curl -fsS -H "Authorization: Bearer readback-token" "http://127.0.0.1:$port/health"; then
               echo; echo "$image serves on ${{ matrix.platform }}"; exit 0
             fi
             sleep 2
           done
-          docker logs zega-readback; exit 1
+          docker logs "$CONTAINER"; exit 1
+      - name: Remove this job's container
+        if: always()
+        run: docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
