@@ -1,6 +1,7 @@
 //! End-to-end APS 39 proof. EARTH and FAN are separate OS processes running
 //! zega-server. Parent-owned proxies count actual HTTP TCP-stream bytes and
 //! cut transport; a fake Worker implements the shared mailbox contract.
+#![cfg(unix)] // a child server inherits its listening socket as stdin
 use axum::{
     body::Body,
     extract::{Path, Query, State},
@@ -52,7 +53,12 @@ fn proof_server_child() {
             state.sync = Some(Arc::new(
                 Runtime::new(host.linked, Some(PUBLIC_FIXTURE_KEY.into())).unwrap(),
             ));
-            let listener = TcpListener::bind(host.address).await.unwrap();
+            // The parent holds host.address and hands its listener over as stdin
+            // (see `free_address`), so no other process can take the port first.
+            let held = unsafe { <std::net::TcpListener as std::os::fd::FromRawFd>::from_raw_fd(0) };
+            assert_eq!(held.local_addr().unwrap(), host.address);
+            held.set_nonblocking(true).unwrap();
+            let listener = TcpListener::from_std(held).unwrap();
             let worker = zega_server::sync::start(state.clone()).await.unwrap();
             let app = zega_server::routes::app(state.clone())
                 .route("/proof/write", post(timed_write).with_state(state));
@@ -347,11 +353,17 @@ impl Drop for Rig {
         }
     }
 }
+/// The listeners this test process holds for its child servers, by address.
+static HELD: Mutex<BTreeMap<SocketAddr, std::net::TcpListener>> = Mutex::new(BTreeMap::new());
+/// A port for a child server, kept bound until the test ends: `launch` hands the
+/// child this listener as stdin. Choosing a free port, closing it and binding it
+/// again in the child let another process take it in between ("Address already
+/// in use" on shared CI hosts); a restarted child gets the same listener again.
 fn free_address() -> SocketAddr {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    HELD.lock().unwrap().insert(address, listener);
+    address
 }
 impl Rig {
     async fn new() -> Self {
@@ -519,13 +531,14 @@ impl Rig {
     }
     fn launch(&self, name: &str) -> Process {
         let log = std::fs::File::create(self.dir.path().join(format!("{name}.log"))).unwrap();
+        let config = self.dir.path().join(format!("{name}.json"));
+        let host: Host = serde_json::from_reader(std::fs::File::open(&config).unwrap()).unwrap();
+        let listener = HELD.lock().unwrap()[&host.address].try_clone().unwrap();
         Process {
             child: Command::new(std::env::current_exe().unwrap())
                 .args(["--exact", "proof_server_child", "--ignored", "--nocapture"])
-                .env(
-                    "ZEGA_PROOF_CONFIG",
-                    self.dir.path().join(format!("{name}.json")),
-                )
+                .env("ZEGA_PROOF_CONFIG", config)
+                .stdin(Stdio::from(std::os::fd::OwnedFd::from(listener)))
                 .stdout(Stdio::from(log.try_clone().unwrap()))
                 .stderr(Stdio::from(log))
                 .spawn()
