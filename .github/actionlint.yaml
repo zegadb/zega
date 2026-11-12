@@ -4,5 +4,4 @@ self-hosted-runner:
   # promotions) use them; pull requests run on GitHub-hosted runners.
   labels:
     - host-linux-x64
-    - host-macos-arm64
     - host-macos-x64

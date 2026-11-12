@@ -13,7 +13,9 @@ on:
 # Runners (addiscorp/infra#34): CI on GitHub-hosted, releases on our hardware.
 # A pull_request run stays on GitHub-hosted runners (this repo is public). A
 # canary tag or a dispatch builds on our machines, in the ci-release runner
-# group that admits this repo: host-linux-x64, host-macos-arm64, host-macos-x64.
+# group that admits this repo: host-linux-x64 and host-macos-x64. darwin-arm64
+# has no machine of ours (the [simien] Mac left CI), so its release leg runs on
+# GitHub-hosted macos-15, as its pull request leg does.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -149,11 +151,13 @@ jobs:
         run: |
           set -euo pipefail
           # A pull request (public repo) builds on GitHub-hosted runners; a
-          # canary tag or a dispatch builds on our hardware (ci-release group).
+          # canary tag or a dispatch builds on our hardware (ci-release group),
+          # except darwin-arm64: no Mac of ours serves it since [simien] left
+          # CI, so it stays on GitHub-hosted macos-15.
           if [ "$EVENT_NAME" = pull_request ]; then
             linux=ubuntu-24.04; darwin_arm64=macos-15; darwin_x64=macos-15-intel
           else
-            linux=host-linux-x64; darwin_arm64=host-macos-arm64; darwin_x64=host-macos-x64
+            linux=host-linux-x64; darwin_arm64=macos-15; darwin_x64=host-macos-x64
           fi
           full=$(jq -n --arg l "$linux" --arg a "$darwin_arm64" --arg x "$darwin_x64" '[
             {platform:"linux-x64",runner:$l,sccache_bucket:"zega-sccache-linux-x64",extension:""},
@@ -378,11 +382,12 @@ jobs:
       - name: Smoke test the built CLI
         run: python3 scripts/smoke-cli.py ".target/release/zega-server${EXTENSION}"
       # Only a canary publishes the binaries, so only a tag run hands them on,
-      # through R2 as the package job does. An arm64 PR leg tests only; its
-      # binary isn't the linux-x64 artifact.
+      # through R2 as the package job does. Every leg of a tag run is a
+      # shipping platform (darwin-arm64 included, on an ARM64 runner), so
+      # none is skipped: publish refuses a release missing any platform.
       - name: Hand the binary on
         id: handoff
-        if: needs.resolve.outputs.tag != '' && runner.arch != 'ARM64'
+        if: needs.resolve.outputs.tag != ''
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_CI_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_CI_SECRET_ACCESS_KEY }}
