@@ -86,6 +86,8 @@ impl SqliteLog {
         let conn = db.connect().map_err(|e| sql_error("connecting to the SQLite log", e))?;
         conn.execute("PRAGMA journal_mode = wal")
             .and_then(|()| conn.execute("PRAGMA synchronous = FULL"))
+            // Applications' REFERENCES are enforced, cascades included (zega#189).
+            .and_then(|()| conn.execute("PRAGMA foreign_keys = ON"))
             .and_then(|()| conn.execute(SCHEMA))
             .map_err(|e| sql_error("preparing the SQLite log", e))?;
         let format = query(&conn, "SELECT value FROM zega_meta WHERE key = 'format'", &[])?;
@@ -288,14 +290,105 @@ pub(crate) struct Rows {
 pub(crate) struct LogTx<'a> {
     state: MutexGuard<'a, State>,
     open: bool,
+    /// A migration: foreign keys are off until it ends, and checked before it commits.
+    migration: bool,
 }
 
 impl SqliteLog {
     pub(crate) fn begin(&self) -> Result<LogTx<'_>, WalError> {
         let state = self.lock()?;
         run(&state.conn, "BEGIN IMMEDIATE", &[])?;
-        Ok(LogTx { state, open: true })
+        Ok(LogTx { state, open: true, migration: false })
     }
+
+    /// A transaction with foreign keys off, for table rebuilds: dropping a
+    /// parent table with them on deletes its children through ON DELETE
+    /// CASCADE (`defer_foreign_keys` defers checks, not actions). SQLite only
+    /// changes `foreign_keys` outside a transaction, so it is set before BEGIN.
+    pub(crate) fn begin_migration(&self) -> Result<LogTx<'_>, WalError> {
+        let state = self.lock()?;
+        run(&state.conn, "PRAGMA foreign_keys = OFF", &[])?;
+        if let Err(error) = run(&state.conn, "BEGIN IMMEDIATE", &[]) {
+            let _ = run(&state.conn, "PRAGMA foreign_keys = ON", &[]);
+            return Err(error);
+        }
+        Ok(LogTx { state, open: true, migration: true })
+    }
+}
+
+/// One foreign key of a table: its child columns and the parent's (`None`:
+/// the parent's primary key).
+struct ForeignKey {
+    id: i64,
+    parent: String,
+    from: Vec<String>,
+    to: Vec<Option<String>>,
+}
+
+/// The first foreign key of an application table that a row breaks, as
+/// "`table`.(`columns`) → `parent`: N rows". turso's `PRAGMA
+/// foreign_key_check` reports nothing, so each key is checked here.
+fn dangling_foreign_key(conn: &Arc<Connection>) -> Result<Option<String>, LimboError> {
+    let text = |value: &Value| match value {
+        Value::Text(text) => text.as_str().to_string(),
+        _ => String::new(),
+    };
+    let quote = |name: &str| format!("\"{}\"", name.replace('"', "\"\""));
+    let tables = conn
+        .prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name NOT LIKE 'zega\\_%' ESCAPE '\\' ORDER BY name")?
+        .run_collect_rows()?;
+    for table in tables.iter().map(|row| text(&row[0])) {
+        // One row per column of each key: id, seq, parent table, from, to.
+        let mut statement = conn.prepare("SELECT id, seq, \"table\", \"from\", \"to\" FROM pragma_foreign_key_list(?1) ORDER BY id, seq")?;
+        statement.bind_at(param(1), Value::build_text(table.clone()))?;
+        let mut keys: Vec<ForeignKey> = Vec::new();
+        for row in statement.run_collect_rows()? {
+            let id = as_integer(&row[0]).unwrap_or(0);
+            if keys.last().map(|key| key.id) != Some(id) {
+                keys.push(ForeignKey { id, parent: text(&row[2]), from: Vec::new(), to: Vec::new() });
+            }
+            let key = keys.last_mut().expect("pushed");
+            key.from.push(text(&row[3]));
+            key.to.push(match &row[4] {
+                Value::Null => None,
+                value => Some(text(value)),
+            });
+        }
+        for ForeignKey { parent, from, to, .. } in keys {
+            let exists = conn
+                .prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?1")
+                .and_then(|mut statement| {
+                    statement.bind_at(param(1), Value::build_text(parent.clone()))?;
+                    statement.run_collect_rows()
+                })?;
+            let count = if exists.is_empty() {
+                // Every row that sets the key points at a table that is gone.
+                let set = from.iter().map(|c| format!("{} IS NOT NULL", quote(c))).collect::<Vec<_>>().join(" AND ");
+                format!("SELECT count(*) FROM {} WHERE {set}", quote(&table))
+            } else {
+                // A key without columns names the parent's primary key.
+                let to: Vec<String> = if to.iter().all(Option::is_some) {
+                    to.into_iter().flatten().collect()
+                } else {
+                    let mut statement = conn.prepare("SELECT name FROM pragma_table_info(?1) WHERE pk > 0 ORDER BY pk")?;
+                    statement.bind_at(param(1), Value::build_text(parent.clone()))?;
+                    statement.run_collect_rows()?.iter().map(|row| text(&row[0])).collect()
+                };
+                let set = from.iter().map(|c| format!("c.{} IS NOT NULL", quote(c))).collect::<Vec<_>>().join(" AND ");
+                let joins = from.iter().zip(&to).map(|(c, p)| format!("p.{} = c.{}", quote(p), quote(c))).collect::<Vec<_>>().join(" AND ");
+                format!(
+                    "SELECT count(*) FROM {} AS c WHERE {set} AND NOT EXISTS (SELECT 1 FROM {} AS p WHERE {joins})",
+                    quote(&table),
+                    quote(&parent)
+                )
+            };
+            let dangling = conn.prepare(&count)?.run_collect_rows()?.first().and_then(|row| as_integer(&row[0])).unwrap_or(0);
+            if dangling > 0 {
+                return Ok(Some(format!("{table}.({}) → {parent}: {dangling} rows", from.join(", "))));
+            }
+        }
+    }
+    Ok(None)
 }
 
 impl LogTx<'_> {
@@ -364,8 +457,21 @@ impl LogTx<'_> {
                 Some(entry_len(&payload))
             }
         };
+        if self.migration {
+            match dangling_foreign_key(&self.state.conn) {
+                Ok(None) => {}
+                // Drop rolls back and turns foreign keys on again.
+                Ok(Some(dangling)) => return Err(SqlFailure::Constraint(format!("FOREIGN KEY constraint failed: {dangling} name no parent row"))),
+                Err(error) => return Err(failure(error)),
+            }
+        }
         self.open = false;
-        match self.state.conn.execute("COMMIT") {
+        let committed = self.state.conn.execute("COMMIT");
+        if self.migration {
+            self.migration = false;
+            let _ = self.state.conn.execute("PRAGMA foreign_keys = ON");
+        }
+        match committed {
             Ok(()) => {
                 if let Some(len) = added {
                     self.state.next_seq += 1;
@@ -394,6 +500,9 @@ impl Drop for LogTx<'_> {
             // A connection that cannot roll back cannot be trusted with the
             // next transaction either.
             self.state.durability_error = Some("SQLite rollback failed; the log refuses writes until the store is reopened".into());
+        }
+        if self.migration && self.state.conn.execute("PRAGMA foreign_keys = ON").is_err() {
+            self.state.durability_error = Some("SQLite could not turn foreign keys back on; the log refuses writes until the store is reopened".into());
         }
     }
 }
