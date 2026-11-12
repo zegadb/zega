@@ -18,7 +18,9 @@ defaults:
     working-directory: cli
 jobs:
   tests:
-    runs-on: mirab-linux-arm64 # APS 11: a fresh VM per job on our runners
+    # Public repo: self-hosted runners refuse public repos (a fork PR must never
+    # run on our machines); GitHub-hosted runners are free here (addiscorp/infra#34).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       TMPDIR: ${{ github.workspace }}/cli/.tmp
