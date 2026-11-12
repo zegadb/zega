@@ -49,6 +49,21 @@ travel-shaped graphs (1k–1M nodes: `Place { name zid kind at description }`,
 Generated data and results live under `.tmp/scale-143/` (gitignored); the
 latest results and the recommendation are in `docs/scale-results.md`.
 
+## zega-bulk — bulk loading at millions of nodes (#127, #128)
+
+The JSON-lines bulk path (`zega-server import graph.jsonl`,
+docs/data-loading.md#bulk-loading) against loading the same graph as 2 MB
+ZQL statements, with wall time, peak RSS during the load and resting RSS
+after a reopen in a fresh process:
+
+    ZQL=1 scripts/bulk-bench.sh 3000000 5000000 .tmp/bulk
+
+- `zega-bulk gen <nodes> <relationships> <dir>` writes `graph.jsonl`, the
+  same graph as `mutation json` chunks of at most 2 MB (`load.zql`), and
+  `schema.zql` (`Item { qid name kind pop }`, unique `qid`, `LINK` links).
+- `zega-bulk zql <dir> --data <db>` loads the chunks one statement each.
+- `zega-bulk reopen --data <db>` opens a data directory and runs one query.
+
 ## Zega + SQLite against Zega + Postgres (APS 54)
 
 `sql/bench.py` runs three setups one after the other on one machine, each from an empty data directory: `zega-server --storage sqlite` (a write is one `POST /transaction`: the SQL row and its graph node in one commit), and the `addiscorp/pg_zega` image in precommit mode and in journal mode (a tracked table, an `INSERT` per transaction). It reports write latency and throughput, SQL, ZQL and mixed reads by key, how long the graph trails the SQL commit, how fast journal mode's backlog drains, and resident memory idle and after the writes.

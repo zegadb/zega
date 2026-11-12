@@ -481,6 +481,67 @@ fn import_refuses_to_overwrite_without_replace_and_a_damaged_file_changes_nothin
     assert_ne!(succeeds(&["export", "-", "--data", "db"], dir).stdout, before);
 }
 
+/// The bulk path (#127): `import` takes JSON lines too, told apart from a
+/// `.graph` file by its first byte, with a schema and metadata, from a file
+/// or stdin, into either storage; a server on the result serves it.
+#[test]
+fn import_loads_json_lines_with_a_schema_into_either_storage() {
+    let directory = tempfile::tempdir().unwrap();
+    let dir = directory.path();
+    let schema = "schema { type City { name: String pop?: Int near: NEAR -> City[] } }\nunique { City { name } }\n";
+    std::fs::write(dir.join("schema.zql"), schema).unwrap();
+    let lines = concat!(
+        r#"{"type":"node","id":1,"labels":["City"],"props":{"name":"Ottawa","pop":1017449}}"#, "\n",
+        r#"{"type":"node","id":2,"labels":["City"],"props":{"name":"Gatineau"}}"#, "\n",
+        r#"{"type":"rel","kind":"NEAR","from":1,"to":2}"#, "\n",
+    );
+    std::fs::write(dir.join("cities.jsonl"), lines).unwrap();
+    let mut exports = Vec::new();
+    for storage in ["sqlite", "file"] {
+        let data = format!("db-{storage}");
+        let args = ["import", "cities.jsonl", "--data", &data, "--schema", "schema.zql", "--meta", "source=test", "--storage", storage];
+        let output = succeeds(&args, dir);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.starts_with("imported 2 nodes and 1 relationships from cities.jsonl (JSON lines; content id "), "{stderr}");
+        let marker = if storage == "sqlite" { "zega.db" } else { "wal.bin" };
+        assert!(dir.join(&data).join(marker).exists(), "{storage}");
+        exports.push(succeeds(&["export", "-", "--data", &data], dir).stdout);
+    }
+    assert_eq!(exports[0], exports[1], "both storages hold the same graph");
+    let summary = zega::Zega::in_memory().build().unwrap().import(&exports[0][..]).unwrap();
+    assert_eq!(summary.schema.as_deref(), Some(schema));
+    assert_eq!(summary.meta["source"], "test");
+
+    // stdin, and a bad line changes nothing.
+    let mut child = Command::new(BIN)
+        .args(["import", "-", "--data", "db-sqlite", "--replace"])
+        .current_dir(dir)
+        .stdin(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    use std::io::Write as _;
+    child.stdin.take().unwrap().write_all(b"{\"type\":\"node\"}\n{\"type\":\"rel\",\"kind\":\"NEAR\",\"from\":1,\"to\":9}\n").unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("node 9, which no earlier line defines") && stderr.contains("(line 2)"), "{stderr}");
+    assert_eq!(succeeds(&["export", "-", "--data", "db-sqlite"], dir).stdout, exports[0]);
+
+    // A .graph file carries its own schema.
+    let output = zega(&["import", GOLDEN, "--data", "db-new", "--schema", "schema.zql"], dir);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("is a .graph file"), "{output:?}");
+
+    std::fs::rename(dir.join("db-sqlite"), dir.join("db")).unwrap();
+    let server = Running::start("start", dir, &[]);
+    let query = json!({ "schema": schema, "query": "{ City(name: \"Ottawa\") { pop near -> City { name } } }" });
+    let (status, body, _) = server.request("POST", "/zql", Some(query), None);
+    let body = String::from_utf8_lossy(&body);
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains("Gatineau") && body.contains("1017449"), "{body}");
+}
+
 #[test]
 fn export_and_import_respect_a_running_server_s_lock() {
     let directory = tempfile::tempdir().unwrap();

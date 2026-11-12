@@ -25,6 +25,7 @@ use crate::location::Point;
 use crate::value::Value;
 use crate::vector::{Metric, Vector};
 
+pub mod json_lines;
 #[cfg(test)]
 mod tests;
 
@@ -125,6 +126,10 @@ pub enum Error {
     },
     #[error("cannot export this graph as .graph: {0}")]
     Unexportable(String),
+    /// A JSON-lines graph ([`json_lines`]) was refused; nothing was loaded.
+    /// `line` is 1-based, 0 for the input as a whole.
+    #[error("invalid JSON-lines graph: {reason} (line {line})")]
+    JsonLines { line: u64, reason: String },
     #[error(".graph i/o error: {0}")]
     Io(#[from] io::Error),
 }
@@ -454,18 +459,22 @@ type Declarations = (Vec<(String, String)>, Vec<IndexSpec>);
 /// (`index` blocks plus the range index every orderable `unique` field
 /// gets), so a file declares exactly what running that schema would.
 fn declarations(source: &str) -> Result<Declarations, Error> {
-    let unparsable = |error: crate::lang::Error| {
-        Error::Unexportable(format!("the schema does not parse: {error}"))
-    };
-    let schema = crate::lang::parse_schema(source).map_err(unparsable)?;
-    let mut uniques = crate::lang::parse_uniques(source).map_err(unparsable)?;
-    let indexes = crate::lang::parse_indexes(source).map_err(unparsable)?;
+    schema_declarations(source)
+        .map(|(_, declarations)| declarations)
+        .map_err(|error| Error::Unexportable(format!("the schema does not parse: {error}")))
+}
+
+/// [`declarations`], with the parsed schema they came from.
+fn schema_declarations(source: &str) -> Result<(crate::lang::Schema, Declarations), crate::lang::Error> {
+    let schema = crate::lang::parse_schema(source)?;
+    let mut uniques = crate::lang::parse_uniques(source)?;
+    let indexes = crate::lang::parse_indexes(source)?;
     let mut indexes = crate::lang::effective_indexes(&schema, &uniques, &indexes);
     uniques.sort();
     uniques.dedup();
     indexes.sort_by(|a, b| (&a.type_name, &a.field, a.kind).cmp(&(&b.type_name, &b.field, b.kind)));
     indexes.dedup();
-    Ok((uniques, indexes))
+    Ok((schema, (uniques, indexes)))
 }
 
 /// Write `graph` as a `.graph` file to `out`. `created_by` names the writer
