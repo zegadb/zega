@@ -4,6 +4,16 @@ Changes that affect code using the `zega` crate, newest first. File formats
 (WAL, snapshot, `.graph`) have their own versions; see
 [docs/graph-format.md](docs/graph-format.md).
 
+## 0.2.5
+
+- **Bulk loading (#127, #128).** `zega-server import graph.jsonl --data <dir>
+  --schema schema.zql --meta key=value` loads a whole graph of any size from
+  JSON lines, one node or relationship per line, all or nothing, in memory
+  close to the graph's resting size (the graph being built plus one line). The
+  crate path is `Zega::import_json_lines(reader, &JsonLinesOptions { schema,
+  meta })`, returning the same `ImportSummary` as `Zega::import`. See
+  [docs/data-loading.md#bulk-loading](docs/data-loading.md#bulk-loading).
+
 ## 0.2.4
 
 - **Batches of deliveries (APS 52).** `Zega::deliver_all` and
