@@ -5,7 +5,7 @@ pub mod sql;
 pub mod server;
 pub mod sync;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use zega::Zega;
 
@@ -33,9 +33,16 @@ pub const DEFAULT_TRANSFER_SLOTS: usize = 16;
 /// A `.graph` transfer holds the gate only for the engine's part of it: the
 /// network side runs against a staging file, so a slow client never blocks
 /// anyone else.
+///
+/// The gate is a read-write lock (zegadb/zega#147). An operation that only
+/// reads (a `QUERY`, a `POST /zql` whose every statement is a read, an
+/// export, the counts) shares it, so reads run at once, one per blocking
+/// thread. Anything that may write takes it alone, which keeps every write
+/// request, and every read request, isolated as a whole: a read never sees
+/// half of a multi-statement document.
 #[derive(Clone)]
 pub struct AppState {
-    pub zega: Arc<Mutex<Zega>>,
+    pub zega: Arc<RwLock<Zega>>,
     pub sync: Option<Arc<sync::Runtime>>,
     pub token_hash: Option<[u8; 32]>,
     pub max_import_bytes: u64,
@@ -46,7 +53,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(zega: Zega, token: Option<&str>) -> Self {
         Self {
-            zega: Arc::new(Mutex::new(zega)),
+            zega: Arc::new(RwLock::new(zega)),
             sync: None,
             token_hash: token.map(auth::hash_token),
             max_import_bytes: DEFAULT_MAX_IMPORT_BYTES,

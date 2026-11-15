@@ -37,7 +37,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -79,7 +79,7 @@ pub struct Checkpoint {
 /// What a checkpoint needs of a database, shared with its checkpoint thread.
 #[derive(Clone)]
 pub(crate) struct Store {
-    pub graph: Arc<Mutex<Graph>>,
+    pub graph: Arc<RwLock<Graph>>,
     pub wal: Arc<Wal>,
     pub path: PathBuf,
     /// Held by an import from its rename into `graphs/` through its WAL entry
@@ -141,7 +141,7 @@ impl Store {
         let (from, unfinished, paused) = {
             let mut graph = self
                 .graph
-                .lock()
+                .write()
                 .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
             let started = std::time::Instant::now();
             let from = self.wal.end()?;

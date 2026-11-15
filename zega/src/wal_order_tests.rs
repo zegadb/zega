@@ -34,7 +34,7 @@ impl Store {
 
     /// Everything a reader can observe, plus the ids the next writes get.
     fn state(&self) -> (Json, (u64, u64)) {
-        let ids = self.zega.graph.lock().unwrap().next_ids();
+        let ids = self.zega.graph.read().unwrap().next_ids();
         (self.zega.graph_json().unwrap(), ids)
     }
 

@@ -4,7 +4,7 @@ pub mod location;
 pub mod vector;
 mod vector_view;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use thiserror::Error;
 use crate::graph::Graph;
 pub use crate::value::Value;
@@ -48,7 +48,7 @@ pub use crate::checkpoint::{Checkpoint, CheckpointCounts, DEFAULT_SNAPSHOT_EVERY
 pub use crate::lang::{diagnose, fmt};
 pub use crate::validation::{Diagnostic, Pane, Report, Severity};
 
-pub use v2::{check_zql, parse_import, zql_load_locations, ZqlEntryPoint};
+pub use v2::{check_zql, parse_import, zql_is_read, zql_load_locations, ZqlEntryPoint};
 pub use lang::{Direction as SchemaDirection, DisplayConfig, DisplayView, GlobeCamera, GlobeCenter, NodeDisplay, NodeShape, EdgeField, Field, LoadFormat, Schema, Span, TypeDef, ViewKind};
 pub mod schema_diff;
 pub use schema_diff::{diff_schemas, ChangeKind, SchemaChange, SchemaDiffReport, Severity as SchemaSeverity};
@@ -107,7 +107,9 @@ pub struct GraphCounts {
 }
 
 pub struct Zega {
-    graph: Arc<Mutex<Graph>>,
+    /// Reads (a query, an export, the counts) share this lock and run at
+    /// once; anything that changes the graph takes it alone (zegadb/zega#147).
+    graph: Arc<RwLock<Graph>>,
     wal: Arc<Wal>,
     #[cfg(not(target_arch = "wasm32"))]
     path: PathBuf,
@@ -321,7 +323,7 @@ impl Zega {
         // Only a native disk database gets a checkpoint thread below.
         #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
         let mut zega = Zega {
-            graph: Arc::new(Mutex::new(graph)),
+            graph: Arc::new(RwLock::new(graph)),
             wal: Arc::new(wal),
             #[cfg(not(target_arch = "wasm32"))]
             path,
@@ -395,14 +397,14 @@ impl Zega {
 
     /// Whether the graph holds no node and no relationship.
     pub fn is_empty(&self) -> Result<bool> {
-        let graph = self.lock_graph()?;
+        let graph = self.read_lock_graph()?;
         Ok(graph.is_empty())
     }
 
     /// How many nodes and relationships the graph holds. Both are the
     /// in-memory maps' lengths: O(1), no scan.
     pub fn counts(&self) -> Result<GraphCounts> {
-        let graph = self.lock_graph()?;
+        let graph = self.read_lock_graph()?;
         Ok(GraphCounts { nodes: graph.node_count(), relationships: graph.relationship_count() })
     }
 
@@ -419,7 +421,7 @@ impl Zega {
         out: &mut impl std::io::Write,
         options: &graph_file::ExportOptions,
     ) -> Result<graph_file::ExportSummary> {
-        let graph = self.lock_graph()?;
+        let graph = self.read_lock_graph()?;
         Ok(graph_file::write(&graph, options, CREATED_BY, out)?)
     }
 
@@ -659,29 +661,32 @@ impl Zega {
         (!self.in_memory).then_some(self.path.as_path())
     }
 
-    fn lock_graph(&self) -> Result<std::sync::MutexGuard<'_, Graph>> {
+    /// The graph, alone: for anything that changes it.
+    fn lock_graph(&self) -> Result<std::sync::RwLockWriteGuard<'_, Graph>> {
         self.graph
-            .lock()
+            .write()
+            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))
+    }
+
+    /// The graph, shared with other readers: writers wait until every
+    /// reader is done, so a reader sees one consistent state throughout.
+    fn read_lock_graph(&self) -> Result<std::sync::RwLockReadGuard<'_, Graph>> {
+        self.graph
+            .read()
             .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))
     }
 
     /// Serialize the full graph state to bytes. Platform-independent —
     /// this is how the wasm build persists an in-memory database.
     pub fn snapshot_bytes(&self) -> Result<Vec<u8>> {
-        let graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
+        let graph = self.read_lock_graph()?;
         Ok(crate::wal::encode_snapshot(&graph)?)
     }
 
     /// Restore the full graph state from [`snapshot_bytes`] output,
     /// replacing current state.
     pub fn restore_bytes(&self, bytes: &[u8]) -> Result<()> {
-        let mut graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
+        let mut graph = self.lock_graph()?;
         crate::wal::restore_bytes(&mut graph, bytes)?;
         Ok(())
     }

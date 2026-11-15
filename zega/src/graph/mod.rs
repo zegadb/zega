@@ -399,6 +399,24 @@ impl Graph {
         }
     }
 
+    /// Whether [`Self::sync_indexes`] with `specs` and [`Self::sync_uniques`]
+    /// with `uniques` would both change nothing. A read can then run on a
+    /// graph it shares with other readers instead of taking it alone.
+    pub fn indexes_synced(&self, specs: &[IndexSpec], uniques: &[(String, String)]) -> bool {
+        if !self.declared.matches(specs) {
+            return false;
+        }
+        let mut pairs = Vec::with_capacity(uniques.len());
+        for (ty, field) in uniques {
+            match (self.names.get(ty), self.names.get(field)) {
+                (Some(ty), Some(field)) => pairs.push((ty, field)),
+                // Syncing would intern a name and add an index.
+                _ => return false,
+            }
+        }
+        self.uniques.matches(&pairs)
+    }
+
     /// The declared indexes, sorted by type, field, then kind.
     #[cfg(test)]
     pub fn declared_indexes(&self) -> Vec<IndexSpec> {

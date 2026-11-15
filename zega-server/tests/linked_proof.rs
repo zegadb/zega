@@ -73,7 +73,7 @@ async fn timed_write(State(state): State<AppState>, Json(query): Json<String>) -
     Json(
         tokio::task::spawn_blocking(move || {
             let start = Instant::now();
-            state.zega.lock().unwrap().run_lang(SCHEMA, &query).unwrap();
+            state.zega.write().unwrap().run_lang(SCHEMA, &query).unwrap();
             u64::try_from(start.elapsed().as_nanos()).unwrap()
         })
         .await

@@ -125,7 +125,7 @@ async fn engine<T: Send + 'static>(
 ) -> Result<T, String> {
     let db = state.zega.clone();
     tokio::task::spawn_blocking(move || {
-        let db = db.lock().map_err(|_| "engine lock poisoned".to_owned())?;
+        let db = db.write().map_err(|_| "engine lock poisoned".to_owned())?;
         op(&db).map_err(|e| e.to_string())
     })
     .await

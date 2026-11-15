@@ -8,7 +8,7 @@
 //! on the same `Zega` from inside the closure would wait for itself; use the
 //! [`Transaction`] given to the closure instead.
 
-use std::sync::MutexGuard;
+use std::sync::RwLockWriteGuard;
 
 use serde_json::Value as Json;
 
@@ -19,7 +19,7 @@ use crate::{Result, Zega, ZegaError};
 /// The steps of one [`Zega::transaction`].
 pub struct Transaction<'z> {
     zega: &'z Zega,
-    graph: MutexGuard<'z, Graph>,
+    graph: RwLockWriteGuard<'z, Graph>,
     pending: Option<Pending>,
     #[cfg(all(feature = "sqlite", not(target_arch = "wasm32")))]
     log: Option<crate::wal::sqlite::LogTx<'z>>,

@@ -56,6 +56,13 @@ impl UniqueIndexes {
         self.slots.retain(|slot| keep.contains(&(slot.ty, slot.field)));
     }
 
+    /// Whether the indexes are exactly `keep`: [`Self::retain`] and adding
+    /// each missing one would change nothing.
+    pub fn matches(&self, keep: &[(Sym, Sym)]) -> bool {
+        keep.iter().all(|&(ty, field)| self.contains(ty, field))
+            && self.slots.iter().all(|slot| keep.contains(&(slot.ty, slot.field)))
+    }
+
     /// Start an empty index on (`ty`, `field`); the caller fills it.
     pub fn add(&mut self, ty: Sym, field: Sym) {
         if !self.contains(ty, field) {

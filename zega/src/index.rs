@@ -282,6 +282,13 @@ impl TextIndex {
 
 type Slot = (String, String);
 
+/// Whether `specs` names the `kind` index on `slot`.
+fn named(specs: &[IndexSpec], kind: IndexKind, (ty, field): &Slot) -> bool {
+    specs
+        .iter()
+        .any(|spec| spec.kind == kind && &spec.type_name == ty && &spec.field == field)
+}
+
 /// The indexes the current schema declares, kept in step with every write.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct DeclaredIndexes {
@@ -320,13 +327,16 @@ impl DeclaredIndexes {
 
     /// Drop every index `specs` does not name.
     pub fn retain(&mut self, specs: &[IndexSpec]) {
-        let keep = |kind: IndexKind, (ty, field): &Slot| {
-            specs
-                .iter()
-                .any(|spec| spec.kind == kind && &spec.type_name == ty && &spec.field == field)
-        };
-        self.range.retain(|slot, _| keep(IndexKind::Range, slot));
-        self.text.retain(|slot, _| keep(IndexKind::Text, slot));
+        self.range.retain(|slot, _| named(specs, IndexKind::Range, slot));
+        self.text.retain(|slot, _| named(specs, IndexKind::Text, slot));
+    }
+
+    /// Whether the declared indexes are exactly `specs`, so that
+    /// [`crate::graph::Graph::sync_indexes`] with them would change nothing.
+    pub fn matches(&self, specs: &[IndexSpec]) -> bool {
+        specs.iter().all(|spec| self.contains(spec))
+            && self.range.keys().all(|slot| named(specs, IndexKind::Range, slot))
+            && self.text.keys().all(|slot| named(specs, IndexKind::Text, slot))
     }
 
     /// Build `spec` from `nodes`, the nodes that carry its type.
