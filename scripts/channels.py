@@ -11,8 +11,12 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tomllib
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import linux_binary  # noqa: E402
 
 
 CANARY = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-canary-([0-9a-f]{7})")
@@ -167,6 +171,10 @@ def prepare(tag, artifacts, destination):
                 raise ValueError("R2 WASM must match the tested npm package bytes")
     if package["name"] != "@zegadb/lib" or package["version"] != f"{base}-canary.{commit[:7]}":
         raise ValueError("Release package must be the tested @zegadb/lib canary")
+    # A Linux executable that only starts on the host that built it (a NixOS
+    # /nix/store loader: v0.2.4) must never get a manifest.
+    for line in linux_binary.check_release(dest):
+        print(line)
     data = dict(version=tag[1:], tag=tag, base_version=base, commit=commit,
                 channel="canary", promoted_from=None,
                 cargo_lock_sha256=digest("Cargo.lock"),
@@ -306,6 +314,9 @@ def promote(tag, directory):
         check_commit(source, tag, commit)
         aws("cp", "--recursive", f"s3://{bucket}/{tag}/", f"{source}/")
         verify(source, tag, commit)
+        # Canaries published before prepare checked this (v0.2.4-canary-9c02df2,
+        # v0.2.5-canary-5804251) must not become stable.
+        linux_binary.check_release(source)
     repack(work / BUCKETS[0] / "package.tgz", work / "package.tgz", f"{base}-canary.{commit[:7]}", base)
     for bucket in BUCKETS:
         source = work / bucket

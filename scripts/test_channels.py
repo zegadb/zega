@@ -16,6 +16,7 @@ import unittest
 from unittest.mock import patch
 
 from scripts import channels
+from scripts.test_linux_binary import NIX_LOADER, elf
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = Path(os.environ.get("CHANNELS_SCRIPT", ROOT / "scripts/channels.py")).resolve()
@@ -119,18 +120,20 @@ with open(os.environ['FIXTURE_LOG'], 'a') as f: f.write(json.dumps(sys.argv[1:])
     def remote_tags(self):
         return self.git("ls-remote", "--tags", "origin")
 
-    def fixture_canary(self):
+    def fixture_canary(self, binaries=None):
         self.git("tag", self.tag)
         for bucket in channels.BUCKETS:
             dest = self.store / bucket / self.tag
-            self.create_canary(dest)
+            self.create_canary(dest, binaries)
             latest = self.store / bucket / "latest"
             latest.mkdir()
             (latest / "sentinel").write_text("previous stable")
 
-    def create_canary(self, dest):
+    def create_canary(self, dest, binaries=None):
         dest.mkdir(parents=True)
         (dest / "zega.wasm").write_bytes(b"\0asm-fixture-payload")
+        for name, payload in (binaries or {}).items():
+            (dest / name).write_bytes(payload)
         with tarfile.open(dest / "package.tgz", "w:gz") as archive:
             for name, payload in {
                 "package/package.json": json.dumps({"name": "@zegadb/lib", "version": f"1.2.3-canary.{self.commit[:7]}", "exports": "./index.js"}).encode(),
@@ -311,6 +314,24 @@ class Promotion(Fixture):
         self.assertIn("already promoted", result.stderr)
         self.assertFalse(self.log.exists())
 
+    def test_canary_whose_linux_binary_needs_a_nix_loader_is_never_promoted(self):
+        # v0.2.4-canary-9c02df2 / v0.2.5-canary-5804251: zega-server-linux-x64 asks
+        # for a /nix/store loader, so exec fails with ENOENT on Ubuntu and Debian.
+        self.fixture_canary({"zega-linux-x64": elf(), "zega-server-linux-x64": elf(interpreter=NIX_LOADER)})
+        before = self.snapshot()
+        result = self.command("promote", self.tag, "promotion")
+        self.assertNotEqual(result.returncode, 0, "A canary that cannot start on Ubuntu was promoted")
+        self.assertIn(f"zega-server-linux-x64: not portable: loader is {NIX_LOADER}", result.stderr)
+        self.assertEqual(self.snapshot(), before, "A refused promotion must not write R2")
+        self.assertEqual(self.remote_tags(), "")
+        self.assertNotIn("v1.2.3", self.git("tag").splitlines())
+
+    def test_canary_with_portable_linux_binaries_promotes(self):
+        self.fixture_canary({"zega-linux-x64": elf(), "zega-server-linux-x64": elf()})
+        result = self.command("promote", self.tag, "promotion")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.store / "zega-releases/v1.2.3/zega-server-linux-x64").read_bytes(), elf())
+
 
 class Release(Fixture):
     def test_resolve_derives_npm_channel_and_rejects_stable_or_mismatched_tag(self):
@@ -401,10 +422,11 @@ class Publication(Fixture):
             native = artifacts / f"native-{platform}"
             native.mkdir()
             name = channels.native_artifact(platform)
-            (native / name).write_bytes(platform.encode())
+            # Linux artifacts must be portable ELF executables; the rest are opaque bytes here.
+            (native / name).write_bytes(elf() if platform.startswith("linux-") else platform.encode())
             cli = artifacts / f"cli-{platform}"
             cli.mkdir()
-            (cli / channels.cli_artifact(platform)).write_bytes(b"cli " + platform.encode())
+            (cli / channels.cli_artifact(platform)).write_bytes(elf(needed=("libc.so.6",)) if platform.startswith("linux-") else b"cli " + platform.encode())
         with tarfile.open(artifacts / "npm-package/package.tgz", "w:gz") as archive:
             for name, payload in {
                 "package/package.json": json.dumps({"name": "@zegadb/lib", "version": f"1.2.3-canary.{self.commit[:7]}"}).encode(),
@@ -427,6 +449,15 @@ class Publication(Fixture):
             self.assertEqual(inventory[channels.cli_artifact(platform)],
                              channels.digest(artifacts / f"cli-{platform}" / channels.cli_artifact(platform)))
             self.assertNotEqual(inventory[channels.cli_artifact(platform)], inventory[channels.native_artifact(platform)])
+        # The v0.2.4 regression: a NixOS host build names a /nix/store loader.
+        server = artifacts / "native-linux-x64" / channels.native_artifact("linux-x64")
+        tested = server.read_bytes()
+        server.write_bytes(elf(interpreter=NIX_LOADER))
+        result = self.command("prepare", self.tag, "artifacts", "nix-release")
+        self.assertNotEqual(result.returncode, 0, "A linux binary with a /nix/store loader got a manifest")
+        self.assertIn(f"zega-server-linux-x64: not portable: loader is {NIX_LOADER}", result.stderr)
+        self.assertFalse((self.repo / "nix-release/manifest.json").exists())
+        server.write_bytes(tested)
         (wasm / "engine.wasm").write_bytes(b"different-from-tested-package")
         result = self.command("prepare", self.tag, "artifacts", "bad-release")
         self.assertNotEqual(result.returncode, 0)

@@ -353,7 +353,34 @@ jobs:
         # --server makes a missing or unstartable binary a failure, not a skip.
         run: node npm/check-client.mjs --server .target/debug/zega-server
       - name: Build CLI with embedded explorer
+        if: matrix.platform != 'linux-x64'
         run: cargo build --locked --release -p zega-cli
+      # linux-x64 ships to every Linux, so it never links with the runner's own
+      # toolchain: on the NixOS host runners that stamps a /nix/store loader
+      # into the ELF, and v0.2.4's zega-server-linux-x64 could not exec on
+      # Ubuntu or Debian (ENOENT). It builds in the Debian image
+      # docker/zega/Dockerfile builds from (glibc 2.36, /lib64 loader), on any
+      # runner with Docker, with the job's sccache (the action's binary is
+      # static musl) and the same target directory the steps below read.
+      - name: Build CLI with embedded explorer (linux-x64, in Debian, not the host toolchain)
+        if: matrix.platform == 'linux-x64'
+        run: |
+          set -euo pipefail
+          mkdir -p "$CARGO_TARGET_DIR" .tmp/cargo-home
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -v "$GITHUB_WORKSPACE:/work" -w /work \
+            -v "$SCCACHE_PATH:/usr/local/bin/sccache:ro" \
+            -e HOME=/work/.tmp -e CARGO_HOME=/work/.tmp/cargo-home -e CARGO_TARGET_DIR=/work/.target \
+            -e RUSTC_WRAPPER -e CARGO_INCREMENTAL -e SCCACHE_ENDPOINT -e SCCACHE_REGION -e SCCACHE_BUCKET \
+            -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION \
+            rust:1.96.0-bookworm \
+            cargo build --locked --release -p zega-cli
+      # The gate the publish job repeats on the exact bytes it uploads: the
+      # loader is the standard one, nothing points into /nix/store, and the
+      # binary starts and answers a query on the oldest Ubuntu we support.
+      - name: The linux binary is portable (ELF loader, RPATH, glibc floor)
+        if: matrix.platform == 'linux-x64'
+        run: python3 scripts/linux_binary.py check .target/release/zega-server
       - name: Check canonical ZQL/JSON files and embedded samples
         run: |
           # Only files git tracks: build output and test reports (Playwright's
@@ -377,7 +404,11 @@ jobs:
           cp -R .tmp/testsuite/tests .tmp/corpus
           cargo test --locked -p zega --lib fmt:: -- --ignored --nocapture
       - name: Smoke test the built CLI
+        if: matrix.platform != 'linux-x64'
         run: python3 scripts/smoke-cli.py ".target/release/zega-server${EXTENSION}"
+      - name: Smoke test the built CLI on a plain Ubuntu 22.04 (no nix)
+        if: matrix.platform == 'linux-x64'
+        run: python3 scripts/smoke-cli.py --image ubuntu:22.04 .target/release/zega-server
       # Only a canary publishes the binaries, so only a tag run hands them on,
       # through R2 as the package job does. Every leg of a tag run is a
       # shipping platform (darwin-arm64 included, on an ARM64 runner), so
@@ -441,6 +472,9 @@ jobs:
           done
           # This host is linux-x64: the executable it built for itself runs.
           test "$(./dist/zega-linux-x64 --version)" = "$(jq -r .version package.json)"
+          # ...and on an ordinary Linux, not only this NixOS host (see native).
+          python3 ../scripts/linux_binary.py check dist/zega-linux-x64
+          python3 ../scripts/linux_binary.py run dist/zega-linux-x64 --version
       - name: Hand the executables on
         id: handoff
         if: needs.resolve.outputs.tag != ''
@@ -527,6 +561,16 @@ jobs:
           done
           fetch npm-package.tar .tmp/npm-package.tar "$PACKAGE_SHA"
           tar -C artifacts -xf .tmp/npm-package.tar
+      # This runner is a plain GitHub-hosted Ubuntu with no nix: the exact bytes
+      # about to be uploaded must start here. prepare then refuses to write a
+      # manifest for any linux executable that is not portable.
+      - name: The linux executables start on a plain Ubuntu
+        run: |
+          set -euo pipefail
+          chmod +x artifacts/native-linux-x64/zega-server-linux-x64 artifacts/cli-linux-x64/zega-linux-x64
+          python3 scripts/linux_binary.py check artifacts/native-linux-x64/zega-server-linux-x64 artifacts/cli-linux-x64/zega-linux-x64
+          artifacts/cli-linux-x64/zega-linux-x64 --version
+          python3 scripts/smoke-cli.py artifacts/native-linux-x64/zega-server-linux-x64
       - name: Assemble checksummed canary
         run: python3 scripts/channels.py prepare "$CANARY" artifacts .tmp/release
       - name: Upload, verify readback, advance canary only

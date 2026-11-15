@@ -127,6 +127,12 @@ jobs:
           jq -r '.artifacts | to_entries[] | "\(.value)  \(.key)"' .tmp/release/manifest.json > .tmp/release.sha256
           (cd .tmp/release && sha256sum --check --strict ../release.sha256)
 
+      # Releases stored before release.yml checked this (v0.2.4-canary-9c02df2,
+      # v0.2.4, v0.2.5-canary-5804251) carry a zega-server-linux-x64 that asks
+      # for a /nix/store loader and cannot start on an ordinary Linux.
+      - name: Every linux executable in the release is portable
+        run: python3 scripts/linux_binary.py check .tmp/release
+
       - name: Pack the server packages and the library, before anything is published
         env:
           NPM_VERSION: ${{ steps.release.outputs.version }}
