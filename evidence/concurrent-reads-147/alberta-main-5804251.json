@@ -1,48 +1,48 @@
 {
- "url": "http://127.0.0.1:19401",
- "from_osm": 360302319,
- "to_osm": 4768877474,
- "cost": 56.79902000000002,
- "warm_ms": 238.7,
- "clients": [
-  {
-   "clients": 1,
-   "count": 8,
-   "per_s": 4.18,
-   "p50_ms": 237.7,
-   "p95_ms": 246.8
-  },
-  {
-   "clients": 4,
-   "count": 32,
-   "per_s": 4.16,
-   "p50_ms": 962.3,
-   "p95_ms": 969.9
-  },
-  {
-   "clients": 8,
-   "count": 64,
-   "per_s": 4.08,
-   "p50_ms": 1948.0,
-   "p95_ms": 1966.7
+  "url": "http://127.0.0.1:19401",
+  "from_osm": 360302319,
+  "to_osm": 4768877474,
+  "cost": 56.79902000000002,
+  "warm_ms": 238.7,
+  "clients": [
+    {
+      "clients": 1,
+      "count": 8,
+      "per_s": 4.18,
+      "p50_ms": 237.7,
+      "p95_ms": 246.8
+    },
+    {
+      "clients": 4,
+      "count": 32,
+      "per_s": 4.16,
+      "p50_ms": 962.3,
+      "p95_ms": 969.9
+    },
+    {
+      "clients": 8,
+      "count": 64,
+      "per_s": 4.08,
+      "p50_ms": 1948.0,
+      "p95_ms": 1966.7
+    }
+  ],
+  "mixed": {
+    "seconds": 60,
+    "reads": {
+      "count": 233,
+      "per_s": 3.83,
+      "p50_ms": 979.3,
+      "p95_ms": 1675.4
+    },
+    "writes": {
+      "count": 33,
+      "per_s": 0.54,
+      "p50_ms": 742.6,
+      "p95_ms": 1191.1
+    },
+    "probes_stored": 33,
+    "writes_answered": 33,
+    "failures": []
   }
- ],
- "mixed": {
-  "seconds": 60,
-  "reads": {
-   "count": 233,
-   "per_s": 3.83,
-   "p50_ms": 979.3,
-   "p95_ms": 1675.4
-  },
-  "writes": {
-   "count": 33,
-   "per_s": 0.54,
-   "p50_ms": 742.6,
-   "p95_ms": 1191.1
-  },
-  "probes_stored": 33,
-  "writes_answered": 33,
-  "failures": []
- }
 }
