@@ -113,7 +113,7 @@ async fn run(
         let mut step = None;
         let result = state
             .zega
-            .lock()
+            .write()
             .map_err(|_| ZegaError::Execution("database lock poisoned".into()))
             .and_then(|db| action(&db, &mut step));
         (result, step)
@@ -210,7 +210,7 @@ pub async fn deliver(
     let ran = tokio::task::spawn_blocking(move || {
         state
             .zega
-            .lock()
+            .write()
             .map_err(|_| ZegaError::Execution("database lock poisoned".into()))
             .and_then(|db| {
                 let payload = Payload {
@@ -289,7 +289,7 @@ pub async fn deliver_batch(
         Err(rejection) => return error(StatusCode::BAD_REQUEST, rejection.body_text()),
     };
     let ran = tokio::task::spawn_blocking(move || {
-        let db = state.zega.lock().map_err(|_| zega::receipts::BatchError {
+        let db = state.zega.write().map_err(|_| zega::receipts::BatchError {
             index: None,
             error: ZegaError::Execution("database lock poisoned".into()),
         })?;

@@ -79,7 +79,7 @@ impl Zega {
 
     /// Return the effective schema text carried by this graph.
     pub fn stored_schema(&self) -> Result<String, ZegaError> {
-        let graph = self.lock_graph()?;
+        let graph = self.read_lock_graph()?;
         Ok(crate::builtin::with_auth(graph.carried().schema.as_deref().unwrap_or("")))
     }
 
@@ -102,7 +102,7 @@ impl Zega {
             crate::lang::parse_schema(old).map_err(|error| explain(error, "schema", old))?
         };
         let new_schema = crate::lang::parse_schema(new).map_err(|error| explain(error, "schema", new))?;
-        let graph = self.lock_graph()?;
+        let graph = self.read_lock_graph()?;
         Ok(crate::schema_diff::diff_schemas(&old_schema, &new_schema, &graph))
     }
 
@@ -217,7 +217,7 @@ impl Zega {
     /// Run `f` on the graph `hold` names, locking it if no transaction holds it.
     fn read_graph<R>(&self, hold: &Hold<'_>, f: impl FnOnce(&Graph) -> R) -> Result<R, ZegaError> {
         match hold {
-            Hold::Lock => Ok(f(&*self.lock_graph()?)),
+            Hold::Lock => Ok(f(&*self.read_lock_graph()?)),
             Hold::Held(graph, _) => Ok(f(graph)),
         }
     }
@@ -226,29 +226,18 @@ impl Zega {
     /// index lowers this number and never changes a result; tests use it to
     /// show an index was used.
     pub fn rows_examined(&self) -> Result<u64, ZegaError> {
-        let graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
-        Ok(graph.examined())
+        Ok(self.read_lock_graph()?.examined())
     }
 
     /// Nodes whose edges a ZQL `*path` search has read since this database
     /// opened. `toward` (A*) lowers this number and never changes a route's
     /// cost; tests use it to show the guess was used.
     pub fn nodes_expanded(&self) -> Result<u64, ZegaError> {
-        let graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
-        Ok(graph.expanded())
+        Ok(self.read_lock_graph()?.expanded())
     }
 
     pub fn delete_node(&self, id: u64) -> Result<(), ZegaError> {
-        let mut graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
+        let mut graph = self.lock_graph()?;
         atomically(&mut graph, &self.wal, |graph, journal| {
             journal.delete_node(graph, id);
             Ok(())
@@ -256,10 +245,7 @@ impl Zega {
     }
 
     pub fn delete_relationship(&self, id: u64) -> Result<(), ZegaError> {
-        let mut graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
+        let mut graph = self.lock_graph()?;
         atomically(&mut graph, &self.wal, |graph, journal| {
             journal.delete_relationship(graph, id);
             Ok(())
@@ -277,10 +263,7 @@ impl Zega {
     ) -> Result<(), ZegaError> {
         let schema = crate::lang::parse_schema(schema_src)
             .map_err(|error| explain(error, "schema", schema_src))?;
-        let mut graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
+        let mut graph = self.lock_graph()?;
         let from = graph
             .get_node(from_id)
             .ok_or_else(|| ZegaError::Execution(format!("missing node {from_id}")))?;
@@ -449,6 +432,24 @@ impl Zega {
             Vec::new()
         };
         let uniques = declared.uniques;
+        let specs = crate::lang::effective_indexes(schema, declared.uniques, declared.indexes);
+        // A read on its own (no transaction) shares the graph with other
+        // readers (zegadb/zega#147): writers wait for it, so it sees one
+        // state from start to finish. Only when its schema declares indexes
+        // the graph does not have yet does it take the graph alone, below,
+        // to build them first.
+        if let (Hold::Lock, Statement::Run(query)) = (&*hold, statement) {
+            if !query.mutation {
+                let graph = self.read_lock_graph()?;
+                if graph.indexes_synced(&specs, uniques) {
+                    let mut work = Work::new(self.traversal_work_budget, self.query_time_limit);
+                    let result = run_read(&graph, schema, query, &mut work)
+                        .map_err(|error| explain(error, source_name, source));
+                    drop(graph);
+                    return self.timed(result, &work);
+                }
+            }
+        }
         let mut locked = None;
         let (graph, target) = match hold {
             Hold::Lock => {
@@ -459,11 +460,7 @@ impl Zega {
         };
         // The schema of this statement says which indexes exist; the writes
         // below keep them current, and a rollback restores them with the rows.
-        graph.sync_indexes(&crate::lang::effective_indexes(
-            schema,
-            declared.uniques,
-            declared.indexes,
-        ));
+        graph.sync_indexes(&specs);
         graph.sync_uniques(declared.uniques);
         let mut work = Work::new(self.traversal_work_budget, self.query_time_limit);
         // A read logs nothing. A mutation or load is one statement: every row
@@ -474,6 +471,11 @@ impl Zega {
             run_statement(graph, journal, schema, uniques, statement, &mut work, &rows)
                 .map_err(|error| explain(error, source_name, source))
         });
+        self.timed(result, &work)
+    }
+
+    /// A statement's result, or the time limit if that is why it failed.
+    fn timed(&self, result: Result<Json, ZegaError>, work: &Work) -> Result<Json, ZegaError> {
         match (result, self.query_time_limit) {
             (Err(_), Some(limit)) if work.expired() => Err(ZegaError::QueryTimeLimit { limit }),
             (result, _) => result,
@@ -481,10 +483,7 @@ impl Zega {
     }
 
     pub fn graph_json(&self) -> Result<Json, ZegaError> {
-        let graph = self
-            .graph
-            .lock()
-            .map_err(|_| ZegaError::Execution("lock poisoned".to_string()))?;
+        let graph = self.read_lock_graph()?;
         let mut nodes: Vec<Json> = graph.nodes().map(node_json).collect();
         nodes.sort_by_key(|node| node["id"].as_u64().unwrap_or(0));
         let mut rels: Vec<Json> = graph.relationships().map(rel_json).collect();
@@ -565,33 +564,16 @@ fn run_statement(
     rows: &[HashMap<String, Json>],
 ) -> Result<Json, LangError> {
     match statement {
+        Statement::Run(query) if !query.mutation => run_read(graph, schema, query, work),
         Statement::Run(query) => {
             let resolved = periods::prepare(query, graph, schema, work)?;
             let query = resolved.as_ref();
-            if query.mutation {
-                journal.configure_time(schema, query.at);
-            }
-            work.at = match &query.time {
-                Some(crate::lang::TimeClause::AsOf(at)) => Some(at.instant()?),
-                _ => None,
-            };
-            let mut window_query;
-            let query = if let Some(crate::lang::TimeClause::Window(window)) = &query.time {
-                window_query = query.clone();
-                if let Some(root) = &mut window_query.root { root.window = Some(window.clone()); }
-                &window_query
-            } else { query };
-            if !query.mutation && (!query.then.is_empty() || query.skip) {
-                return discovery::pipeline(graph, schema, query, work);
-            }
+            journal.configure_time(schema, query.at);
+            let query = timed_query(query, work)?;
             let Some(root) = &query.root else {
                 return Ok(Json::Null);
             };
-            if query.mutation {
-                mutate(graph, journal, schema, root, uniques, work)
-            } else {
-                read(graph, schema, root, &mut ReadContext { work, trace: None })
-            }
+            mutate(graph, journal, schema, root, uniques, work)
         }
         Statement::Load { template, .. } => {
             journal.configure_time(schema, None);
@@ -616,6 +598,40 @@ fn run_statement(
             Ok(Json::Array(out))
         }
     }
+}
+
+/// A query statement that writes nothing. It needs only a shared graph, so
+/// [`Zega::execute`] runs it alongside other reads.
+fn run_read(graph: &Graph, schema: &Schema, query: &crate::lang::Query, work: &mut Work) -> Result<Json, LangError> {
+    let resolved = periods::prepare(query, graph, schema, work)?;
+    let query = timed_query(resolved.as_ref(), work)?;
+    if !query.then.is_empty() || query.skip {
+        return discovery::pipeline(graph, schema, &query, work);
+    }
+    let Some(root) = &query.root else {
+        return Ok(Json::Null);
+    };
+    read(graph, schema, root, &mut ReadContext { work, trace: None })
+}
+
+/// `query` with its time clause applied: `as of` sets the instant `work`
+/// reads at, and a window moves onto the root selection.
+fn timed_query<'q>(
+    query: &'q crate::lang::Query,
+    work: &mut Work,
+) -> Result<std::borrow::Cow<'q, crate::lang::Query>, LangError> {
+    work.at = match &query.time {
+        Some(crate::lang::TimeClause::AsOf(at)) => Some(at.instant()?),
+        _ => None,
+    };
+    if let Some(crate::lang::TimeClause::Window(window)) = &query.time {
+        let mut windowed = query.clone();
+        if let Some(root) = &mut windowed.root {
+            root.window = Some(window.clone());
+        }
+        return Ok(std::borrow::Cow::Owned(windowed));
+    }
+    Ok(std::borrow::Cow::Borrowed(query))
 }
 
 fn load_rows(
@@ -669,6 +685,23 @@ fn supplied_source(location: &str, sources: &HashMap<String, String>) -> Result<
         LangError::bare(format!(
             "cannot read {location}: host did not supply this source"
         ))
+    })
+}
+
+/// Whether every statement of `source` only reads, by the same rule that
+/// [`Zega::run_lang_read`] and [`Zega::apply_zql_read`] enforce: a host may
+/// then run it beside other reads. `false` for text that does not parse.
+pub fn zql_is_read(entry_point: ZqlEntryPoint, source: &str) -> bool {
+    let statement = || crate::lang::parse_statement(source).map(|statement| vec![statement]);
+    let statements = match entry_point {
+        // A document falls back to one raw statement, as `apply_zql` does.
+        ZqlEntryPoint::File => crate::lang::parse_zql(source)
+            .map(|file| file.statements)
+            .or_else(|_| statement()),
+        ZqlEntryPoint::Statement | ZqlEntryPoint::Query => statement(),
+    };
+    statements.is_ok_and(|statements| {
+        statements.iter().all(|statement| Access::ReadOnly.admit(statement).is_ok())
     })
 }
 
@@ -3783,7 +3816,7 @@ mod tests {
             .map(|n| n["id"].as_u64().unwrap())
             .collect();
         {
-            let mut raw = zega.graph.lock().unwrap();
+            let mut raw = zega.graph.write().unwrap();
             raw.create_relationship("favorite".into(), author, books[0], HashMap::new());
             raw.create_relationship("favorite".into(), author, books[1], HashMap::new());
         }
@@ -3871,7 +3904,7 @@ mod tests {
             .as_u64()
             .unwrap();
         {
-            let mut raw = zega.graph.lock().unwrap();
+            let mut raw = zega.graph.write().unwrap();
             raw.create_relationship("parent".into(), b_id, e_id, HashMap::new());
         }
 

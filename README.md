@@ -163,7 +163,12 @@ a slow client never holds the database; a download that stops reading for
 metadata an import carried. The
 explorer also uses the authenticated graph edit routes.
 Requests execute on the blocking pool under a shared database gate; slow native
-loads do not block the HTTP health worker. See [data loading](docs/data-loading.md)
+loads do not block the HTTP health worker. Reads run side by side: a `QUERY`,
+a `POST /zql` whose every statement is a read, `GET /graph`, `GET /schema` and
+`GET /stats` share the gate, so a long `*path` does not hold up other reads.
+Anything that may write takes the gate alone: it waits for the reads in
+progress, then runs with no read beside it, so a read sees a whole request's
+writes or none of them. See [data loading](docs/data-loading.md)
 for format, limits and WAL semantics.
 
 Release manifests contain `zega-server-darwin-arm64`, `zega-server-darwin-x64`,

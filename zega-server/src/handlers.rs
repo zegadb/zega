@@ -91,14 +91,40 @@ pub async fn stats(State(state): State<AppState>, headers: HeaderMap) -> Respons
     if !authorized(&headers, &state) {
         return error(StatusCode::UNAUTHORIZED, "unauthorized");
     }
-    execute(state, |db| db.counts().map(|c| json!({"nodes": c.nodes, "relationships": c.relationships}))).await
+    read(state, |db| db.counts().map(|c| json!({"nodes": c.nodes, "relationships": c.relationships}))).await
+}
+
+/// How an operation holds the database gate ([`AppState`]).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Gate {
+    /// Beside other reads: for an operation that never writes.
+    Shared,
+    /// Alone: for anything that may write.
+    Alone,
+}
+
+/// Run `action` on the database with the gate held as `gate`.
+fn gated<T>(state: &AppState, gate: Gate, action: impl FnOnce(&Zega) -> Result<T, ZegaError>) -> Result<T, ZegaError> {
+    let poisoned = || ZegaError::Execution("database lock poisoned".into());
+    match gate {
+        Gate::Shared => action(&*state.zega.read().map_err(|_| poisoned())?),
+        Gate::Alone => action(&*state.zega.write().map_err(|_| poisoned())?),
+    }
 }
 
 async fn execute(
     state: AppState,
     action: impl FnOnce(&Zega) -> Result<Value, ZegaError> + Send + 'static,
 ) -> Response {
-    execute_refusing(state, StatusCode::BAD_REQUEST, action).await
+    execute_refusing(state, StatusCode::BAD_REQUEST, Gate::Alone, action).await
+}
+
+/// [`execute`] for an operation that only reads: it runs beside other reads.
+async fn read(
+    state: AppState,
+    action: impl FnOnce(&Zega) -> Result<Value, ZegaError> + Send + 'static,
+) -> Response {
+    execute_refusing(state, StatusCode::BAD_REQUEST, Gate::Shared, action).await
 }
 
 /// [`execute`], with `refused` as the status of a statement the engine
@@ -108,15 +134,10 @@ async fn execute(
 async fn execute_refusing(
     state: AppState,
     refused: StatusCode,
+    gate: Gate,
     action: impl FnOnce(&Zega) -> Result<Value, ZegaError> + Send + 'static,
 ) -> Response {
-    match tokio::task::spawn_blocking(move || {
-        let db = state
-            .zega
-            .lock()
-            .map_err(|_| ZegaError::Execution("database lock poisoned".into()))?;
-        action(&db)
-    })
+    match tokio::task::spawn_blocking(move || gated(&state, gate, action))
     .await
     {
         Ok(Ok(result)) => Json(json!({"ok": true, "result": result})).into_response(),
@@ -153,7 +174,7 @@ pub struct SetSchemaRequest { schema: String }
 
 pub async fn get_schema(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if !authorized(&headers, &state) { return error(StatusCode::UNAUTHORIZED, "unauthorized"); }
-    execute(state, |db| Ok(json!({"schema": db.stored_schema()?, "builtin": ["Auth"]}))).await
+    read(state, |db| Ok(json!({"schema": db.stored_schema()?, "builtin": ["Auth"]}))).await
 }
 
 pub async fn set_schema(
@@ -187,7 +208,7 @@ pub async fn schema_diff(
         Ok(request) => request,
         Err(rejection) => return error(StatusCode::BAD_REQUEST, rejection.body_text()),
     };
-    execute(state, move |db| {
+    read(state, move |db| {
         let report = db.schema_diff(&request.old, &request.new)?;
         serde_json::to_value(report).map_err(|error| ZegaError::Execution(error.to_string()))
     })
@@ -206,6 +227,21 @@ pub async fn zql(
         Ok(request) => request,
         Err(rejection) => return error(StatusCode::BAD_REQUEST, rejection.body_text()),
     };
+    // A request whose every statement reads runs beside other reads, through
+    // the engine's read-only entry points: should the check above ever be
+    // wrong, the engine refuses the write rather than run it on a shared gate.
+    let entry = if request.document { zega::ZqlEntryPoint::File } else { zega::ZqlEntryPoint::Statement };
+    if zega::zql_is_read(entry, &request.query) {
+        // `sources` only feed loads, which a read never has (as in QUERY).
+        return read(state, move |db| {
+            if request.document {
+                db.apply_zql_read(&request.query)
+            } else {
+                db.run_lang_read(&request.schema, &request.query)
+            }
+        })
+        .await;
+    }
     execute(state, move |db| match (request.document, request.sources) {
         (false, None) => db.run_lang(&request.schema, &request.query),
         (false, Some(sources)) => {
@@ -321,7 +357,7 @@ async fn query(state: AppState, headers: &HeaderMap, body: &[u8]) -> Response {
     };
     // `sources` feeds only `mutation csv|json` loads, which a read never has:
     // a QUERY that sent them runs exactly as without.
-    execute_refusing(state, StatusCode::UNPROCESSABLE_ENTITY, move |db| {
+    execute_refusing(state, StatusCode::UNPROCESSABLE_ENTITY, Gate::Shared, move |db| {
         if request.document {
             db.apply_zql_read(&request.query)
         } else {
@@ -399,7 +435,7 @@ pub async fn vector_view(
         "vector3d" => zega::ViewKind::Vector3d,
         _ => return error(StatusCode::BAD_REQUEST, "expected vector2d or vector3d"),
     };
-    execute(state, move |db| {
+    read(state, move |db| {
         db.vector_view(
             &request.schema,
             &request.result,
@@ -513,7 +549,7 @@ pub async fn graph(State(state): State<AppState>, headers: HeaderMap) -> Respons
         ));
     }
     if json > graph {
-        return with_vary(execute(state, Zega::graph_json).await);
+        return with_vary(read(state, Zega::graph_json).await);
     }
     let (send, mut receive) = tokio::sync::mpsc::channel::<Chunk>(CHUNKS_IN_FLIGHT);
     let Some(slot) = transfer_slot(&state) else {
@@ -521,8 +557,9 @@ pub async fn graph(State(state): State<AppState>, headers: HeaderMap) -> Respons
     };
     let gate = state.zega.clone();
     let spooled = tokio::task::spawn_blocking(move || -> Result<Option<(Staged, u64)>, ZegaError> {
+        // An export only reads: it shares the gate with other reads.
         let db = gate
-            .lock()
+            .read()
             .map_err(|_| ZegaError::Execution("database lock poisoned".into()))?;
         let Some((file, path)) = db.staging_file("export")? else {
             return Ok(None);
@@ -540,7 +577,7 @@ pub async fn graph(State(state): State<AppState>, headers: HeaderMap) -> Respons
         Ok(Ok(None)) => {
             // In memory there is nowhere to stage: stream under the gate.
             tokio::task::spawn_blocking(move || {
-                let result = match state.zega.lock() {
+                let result = match state.zega.read() {
                     Ok(db) => db
                         .export(&mut BodyWriter(send.clone()))
                         .map_err(|error| io::Error::other(error.to_string())),
@@ -648,7 +685,7 @@ pub async fn import_graph(State(state): State<AppState>, headers: HeaderMap, bod
         return busy();
     };
     let gate = state.zega.clone();
-    let staging = match tokio::task::spawn_blocking(move || match gate.lock() {
+    let staging = match tokio::task::spawn_blocking(move || match gate.write() {
         Ok(db) => db.staging_file("upload"),
         Err(_) => Err(ZegaError::Execution("database lock poisoned".into())),
     })
@@ -706,7 +743,7 @@ pub async fn import_graph(State(state): State<AppState>, headers: HeaderMap, bod
     let import = tokio::task::spawn_blocking(move || {
         let db = state
             .zega
-            .lock()
+            .write()
             .map_err(|_| ZegaError::Execution("database lock poisoned".into()))?;
         match (staged, memory) {
             (Some(staged), _) => db.import_staged(&staged.0),

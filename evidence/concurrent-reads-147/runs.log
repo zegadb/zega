@@ -1,0 +1,5 @@
+main ready=yes after 34s rss_kb=2599300
+main bench rc=0 rss_kb=2674100
+branch ready=yes after 34s rss_kb=2599280
+branch bench rc=0 rss_kb=2693856
+done

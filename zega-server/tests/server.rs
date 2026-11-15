@@ -12,7 +12,7 @@ struct TestServer {
     _data: TempDir,
     task: JoinHandle<()>,
     /// The server's database, behind the same gate its requests take.
-    zega: std::sync::Arc<std::sync::Mutex<Zega>>,
+    zega: std::sync::Arc<std::sync::RwLock<Zega>>,
 }
 impl Drop for TestServer {
     fn drop(&mut self) {
@@ -486,6 +486,184 @@ async fn readers_never_observe_half_a_zql_document() {
     for task in tasks {
         task.await.unwrap();
     }
+}
+
+// ---- concurrent reads (zegadb/zega#147) ---------------------------------------------------
+
+const GRID: &str = "schema {
+  type Junction { n: Int at: Point road -> Junction[] { cost: Float<km> } }
+  type Pair { id: Int }
+}
+unique { Junction { n } }";
+
+/// A server whose graph is a `side` x `side` grid of junctions, neighbours
+/// joined both ways at cost 1, bulk-loaded before the server starts.
+async fn start_grid_server(side: u64) -> TestServer {
+    let data = tempfile::tempdir().unwrap();
+    let mut lines = String::new();
+    for n in 0..side * side {
+        let at = json!({"lat": 51.0 + (n / side) as f64 * 1e-3, "lon": -114.0 + (n % side) as f64 * 1e-3});
+        lines.push_str(&json!({"type": "node", "id": n + 1, "labels": ["Junction"], "props": {"n": n, "at": at}}).to_string());
+        lines.push('\n');
+    }
+    for n in 0..side * side {
+        let right = (n % side + 1 < side).then_some(n + 1);
+        let down = (n / side + 1 < side).then_some(n + side);
+        for to in right.into_iter().chain(down) {
+            for (from, to) in [(n, to), (to, n)] {
+                lines.push_str(&json!({"type": "rel", "kind": "road", "from": from + 1, "to": to + 1, "props": {"cost": 1.0}}).to_string());
+                lines.push('\n');
+            }
+        }
+    }
+    let zega = Zega::open(data.path().to_str().unwrap())
+        .traversal_work_budget(usize::MAX)
+        .build()
+        .unwrap();
+    let options = zega::graph_file::json_lines::JsonLinesOptions {
+        schema: Some(GRID.to_string()),
+        meta: Default::default(),
+    };
+    zega.import_json_lines(lines.as_bytes(), &options).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let state = AppState::new(zega, Some(TOKEN));
+    let zega = state.zega.clone();
+    let task = tokio::spawn(async move {
+        server::serve(listener, state).await.unwrap();
+    });
+    TestServer {
+        base_url: format!("http://{address}"),
+        _data: data,
+        task,
+        zega,
+    }
+}
+
+/// `QUERY /zql` for one statement against the grid's schema; the result.
+async fn grid_query(client: &Client, base_url: &str, statement: &str) -> Value {
+    let body: Value = client
+        .request(query_method(), format!("{base_url}/zql"))
+        .bearer_auth(TOKEN)
+        .header("content-type", "application/json")
+        .body(json!({"schema": GRID, "query": statement}).to_string())
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(body["ok"], true, "{body}");
+    body["result"].clone()
+}
+
+/// Corner to corner by Dijkstra, which settles most of the grid.
+fn grid_path(side: u64) -> String {
+    format!("{{ Junction(n: 0) {{ road *path by &cost -> Junction(n: {}) {{ n }} }} }}", side * side - 1)
+}
+
+/// A result as rows: a list, one row, or none.
+fn rows_of(result: Value) -> Vec<Value> {
+    match result {
+        Value::Array(rows) => rows,
+        Value::Null => Vec::new(),
+        row => vec![row],
+    }
+}
+
+/// The issue's shape: one long `*path`, and short reads arriving while it
+/// runs. Behind one lock for the whole database they waited for it; they
+/// must answer while it is still running.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn short_reads_answer_while_a_long_path_runs() {
+    const SIDE: u64 = 200;
+    let server = start_grid_server(SIDE).await;
+    let client = Client::new();
+    let started = std::time::Instant::now();
+    let alone = grid_query(&client, &server.base_url, &grid_path(SIDE)).await;
+    let alone_took = started.elapsed();
+    assert_eq!(alone["road"]["cost"], json!((2 * (SIDE - 1)) as f64));
+    assert!(alone_took >= std::time::Duration::from_millis(100), "the path took only {alone_took:?}: too short to prove anything");
+
+    let long = {
+        let (client, base_url) = (client.clone(), server.base_url.clone());
+        tokio::spawn(async move {
+            let result = grid_query(&client, &base_url, &grid_path(SIDE)).await;
+            (result, std::time::Instant::now())
+        })
+    };
+    tokio::time::sleep(alone_took / 4).await;
+    let shorts_started = std::time::Instant::now();
+    for _ in 0..5 {
+        let row = grid_query(&client, &server.base_url, "{ Junction(n: 7) { n } }").await;
+        assert_eq!(rows_of(row), vec![json!({"n": 7})]);
+    }
+    let shorts_done = std::time::Instant::now();
+    let (result, long_done) = long.await.unwrap();
+    assert_eq!(result["road"]["cost"], json!((2 * (SIDE - 1)) as f64));
+    // Queued behind the path, the first short read alone waits for the
+    // ~3/4 of it still to run; side by side all five take milliseconds.
+    let shorts_took = shorts_done - shorts_started;
+    assert!(
+        shorts_took < alone_took / 2 && shorts_done < long_done,
+        "the short reads waited for the long path: they took {shorts_took:?} beside a {alone_took:?} path"
+    );
+}
+
+/// Writes keep their isolation from reads that now run side by side: a
+/// two-statement document is never seen half done, every write is answered
+/// while long reads keep arriving, and once answered it is visible.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn writes_among_concurrent_long_reads_stay_whole_and_are_not_starved() {
+    const SIDE: u64 = 60;
+    let server = start_grid_server(SIDE).await;
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let mut readers = Vec::new();
+    for reader in 0..6 {
+        let (base_url, stop) = (server.base_url.clone(), stop.clone());
+        readers.push(tokio::spawn(async move {
+            let client = Client::new();
+            let mut reads = 0usize;
+            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                if reader % 2 == 0 {
+                    let path = grid_query(&client, &base_url, &grid_path(SIDE)).await;
+                    assert_eq!(path["road"]["cost"], json!((2 * (SIDE - 1)) as f64));
+                } else {
+                    let pairs = rows_of(grid_query(&client, &base_url, "{ Pair { id } }").await);
+                    assert_eq!(pairs.len() % 2, 0, "a read saw half a document: {pairs:?}");
+                }
+                reads += 1;
+            }
+            reads
+        }));
+    }
+    let client = Client::new();
+    for id in 0..20u64 {
+        let document = format!(
+            "{GRID}\nmutation {{ Pair(id: {}) {{ id }} }}\nmutation {{ Pair(id: {}) {{ id }} }}",
+            id * 2,
+            id * 2 + 1
+        );
+        let started = std::time::Instant::now();
+        let body: Value = post(&client, &server)
+            .json(&json!({"document": true, "query": document}))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(body["ok"], true, "{body}");
+        assert!(started.elapsed() < std::time::Duration::from_secs(30), "write {id} waited {:?}", started.elapsed());
+        let seen = grid_query(&client, &server.base_url, &format!("{{ Pair(id: {}) {{ id }} }}", id * 2 + 1)).await;
+        assert_eq!(rows_of(seen), vec![json!({"id": id * 2 + 1})], "an answered write is not visible");
+    }
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    for reader in readers {
+        assert!(reader.await.unwrap() > 0, "a reader made no progress");
+    }
+    let pairs = rows_of(grid_query(&client, &server.base_url, "{ Pair { id } }").await);
+    assert_eq!(pairs.len(), 40);
 }
 
 /// zegadb/zega#63: the server's own limit, as `zega-server start` sets it. The
@@ -1062,7 +1240,7 @@ async fn a_checkpoint_while_a_download_is_stalled_leaves_both_whole() {
     assert_eq!(staged.len(), 1, "the export is staged while it is sent");
 
     let zega = server.zega.clone();
-    let checkpoint = tokio::task::spawn_blocking(move || zega.lock().unwrap().checkpoint())
+    let checkpoint = tokio::task::spawn_blocking(move || zega.write().unwrap().checkpoint())
         .await
         .unwrap()
         .expect("a checkpoint beside a staged export failed")
@@ -1118,7 +1296,7 @@ async fn server_with_ada(client: &Client) -> TestServer {
 
 /// The graph as the engine holds it, read behind the same gate the requests take.
 fn graph_now(server: &TestServer) -> Value {
-    server.zega.lock().unwrap().graph_json().unwrap()
+    server.zega.read().unwrap().graph_json().unwrap()
 }
 
 const READ: &str = "{ Person { name age } }";

@@ -1,0 +1,48 @@
+{
+  "url": "http://127.0.0.1:19402",
+  "from_osm": 360302319,
+  "to_osm": 4768877474,
+  "cost": 56.79902000000002,
+  "warm_ms": 240.9,
+  "clients": [
+    {
+      "clients": 1,
+      "count": 8,
+      "per_s": 4.17,
+      "p50_ms": 237.8,
+      "p95_ms": 245.7
+    },
+    {
+      "clients": 4,
+      "count": 32,
+      "per_s": 10.12,
+      "p50_ms": 382.5,
+      "p95_ms": 428.6
+    },
+    {
+      "clients": 8,
+      "count": 64,
+      "per_s": 9.84,
+      "p50_ms": 812.4,
+      "p95_ms": 1004.7
+    }
+  ],
+  "mixed": {
+    "seconds": 60,
+    "reads": {
+      "count": 623,
+      "per_s": 10.37,
+      "p50_ms": 373.0,
+      "p95_ms": 472.8
+    },
+    "writes": {
+      "count": 156,
+      "per_s": 2.6,
+      "p50_ms": 367.8,
+      "p95_ms": 469.5
+    },
+    "probes_stored": 156,
+    "writes_answered": 156,
+    "failures": []
+  }
+}

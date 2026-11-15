@@ -59,7 +59,7 @@ fn open(path: &Path) -> Zega {
 
 /// One statement, through the same journal every write path uses.
 fn write(zega: &Zega, statement: impl FnOnce(&mut Graph, &mut Journal)) {
-    let mut graph = zega.graph.lock().unwrap();
+    let mut graph = zega.graph.write().unwrap();
     atomically::<_, ZegaError>(&mut graph, &zega.wal, |graph, journal| {
         statement(graph, journal);
         Ok(())
@@ -183,7 +183,7 @@ struct State {
 
 /// Everything a reader can observe, and the ids the next writes get.
 fn state(zega: &Zega) -> State {
-    let graph = zega.graph.lock().unwrap();
+    let graph = zega.graph.read().unwrap();
     State {
         nodes: graph.all_nodes().clone(),
         rels: graph.all_relationships().clone(),
@@ -525,7 +525,7 @@ fn a_version_2_wal_with_an_old_snapshot_opens_and_checkpoints() {
     let dir = tempfile::tempdir().unwrap();
     let zega = open(dir.path());
     writes_b_without_import(&zega);
-    crate::wal::snapshot(&zega.graph.lock().unwrap(), &dir.path().join("snapshot.bin")).unwrap();
+    crate::wal::snapshot(&zega.graph.read().unwrap(), &dir.path().join("snapshot.bin")).unwrap();
     create(&zega, "late", &["Person"], vec![]);
     drop(zega);
     assert_eq!(wal_version(dir.path()), 2);

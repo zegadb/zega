@@ -58,7 +58,7 @@ impl Zega {
         result_ids(result, &mut ids);
         let graph = self
             .graph
-            .lock()
+            .read()
             .map_err(|_| ZegaError::Execution("lock poisoned".into()))?;
         let mut nodes: Vec<(u64, String, Vector)> = Vec::new();
         for id in ids {
