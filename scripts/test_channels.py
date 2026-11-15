@@ -84,9 +84,35 @@ if args[0] == 's3api':
     raise SystemExit(0)
 assert args[:1] == ['s3'] and args[1] in ('cp', 'sync', 'rm'), args
 operation = args[1]
-paths = [a for a in args[2:args.index('--endpoint-url')] if a not in ('--recursive', '--delete')]
+options = args[2:args.index('--endpoint-url')]
+excludes = {options[i + 1] for i, a in enumerate(options) if a == '--exclude'}
+paths = [a for i, a in enumerate(options) if a not in ('--recursive', '--delete', '--exclude')
+         and (i == 0 or options[i - 1] != '--exclude')]
+store = pathlib.Path(os.environ['FIXTURE_STORE'])
 def local(value):
-    return pathlib.Path(os.environ['FIXTURE_STORE']) / value[5:] if value.startswith('s3://') else pathlib.Path(value)
+    return store / value[5:] if value.startswith('s3://') else pathlib.Path(value)
+def upload_fails(dest):
+    # FIXTURE_FAIL_UPLOAD=<bucket>/<key>:<n>: the first n uploads of that object fail the
+    # way R2 fails a part upload, after the rest of the batch has been copied.
+    spec = os.environ.get('FIXTURE_FAIL_UPLOAD')
+    if not spec or not dest.is_relative_to(store):
+        return False
+    key, count = spec.rsplit(':', 1)
+    if dest.relative_to(store).as_posix() != key:
+        return False
+    counter = store.parent / 'upload-failures'
+    seen = int(counter.read_text()) if counter.exists() else 0
+    if seen >= int(count):
+        return False
+    counter.write_text(str(seen + 1))
+    return True
+failed = []
+def put(source, dest):
+    if upload_fails(dest):
+        failed.append(dest)
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, dest)
 if operation == 'rm':
     local(paths[0]).unlink()
     raise SystemExit(0)
@@ -95,12 +121,19 @@ if operation == 'sync':
     if '--delete' in args and dest.exists(): shutil.rmtree(dest)
     shutil.copytree(source, dest, dirs_exist_ok=True)
 elif '--recursive' in args:
-    shutil.copytree(source, dest, dirs_exist_ok=True)
-    if source.name == 'canary' and source.is_relative_to(pathlib.Path(os.environ['FIXTURE_STORE'])) and os.environ.get('CORRUPT_READBACK'):
+    for path in sorted(source.rglob('*')):
+        if path.is_file() and path.relative_to(source).as_posix() not in excludes:
+            put(path, dest / path.relative_to(source))
+    if source.name == 'canary' and source.is_relative_to(store) and os.environ.get('CORRUPT_READBACK'):
         next(dest.rglob('zega.wasm')).write_bytes(b'corrupted-readback')
 else:
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(source, dest)
+    put(source, dest)
+for dest in failed:
+    print(f'upload failed: {source} to s3://{dest.relative_to(store).as_posix()} An error occurred (InternalError) '
+          'when calling the UploadPart operation (reached max retries: 4): We encountered an internal error. '
+          'Please try again.', file=sys.stderr)
+    print('Could not connect to the endpoint URL: "https://fixture-account-secret.invalid/"', file=sys.stderr)
+raise SystemExit(1 if failed else 0)
 ''')
         self.executable("gh", '''import json, os, sys
 with open(os.environ['FIXTURE_LOG'], 'a') as f: f.write(json.dumps(sys.argv[1:]) + '\\n')
@@ -350,14 +383,76 @@ class Release(Fixture):
 
 
 class Publication(Fixture):
-    def test_r2_errors_name_operation_and_prefix_without_diagnostics(self):
-        result = subprocess.CompletedProcess([], 1, stdout=b"", stderr=b"private endpoint and credentials")
+    def test_r2_errors_name_operation_object_and_code_without_raw_output(self):
+        stderr = (b"upload failed: release/zega.wasm to s3://zega-releases/canary/zega.wasm An error occurred (SlowDown) "
+                  b"when calling the UploadPart operation (reached max retries: 4): private endpoint and credentials\n"
+                  b"Could not connect to the endpoint URL: \"https://account-secret.r2.cloudflarestorage.com/zega-releases\"\n"
+                  b"some other private line with credentials\n")
+        result = subprocess.CompletedProcess([], 1, stdout=b"", stderr=stderr)
+        printed = io.StringIO()
         with patch.dict(os.environ, {"R2_ENDPOINT": "https://fixture.invalid"}):
-            with patch("scripts.channels.subprocess.run", return_value=result):
-                with self.assertRaisesRegex(RuntimeError, r"R2 sync failed for zega-releases/canary/ \(diagnostics withheld\)") as error:
+            with patch("scripts.channels.subprocess.run", return_value=result) as run, \
+                 patch("scripts.channels.time.sleep") as sleep, patch("sys.stderr", printed):
+                with self.assertRaises(RuntimeError) as error:
                     channels.aws("sync", "release/", "s3://zega-releases/canary/", "--delete")
-        self.assertNotIn("private endpoint", str(error.exception))
-        self.assertNotIn("credentials", str(error.exception))
+        self.assertEqual(run.call_count, channels.AWS_ATTEMPTS)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], list(channels.AWS_RETRY_DELAYS))
+        message = str(error.exception)
+        self.assertIn("R2 sync failed for zega-releases/canary/ (exit 1, attempt 3/3; raw output withheld)", message)
+        self.assertIn("zega-releases/canary/zega.wasm: SlowDown on UploadPart", message)
+        self.assertIn("EndpointConnectionError", message)
+        for shown in (message, printed.getvalue()):
+            for secret in ("private endpoint", "credentials", "account-secret", "cloudflarestorage", "https://"):
+                self.assertNotIn(secret, shown)
+
+    def publish_over_previous_canary(self, env):
+        """Run publish-r2 over buckets whose canary/ and canary.json name an older release."""
+        self.git("tag", self.tag)
+        release = self.repo / "release"
+        self.create_canary(release)
+        previous = self.root / "previous"
+        self.create_canary(previous)
+        old = dict(channels.read_json(previous / "release.json"), tag="v1.2.3-canary-0000000")
+        for name in channels.METADATA:
+            channels.write_json(previous / name, old)
+        (previous / "zega.wasm").write_bytes(b"\0asm-previous-payload")
+        for bucket in channels.BUCKETS:
+            shutil.copytree(previous, self.store / bucket / "canary")
+            shutil.copyfile(previous / "release.json", self.store / bucket / "canary.json")
+        result = subprocess.run([sys.executable, str(SCRIPT), "publish-r2", self.tag, "release"],
+                                cwd=self.repo, env={**self.env, **env}, text=True, capture_output=True)
+        return release, result
+
+    def test_canary_pointer_survives_a_transient_r2_upload_failure(self):
+        """v0.2.5-canary-ddb39ed: one failed part upload into canary/ failed the whole release."""
+        release, result = self.publish_over_previous_canary({"FIXTURE_FAIL_UPLOAD": "zega-releases/canary/zega.wasm:1"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("R2 cp failed for zega-releases/canary/ (exit 1, attempt 1/3; raw output withheld)", result.stderr)
+        self.assertIn("zega-releases/canary/zega.wasm: InternalError on UploadPart", result.stderr)
+        self.assertNotIn("fixture-account-secret", result.stderr)
+        for bucket in channels.BUCKETS:
+            channels.verify(self.store / bucket / "canary", self.tag, self.commit)
+            self.assertEqual((self.store / bucket / "canary" / "zega.wasm").read_bytes(), (release / "zega.wasm").read_bytes())
+            self.assertEqual(channels.read_json(self.store / bucket / "canary.json")["tag"], self.tag)
+
+    def test_failed_canary_pointer_leaves_no_root_json_ahead_and_says_where_pointers_stand(self):
+        old = "v1.2.3-canary-0000000"
+        release, result = self.publish_over_previous_canary({"FIXTURE_FAIL_UPLOAD": "zega-wasm/canary/zega.wasm:99"})
+        self.assertNotEqual(result.returncode, 0, "A canary/ upload that never succeeded was accepted")
+        self.assertIn("zega-wasm/canary/zega.wasm: InternalError on UploadPart", result.stderr)
+        self.assertNotIn("fixture-account-secret", result.stderr)
+        # zega-releases' canary/ advanced, but no root canary.json moved while zega-wasm's
+        # prefix had not: the root JSON never runs ahead of a prefix.
+        channels.verify(self.store / "zega-releases" / "canary", self.tag, self.commit)
+        for bucket in channels.BUCKETS:
+            self.assertEqual(channels.read_json(self.store / bucket / "canary.json")["tag"], old)
+        # The failed prefix's metadata still names the old release: it is written after the payload.
+        for name in channels.METADATA:
+            self.assertEqual(channels.read_json(self.store / "zega-wasm" / "canary" / name)["tag"], old)
+        self.assertIn(f"zega-releases: canary/release.json = {self.tag}, canary.json = {old}", result.stderr)
+        self.assertIn("::error title=zega-releases canary MISMATCH::", result.stderr)
+        self.assertIn(f"zega-wasm: canary/release.json = {old}, canary.json = {old}", result.stderr)
+        self.assertIn(f"zega-wasm/canary/ payload objects may mix {self.tag}", result.stderr)
 
     def test_canary_pointer_uploads_all_bytes_deletes_only_stale_and_reads_back_before_json(self):
         self.git("tag", self.tag)
@@ -407,9 +502,11 @@ class Publication(Fixture):
         self.assertNotEqual(result.returncode, 0, "Corrupt pointer readback was accepted")
         self.assertIn("checksum mismatch", result.stderr)
         operations = [json.loads(line) for line in self.log.read_text().splitlines()]
+        # Writes only: the failure report downloads canary.json (source position) to say where it stands.
         self.assertFalse(any(operation[:2] == ["s3", "cp"] and
-                             any(path in operation for path in (f"s3://{bucket}/canary.json" for bucket in channels.BUCKETS))
+                             operation[3] in (f"s3://{bucket}/canary.json" for bucket in channels.BUCKETS)
                              for operation in operations), "canary.json was written after a failed readback")
+        self.assertIn("::error title=Channel canary not advanced::", result.stderr)
 
     def test_prepare_binds_native_wasm_and_tested_npm_to_commit(self):
         self.git("tag", self.tag)

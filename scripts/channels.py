@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -183,17 +184,59 @@ def prepare(tag, artifacts, destination):
         write_json(dest / name, data)
 
 
+# Whole-command retries on top of the CLI's own per-request ones. Every call here
+# is idempotent (cp/sync of the same bytes, rm of a key), so repeating it is safe.
+AWS_ATTEMPTS = 3
+AWS_RETRY_DELAYS = (2, 8)
+# Only these shapes are ever echoed from aws CLI stderr. Raw stderr can carry the
+# endpoint (account id) and request details, so it is never printed.
+S3_URI = re.compile(r"s3://[a-z0-9][a-z0-9.-]{1,62}/[A-Za-z0-9._/+-]*")
+AWS_ERROR = re.compile(r"An error occurred \(([A-Za-z0-9]{1,64})\) when calling the ([A-Za-z0-9]{1,64}) operation")
+# Client-side failures have no S3 error code; their messages embed the endpoint URL.
+AWS_CLIENT_ERRORS = {"Could not connect to the endpoint URL": "EndpointConnectionError",
+                     "Connect timeout on endpoint URL": "ConnectTimeoutError",
+                     "Read timeout on endpoint URL": "ReadTimeoutError",
+                     "SSL validation failed": "SSLError"}
+
+
+def aws_diagnostics(stderr):
+    """The safe part of a failed aws CLI run: the object URIs that failed and the S3 error codes."""
+    text = stderr.decode(errors="replace") if isinstance(stderr, bytes) else stderr
+    lines = []
+    for line in text.splitlines():
+        client = next((name for phrase, name in AWS_CLIENT_ERRORS.items() if phrase in line), None)
+        if " failed: " not in line and "An error occurred" not in line and not client:
+            continue
+        # "upload failed: <local> to s3://b/k", "download failed: s3://b/k to <local>",
+        # "delete failed: s3://b/k": the s3:// side names the object.
+        uris = [uri.removeprefix("s3://") for uri in S3_URI.findall(line)]
+        error = AWS_ERROR.search(line)
+        detail = f"{error[1]} on {error[2]}" if error else client or "unrecognised error"
+        entry = f"{uris[0]}: {detail}" if uris else detail
+        if entry not in lines:
+            lines.append(entry)
+    return lines
+
+
+def run_aws(command, failure):
+    """Run an aws CLI command with retries; print and raise only the safe diagnostics."""
+    for attempt in range(1, AWS_ATTEMPTS + 1):
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if not result.returncode:
+            return result.stdout.decode()
+        details = aws_diagnostics(result.stderr) or ["no recognisable error line"]
+        summary = f"{failure} (exit {result.returncode}, attempt {attempt}/{AWS_ATTEMPTS}; raw output withheld)"
+        print(summary + "".join(f"\n  {line}" for line in details), file=sys.stderr, flush=True)
+        if attempt < AWS_ATTEMPTS:
+            time.sleep(AWS_RETRY_DELAYS[attempt - 1])
+    raise RuntimeError(f"{summary}: " + "; ".join(details))
+
+
 def aws(*args):
-    # Avoid ever displaying credential-bearing endpoint/CLI diagnostics.
-    result = subprocess.run(["aws", "s3", *args, "--endpoint-url", os.environ["R2_ENDPOINT"], "--only-show-errors"],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode:
-        operation = args[0]
-        paths = [arg for arg in args[1:] if arg.startswith("s3://")]
-        key_prefix = paths[-1] if paths else "unknown prefix"
-        if key_prefix.startswith("s3://"):
-            key_prefix = key_prefix.removeprefix("s3://")
-        raise RuntimeError(f"R2 {operation} failed for {key_prefix} (diagnostics withheld)")
+    paths = [arg for arg in args[1:] if arg.startswith("s3://")]
+    key_prefix = paths[-1].removeprefix("s3://") if paths else "unknown prefix"
+    run_aws(["aws", "s3", *args, "--endpoint-url", os.environ["R2_ENDPOINT"], "--only-show-errors"],
+            f"R2 {args[0]} failed for {key_prefix}")
 
 
 def aws_list_keys(bucket, prefix):
@@ -204,10 +247,7 @@ def aws_list_keys(bucket, prefix):
                    "--no-paginate", "--output", "json", "--endpoint-url", os.environ["R2_ENDPOINT"]]
         if token is not None:
             command += ["--continuation-token", token]
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        if result.returncode:
-            raise RuntimeError(f"R2 list-objects-v2 failed for {bucket}/{prefix}/ (diagnostics withheld)")
-        page = json.loads(result.stdout)
+        page = json.loads(run_aws(command, f"R2 list-objects-v2 failed for {bucket}/{prefix}/"))
         contents = page.get("Contents", []) if isinstance(page, dict) else None
         if not isinstance(contents, list) or any(not isinstance(item, dict) or not isinstance(item.get("Key"), str)
                                                  for item in contents):
@@ -222,11 +262,18 @@ def aws_list_keys(bucket, prefix):
 
 
 def publish_pointer(directory, bucket, prefix):
-    """Replace a mutable pointer without exposing an empty prefix, then verify its bytes."""
+    """Replace a mutable pointer without exposing an empty prefix, then return its readback.
+
+    The payload goes first and release.json/manifest.json last, so a failed upload never
+    leaves the pointer's metadata naming the new release over old payload bytes.
+    """
     directory = Path(directory)
     local_keys = {f"{prefix}/{path.relative_to(directory).as_posix()}"
                   for path in directory.rglob("*") if path.is_file()}
-    aws("cp", "--recursive", f"{directory}/", f"s3://{bucket}/{prefix}/")
+    excludes = [arg for name in METADATA for arg in ("--exclude", name)]
+    aws("cp", "--recursive", f"{directory}/", f"s3://{bucket}/{prefix}/", *excludes)
+    for name in METADATA:
+        aws("cp", f"{directory}/{name}", f"s3://{bucket}/{prefix}/{name}")
     for key in aws_list_keys(bucket, prefix):
         if key.startswith(f"{prefix}/") and key not in local_keys:
             aws("rm", f"s3://{bucket}/{key}")
@@ -234,6 +281,52 @@ def publish_pointer(directory, bucket, prefix):
     readback.mkdir(parents=True, exist_ok=False)
     aws("cp", "--recursive", f"s3://{bucket}/{prefix}/", f"{readback}/")
     return readback
+
+
+def pointer_tag(bucket, key, work):
+    """The tag a published pointer object names, or why it could not be read."""
+    target = work / key.replace("/", "-")
+    try:
+        aws("cp", f"s3://{bucket}/{key}", str(target))
+        return read_json(target)["tag"]
+    except Exception as error:  # Reporting only: the original failure is re-raised.
+        return f"unreadable ({type(error).__name__})"
+
+
+def report_channel_state(buckets, channel, tag):
+    """After a failed advance, say plainly where every bucket's two pointers stand."""
+    work = Path(".tmp") / f"state-{channel}"
+    work.mkdir(parents=True, exist_ok=True)
+    print(f"::error title=Channel {channel} not advanced::Publishing {tag} to {channel} failed; "
+          "pointer state follows", file=sys.stderr)
+    for bucket in buckets:
+        prefix = pointer_tag(bucket, f"{channel}/release.json", work)
+        root = pointer_tag(bucket, f"{channel}.json", work)
+        state = "consistent" if prefix == root else "MISMATCH"
+        print(f"::error title={bucket} {channel} {state}::{bucket}: {channel}/release.json = {prefix}, "
+              f"{channel}.json = {root}", file=sys.stderr)
+        if prefix != tag:
+            print(f"  {bucket}/{channel}/ payload objects may mix {tag} with the previous release; "
+                  f"its release.json still names {prefix}. The next successful publish replaces them.",
+                  file=sys.stderr)
+    sys.stderr.flush()
+
+
+def advance_channel(sources, channel, tag, check):
+    """Move <channel>/ and then <channel>.json to `tag` in every bucket in `sources`.
+
+    No root <channel>.json is written until every bucket's <channel>/ prefix has been read back
+    and checked, so the root JSON never runs ahead of a prefix. On any failure the run prints
+    each bucket's two pointer values before failing.
+    """
+    try:
+        for bucket, source in sources.items():
+            check(bucket, publish_pointer(source, bucket, channel))
+        for bucket, source in sources.items():
+            aws("cp", f"{source}/release.json", f"s3://{bucket}/{channel}.json")
+    except Exception:
+        report_channel_state(sources, channel, tag)
+        raise
 
 
 def compare_directories(expected, actual, message):
@@ -279,12 +372,10 @@ def publish_r2(tag, directory):
     verify(directory, tag, commit)
     # Serialized with promotion. Never overwrite an existing immutable prefix.
     for bucket in BUCKETS:
-        existing = subprocess.run(["aws", "s3api", "list-objects-v2", "--bucket", bucket, "--prefix", f"{tag}/",
-                                   "--max-keys", "1", "--query", "KeyCount", "--output", "text", "--endpoint-url", os.environ["R2_ENDPOINT"]],
-                                  capture_output=True, text=True)
-        if existing.returncode:
-            raise RuntimeError(f"R2 list-objects-v2 failed for {bucket}/{tag}/ (diagnostics withheld)")
-        if existing.stdout.strip() != "0":
+        existing = run_aws(["aws", "s3api", "list-objects-v2", "--bucket", bucket, "--prefix", f"{tag}/",
+                            "--max-keys", "1", "--query", "KeyCount", "--output", "text", "--endpoint-url", os.environ["R2_ENDPOINT"]],
+                           f"R2 list-objects-v2 failed for {bucket}/{tag}/")
+        if existing.strip() != "0":
             raise ValueError(f"Canary prefix already exists in {bucket}; refusing overwrite")
     for bucket in BUCKETS:
         aws("cp", "--recursive", f"{directory}/", f"s3://{bucket}/{tag}/")
@@ -294,10 +385,8 @@ def publish_r2(tag, directory):
         check.mkdir(parents=True, exist_ok=False)
         aws("cp", "--recursive", f"s3://{bucket}/{tag}/", f"{check}/")
         verify(check, tag, commit)
-    for bucket in BUCKETS:
-        check = publish_pointer(directory, bucket, "canary")
-        verify(check, tag, commit)
-        aws("cp", f"{directory}/release.json", f"s3://{bucket}/canary.json")
+    advance_channel({bucket: Path(directory) for bucket in BUCKETS}, "canary", tag,
+                    lambda bucket, readback: verify(readback, tag, commit))
 
 
 def promote(tag, directory):
@@ -334,11 +423,9 @@ def promote(tag, directory):
             raise ValueError("Stable readback differs from the canary payload and rewritten metadata")
     git("tag", "-a", f"v{base}", commit, "-m", f"zega v{base} (promoted from {tag})")
     git("push", "origin", f"refs/tags/v{base}")
-    for bucket in BUCKETS:
-        source = work / bucket
-        readback = publish_pointer(source, bucket, "latest")
-        compare_directories(source, readback, "Latest readback differs from the promoted release payload")
-        aws("cp", str(source / "release.json"), f"s3://{bucket}/latest.json")
+    advance_channel({bucket: work / bucket for bucket in BUCKETS}, "latest", f"v{base}",
+                    lambda bucket, readback: compare_directories(
+                        work / bucket, readback, "Latest readback differs from the promoted release payload"))
     output(tag=f"v{base}", version=base, commit=commit)
 
 
