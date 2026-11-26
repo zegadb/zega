@@ -143,7 +143,18 @@ impl Transaction<'_> {
         }
     }
 
-    fn step<T>(&mut self, result: Result<T>) -> Result<T> {
+    /// The graph as this transaction holds it (for [`crate::embed`]).
+    pub(crate) fn graph(&self) -> &Graph {
+        &self.graph
+    }
+
+    /// The graph and the pending writes, for a step that journals its own
+    /// writes (for [`crate::embed`]).
+    pub(crate) fn parts(&mut self) -> (&mut Graph, &mut Pending) {
+        (&mut self.graph, self.pending.as_mut().expect("open"))
+    }
+
+    pub(crate) fn step<T>(&mut self, result: Result<T>) -> Result<T> {
         if self.failed {
             return Err(ZegaError::Execution("an earlier step of this transaction failed".into()));
         }

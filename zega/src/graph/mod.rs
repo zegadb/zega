@@ -266,7 +266,13 @@ pub struct Graph {
     /// `unique { }` declarations of the schema last run against this graph.
     uniques: UniqueIndexes,
     spatial_index: crate::location::SpatialIndex,
-    vector_index: crate::vector::VectorIndex,
+    /// The vector index. Always `Some` with [`VectorIndexing::OnWrite`] (the
+    /// default); with [`VectorIndexing::Lazy`], `None` until the first
+    /// nearest query builds it.
+    vector_index: std::sync::Mutex<Option<crate::vector::VectorIndex>>,
+    /// What the embedder chose for this graph (`ZegaBuilder`): carried to every
+    /// graph that replaces it.
+    pub(crate) options: GraphOptions,
     /// `index { }` declarations of the schema last run against this graph.
     declared: DeclaredIndexes,
     /// Each node's relationships, both directions in one entry.
@@ -289,6 +295,26 @@ pub struct Graph {
 impl Default for Graph {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+use crate::vector::VectorIndexing;
+
+/// The embedder's choices for a graph (`ZegaBuilder`). The defaults are how
+/// Zega has always behaved.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct GraphOptions {
+    /// Record every commit in the sync history (`ZegaBuilder::sync_history`).
+    pub sync_history: bool,
+    /// When the vector index is built (`ZegaBuilder::vector_index`).
+    pub vectors: VectorIndexing,
+    /// Read `.graph` sections ahead of their decoder (`ZegaBuilder::read_ahead`).
+    pub read_ahead: bool,
+}
+
+impl Default for GraphOptions {
+    fn default() -> Self {
+        GraphOptions { sync_history: true, vectors: VectorIndexing::OnWrite, read_ahead: false }
     }
 }
 
@@ -323,7 +349,8 @@ impl Graph {
             label_index: HashMap::new(),
             uniques: UniqueIndexes::default(),
             spatial_index: Default::default(),
-            vector_index: Default::default(),
+            vector_index: std::sync::Mutex::new(Some(Default::default())),
+            options: GraphOptions::default(),
             declared: Default::default(),
             adjacency: IdMap::default(),
             next_node_id: AtomicU64::new(1),
@@ -344,19 +371,59 @@ impl Graph {
         self.deferred_vectors = true;
     }
 
-    /// Index every stored vector, ascending by node id.
+    /// Index every stored vector, ascending by node id; with
+    /// [`VectorIndexing::Lazy`], leave that to the first nearest query.
     pub(crate) fn index_deferred_vectors(&mut self) {
         if !std::mem::take(&mut self.deferred_vectors) {
             return;
         }
+        *self.built_vector_index() = match self.options.vectors {
+            VectorIndexing::OnWrite => Some(self.index_all_vectors()),
+            VectorIndexing::Lazy => None,
+        };
+    }
+
+    /// Use `options` from now on. Switching to [`VectorIndexing::Lazy`] drops
+    /// the index (the next nearest query rebuilds it); switching back builds it.
+    pub(crate) fn set_options(&mut self, options: GraphOptions) {
+        self.options = options;
+        let wanted = options.vectors;
+        let built = self.built_vector_index().is_some();
+        match wanted {
+            VectorIndexing::Lazy => *self.built_vector_index() = None,
+            VectorIndexing::OnWrite if !built => {
+                let index = self.index_all_vectors();
+                *self.built_vector_index() = Some(index);
+            }
+            VectorIndexing::OnWrite => {}
+        }
+    }
+
+    /// The vector index, if it is built.
+    fn built_vector_index(&mut self) -> &mut Option<crate::vector::VectorIndex> {
+        self.vector_index.get_mut().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// A new index of every stored vector, inserted in ascending node id order.
+    fn index_all_vectors(&self) -> crate::vector::VectorIndex {
+        let mut built = crate::vector::VectorIndex::default();
         for (id, record) in self.nodes.iter() {
             let node = node_ref(&self.names, &self.shapes, id, record);
             for (key, value) in node.props() {
                 if let Value::Vector(v) = value {
-                    self.vector_index.insert(key, v, id);
+                    built.insert(key, v, id);
                 }
             }
         }
+        built
+    }
+
+    /// Run `f` on the vector index, building it first if it is not built
+    /// (only with [`VectorIndexing::Lazy`]).
+    fn with_vector_index<T>(&self, f: impl FnOnce(&crate::vector::VectorIndex) -> T) -> T {
+        let mut index = self.vector_index.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let index = index.get_or_insert_with(|| self.index_all_vectors());
+        f(index)
     }
 
     pub(crate) fn carried(&self) -> &crate::graph_file::Carried {
@@ -377,7 +444,7 @@ impl Graph {
     }
 
     pub fn vector_nearest(&self, field: &str, query: &crate::vector::Vector, k: usize, exact: bool, allowed: impl Fn(NodeId) -> bool) -> Vec<(NodeId, f64)> {
-        self.vector_index.nearest(field, query, k, exact, allowed)
+        self.with_vector_index(|index| index.nearest(field, query, k, exact, allowed))
     }
 
     /// Make the declared indexes exactly `specs`: drop the rest and build any
@@ -529,7 +596,9 @@ impl Graph {
             }
             if let Value::Vector(v) = value {
                 if !self.deferred_vectors {
-                    self.vector_index.insert(name, v, id);
+                    if let Some(index) = self.vector_index.get_mut().unwrap_or_else(std::sync::PoisonError::into_inner) {
+                        index.insert(name, v, id);
+                    }
                 }
             }
         }
@@ -550,7 +619,9 @@ impl Graph {
                 self.spatial_index.remove(name, *point, id);
             }
             if let Value::Vector(v) = value {
-                self.vector_index.remove(name, v, id);
+                if let Some(index) = self.vector_index.get_mut().unwrap_or_else(std::sync::PoisonError::into_inner) {
+                    index.remove(name, v, id);
+                }
             }
         }
         self.uniques.remove(id, node.shape, node.values);
@@ -800,7 +871,7 @@ impl Graph {
 
     #[cfg(test)]
     pub fn vector_insertion_order(&self) -> Vec<(String, Vec<NodeId>)> {
-        self.vector_index.insertion_order()
+        self.with_vector_index(|index| index.insertion_order())
     }
 
     /// Every node as it is written down, by id.

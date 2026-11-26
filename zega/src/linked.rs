@@ -382,6 +382,14 @@ pub(crate) fn record(
     if ops.is_empty() {
         return Ok(None);
     }
+    // ZegaBuilder::sync_history(false): a graph that is not linked (enabled,
+    // subscribed to, or mirroring) keeps no sync history. Every commit's
+    // changed values would otherwise be kept again, as JSON, in memory, the
+    // WAL and every checkpoint, for an embedder that never links the graph.
+    let linked = graph.linked.enabled || !graph.linked.leases.is_empty() || !graph.linked.mirrors.is_empty();
+    if !graph.options.sync_history && !linked {
+        return Ok(None);
+    }
     let version = graph
         .linked
         .graph_version

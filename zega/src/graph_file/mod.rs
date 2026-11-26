@@ -19,7 +19,7 @@ use std::io::{self, BufReader, BufWriter, Read, Write};
 
 use sha2::{Digest, Sha256};
 
-use crate::graph::{Graph, NodeId, NodeRef, RelRef};
+use crate::graph::{Graph, GraphOptions, NodeId, NodeRef, RelRef};
 use crate::index::{IndexKind, IndexSpec};
 use crate::location::Point;
 use crate::value::Value;
@@ -743,6 +743,8 @@ struct In<R: Read> {
     inner: R,
     offset: u64,
     content: Option<Sha256>,
+    /// Read each section's payload ahead of its decoder (`ZegaBuilder::read_ahead`).
+    read_ahead: bool,
 }
 
 impl<R: Read> In<R> {
@@ -806,21 +808,47 @@ impl<R: Read> In<R> {
 struct SectionIn<'a, R: Read> {
     input: &'a mut In<R>,
     section: Section,
+    /// Payload bytes the decoder has not consumed yet (pulled ahead or not).
     remaining: u64,
     crc: crc32fast::Hasher,
+    /// With read-ahead (`ZegaBuilder::read_ahead`): payload pulled from `input` ahead of the decoder,
+    /// at most [`AHEAD`] bytes at a time and never past the section's declared length, so the
+    /// decoder's many 1- to 8-byte reads are copies out of memory, and the checksum and content
+    /// digest see large blocks. Same bytes, same order: the CRC and the digest are unchanged.
+    ahead: Vec<u8>,
+    at: usize,
+    /// Payload bytes not pulled from `input` yet.
+    unpulled: u64,
 }
+
+/// How far a section's payload is read ahead of its decoder.
+const AHEAD: usize = 64 << 10;
 
 impl<R: Read> SectionIn<'_, R> {
     fn invalid(&self, reason: impl Into<String>) -> Error {
         Error::Invalid {
             section: self.section.name(),
-            offset: self.input.offset,
+            // Where the decoder is, not how far ahead the input has been read.
+            offset: self.input.offset - (self.ahead.len() - self.at) as u64,
             reason: reason.into(),
         }
     }
 
     fn truncated(&self) -> String {
         format!("inside the {} section", self.section.name())
+    }
+
+    /// Pull the next block of the payload from the input.
+    fn refill(&mut self) -> Result<(), Error> {
+        let n = self.unpulled.min(AHEAD as u64) as usize;
+        self.unpulled -= n as u64;
+        self.ahead.clear();
+        self.ahead.resize(n, 0);
+        self.at = 0;
+        let context = self.truncated();
+        self.input.exact(&mut self.ahead, || context)?;
+        self.crc.update(&self.ahead);
+        Ok(())
     }
 
     fn take(&mut self, buf: &mut [u8]) -> Result<(), Error> {
@@ -831,10 +859,24 @@ impl<R: Read> SectionIn<'_, R> {
                 self.remaining
             )));
         }
-        let context = self.truncated();
-        self.input.exact(buf, || context)?;
+        if !self.input.read_ahead {
+            let context = self.truncated();
+            self.input.exact(buf, || context)?;
+            self.remaining -= buf.len() as u64;
+            self.crc.update(buf);
+            return Ok(());
+        }
+        let mut filled = 0;
+        while filled < buf.len() {
+            if self.at == self.ahead.len() {
+                self.refill()?;
+            }
+            let n = (buf.len() - filled).min(self.ahead.len() - self.at);
+            buf[filled..filled + n].copy_from_slice(&self.ahead[self.at..self.at + n]);
+            self.at += n;
+            filled += n;
+        }
         self.remaining -= buf.len() as u64;
-        self.crc.update(buf);
         Ok(())
     }
 
@@ -944,6 +986,9 @@ fn read_section<R: Read, T>(
         section,
         remaining: len,
         crc: crc32fast::Hasher::new(),
+        ahead: Vec::new(),
+        at: 0,
+        unpulled: len,
     };
     let decoded = match decode(&mut payload) {
         Ok(value) if payload.remaining == 0 => Ok(value),
@@ -1259,11 +1304,18 @@ fn read_relationships<R: Read>(
 /// when every section, every checksum and the content digest check out and
 /// the input ends right after the last section.
 pub(crate) fn read<R: Read>(input: R) -> Result<(Graph, ImportSummary), Error> {
+    read_with(input, GraphOptions::default())
+}
+
+/// [`read`], into a graph that has the embedder's `options` from the start (so
+/// a lazy vector index is never built while the file is read).
+pub(crate) fn read_with<R: Read>(input: R, options: GraphOptions) -> Result<(Graph, ImportSummary), Error> {
     let mut input = In {
         pending: Default::default(),
         inner: BufReader::with_capacity(BUFFER, input),
         offset: 0,
         content: None,
+        read_ahead: options.read_ahead,
     };
     let mut magic = [0u8; 8];
     let got = input.fill(&mut magic)?;
@@ -1302,6 +1354,7 @@ pub(crate) fn read<R: Read>(input: R) -> Result<(Graph, ImportSummary), Error> {
         names,
     };
     let mut graph = Graph::new();
+    graph.set_options(options);
     let next_node = read_section(&mut input, Section::Nodes, |s| {
         read_nodes(s, &mut graph, &mut names, &manifest)
     })?;

@@ -5,6 +5,21 @@ use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
+/// When a database builds and keeps its vector (HNSW) index
+/// ([`crate::ZegaBuilder::vector_index`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum VectorIndexing {
+    /// The index is built when a graph is restored and kept current by every
+    /// write. The default.
+    #[default]
+    OnWrite,
+    /// The index is built by the first nearest query, from every stored
+    /// vector in ascending node id order (as a restore builds it), and kept
+    /// current by writes from then on. For an embedder that rewrites many
+    /// vectors and seldom or never searches them.
+    Lazy,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Metric {
