@@ -1,5 +1,7 @@
 pub mod linked;
 pub(crate) mod builtin;
+/// Whole-table node access for embedders.
+pub mod embed;
 pub mod location;
 pub mod vector;
 mod vector_view;
@@ -117,6 +119,9 @@ pub struct Zega {
     traversal_work_budget: usize,
     query_time_limit: Option<std::time::Duration>,
     allow_private_imports: bool,
+    /// The embedder's graph options (`ZegaBuilder`), given to every graph this
+    /// database installs.
+    options: crate::graph::GraphOptions,
     /// Held from an import's rename into `graphs/` through its WAL entry
     /// and the cleanup of earlier imports, so two concurrent imports never
     /// delete each other's files.
@@ -146,6 +151,7 @@ pub struct ZegaBuilder {
     #[cfg(not(target_arch = "wasm32"))]
     snapshot_every: u64,
     storage: Storage,
+    options: crate::graph::GraphOptions,
 }
 
 const DEFAULT_TRAVERSAL_WORK_BUDGET: usize = 1_000_000;
@@ -206,6 +212,34 @@ impl ZegaBuilder {
         self
     }
 
+    /// Whether every commit is also recorded in the sync history that linked
+    /// graphs serve (default `true`, as Zega always has). With `false`, a graph
+    /// that is not linked (enabled, subscribed to, or mirroring) records none:
+    /// for an embedder that never links its graph, where each commit's changed
+    /// values would otherwise be kept a second time, as JSON, in memory, the
+    /// WAL and every checkpoint.
+    pub fn sync_history(mut self, keep: bool) -> Self {
+        self.options.sync_history = keep;
+        self
+    }
+
+    /// When the vector index is built and kept (default
+    /// [`vector::VectorIndexing::OnWrite`]).
+    pub fn vector_index(mut self, indexing: vector::VectorIndexing) -> Self {
+        self.options.vectors = indexing;
+        self
+    }
+
+    /// Read each section of a `.graph` file (an import, or a checkpoint at
+    /// open) up to 64 KiB ahead of its decoder instead of one field at a time
+    /// (default `false`). It never reads past a section's declared length;
+    /// the bytes, checksums and digest are the same, and only where a
+    /// truncated or damaged file is first noticed can differ.
+    pub fn read_ahead(mut self, on: bool) -> Self {
+        self.options.read_ahead = on;
+        self
+    }
+
     pub fn build(self) -> Result<Zega> {
         Zega::open_with_builder(self)
     }
@@ -225,6 +259,7 @@ impl Zega {
             #[cfg(not(target_arch = "wasm32"))]
             snapshot_every: DEFAULT_SNAPSHOT_EVERY_BYTES,
             storage: Storage::File,
+            options: Default::default(),
         }
     }
 
@@ -241,6 +276,7 @@ impl Zega {
             #[cfg(not(target_arch = "wasm32"))]
             snapshot_every: DEFAULT_SNAPSHOT_EVERY_BYTES,
             storage: Storage::File,
+            options: Default::default(),
         }
     }
 
@@ -252,10 +288,9 @@ impl Zega {
             std::fs::create_dir_all(&path)?;
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
+        let options = builder.options;
         let mut graph = Graph::new();
-        #[cfg(target_arch = "wasm32")]
-        let graph = Graph::new();
+        graph.set_options(options);
 
         #[cfg(not(target_arch = "wasm32"))]
         let snapshot_path = path.join(SNAPSHOT_FILE);
@@ -302,6 +337,7 @@ impl Zega {
             }
             if last_import.is_none() && snapshot_path.exists() {
                 restore(&mut graph, &snapshot_path)?;
+                graph.set_options(options);
             }
             for op in &ops[last_import.unwrap_or(0)..] {
                 apply_op_to_memory(&mut graph, op, &path)?;
@@ -331,6 +367,7 @@ impl Zega {
             traversal_work_budget,
             query_time_limit: builder.query_time_limit,
             allow_private_imports: builder.allow_private_imports,
+            options,
             #[cfg(not(target_arch = "wasm32"))]
             import_lock: Arc::new(Mutex::new(())),
             #[cfg(not(target_arch = "wasm32"))]
@@ -437,7 +474,7 @@ impl Zega {
         if !self.in_memory {
             return self.import_durably(input);
         }
-        let (graph, summary) = graph_file::read(input)?;
+        let (graph, summary) = graph_file::read_with(input, self.options)?;
         self.install(graph, None)?;
         Ok(summary)
     }
@@ -505,7 +542,7 @@ impl Zega {
             copy: std::io::BufWriter::new(file),
             hash: sha2::Sha256::new(),
         };
-        let decoded = graph_file::read(&mut tee);
+        let decoded = graph_file::read_with(&mut tee, self.options);
         // Every handle on the staging file is closed before it is renamed or
         // deleted (Windows refuses both on an open file), and a failed
         // cleanup never replaces the error that made it necessary.
@@ -553,7 +590,7 @@ impl Zega {
                     input: file.try_clone()?,
                     hash: sha2::Sha256::new(),
                 };
-                let (graph, summary) = graph_file::read(&mut hashing)?;
+                let (graph, summary) = graph_file::read_with(&mut hashing, self.options)?;
                 (graph, summary, hashing.hash.finalize())
                 // The reading handle closes here, before the rename.
             };
@@ -688,6 +725,7 @@ impl Zega {
     pub fn restore_bytes(&self, bytes: &[u8]) -> Result<()> {
         let mut graph = self.lock_graph()?;
         crate::wal::restore_bytes(&mut graph, bytes)?;
+        graph.set_options(self.options);
         Ok(())
     }
 }
@@ -814,7 +852,7 @@ fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path)
         }
         Operation::ReplaceGraph { file } => {
             #[cfg(not(target_arch = "wasm32"))]
-            { let replacement = read_imported_graph(data, file)?; *graph = replacement; }
+            { let replacement = read_imported_graph(data, file, graph.options)?; *graph = replacement; }
             #[cfg(target_arch = "wasm32")]
             { let _ = (data, file); return Err(ZegaError::Execution("disk replacement is unavailable in WASM".into())); }
         }
@@ -826,7 +864,7 @@ fn apply_op_to_memory(graph: &mut Graph, op: &Operation, data: &std::path::Path)
 /// data directory. It was fully checked before the entry was written, so a
 /// failure here means the data directory lost or damaged it.
 #[cfg(not(target_arch = "wasm32"))]
-fn read_imported_graph(data: &std::path::Path, file: &str) -> Result<Graph> {
+fn read_imported_graph(data: &std::path::Path, file: &str, options: crate::graph::GraphOptions) -> Result<Graph> {
     let valid_name = file
         .strip_prefix(IMPORTS_DIR)
         .and_then(|name| name.strip_prefix('/'))
@@ -844,7 +882,7 @@ fn read_imported_graph(data: &std::path::Path, file: &str) -> Result<Graph> {
             path.display()
         ))
     })?;
-    let (graph, _) = crate::graph_file::read(opened)?;
+    let (graph, _) = crate::graph_file::read_with(opened, options)?;
     Ok(graph)
 }
 
