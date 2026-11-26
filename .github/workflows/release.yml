@@ -327,6 +327,10 @@ jobs:
           cargo test --locked --workspace --features zega/sqlite -- \
             --skip g_ten_thousand_leases_do_not_slow_source_writes \
             --skip b_update_arrives_by_push_within_six_seconds
+          # #216: an embedder's build may turn on serde_json's preserve_order
+          # (Cargo unifies features); a graph must still export to the same
+          # bytes. Only a build with the feature on can catch a regression.
+          cargo test --locked -p zega --features serde_json/preserve_order --test export_order --test graph_file
       # The browser build (zega-wasm, vendored in browser/pkg) compiles the
       # engine for wasm32, where native-only code must be gated out.
       - name: Check the engine for wasm
