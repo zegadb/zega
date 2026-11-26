@@ -605,7 +605,12 @@ fn encode_sections(
         emit(Section::History, &|sink| Ok(sink.put(&bytes)?))?;
     }
     if graph.linked.active() {
-        let bytes = serde_json::to_vec(&serde_json::to_value(&graph.linked).map_err(io::Error::other)?).map_err(io::Error::other)?;
+        // The maps in `linked` are HashMaps; going through a `Value` writes their keys sorted, so one graph
+        // always exports to the same bytes. A `Value` object stays sorted only while serde_json's `preserve_order`
+        // is off, and an embedder's build may turn it on (#216): sort explicitly. With it off this does nothing.
+        let mut linked = serde_json::to_value(&graph.linked).map_err(io::Error::other)?;
+        linked.sort_all_objects();
+        let bytes = serde_json::to_vec(&linked).map_err(io::Error::other)?;
         emit(Section::Linked, &|sink| Ok(sink.put(&bytes)?))?;
     }
     if !graph.receipts.is_empty() {
